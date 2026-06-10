@@ -48,6 +48,21 @@ def make_transparent_garment_png(width: int = 120, height: int = 160) -> bytes:
     return _png_bytes(img)
 
 
+def make_transparent_back_png(width: int = 100, height: int = 140) -> bytes:
+    """A distinct back-side shape (blue block with a notch), transparent bg."""
+    img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    draw.rectangle(
+        [width * 0.25, height * 0.15, width * 0.75, height * 0.90],
+        fill=(40, 60, 180, 255),
+    )
+    draw.rectangle(
+        [width * 0.42, height * 0.15, width * 0.58, height * 0.35],
+        fill=(0, 0, 0, 0),
+    )
+    return _png_bytes(img)
+
+
 def make_opaque_png(width: int = 100, height: int = 80) -> bytes:
     """An RGB PNG with no alpha channel (red top half, blue bottom half)."""
     img = Image.new("RGB", (width, height), (200, 30, 30))

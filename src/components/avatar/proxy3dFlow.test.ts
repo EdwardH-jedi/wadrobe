@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { PROXY3D_FORBIDDEN_CLAIM_TERMS } from '../../test/honesty'
 import {
   INITIAL_PROXY3D_STATE,
@@ -6,12 +6,17 @@ import {
   PROXY3D_METHOD_LABEL,
   PROXY3D_RESULT_LABEL,
   formatBytes,
+  plannedGeneration,
   proxy3dFlowReducer,
+  sideReadiness,
+  type Proxy3dFlowAction,
   type Proxy3dFlowState,
   type Proxy3dRecord,
 } from './proxy3dFlow'
 
-const FILE = { name: 'tee.png', sizeBytes: 2048, previewUrl: null }
+const FRONT = { name: 'tee.png', sizeBytes: 2048, previewUrl: null }
+const BACK = { name: 'tee-back.png', sizeBytes: 1024, previewUrl: null }
+const CUTOUT = { previewUrl: 'data:image/png;base64,AA==', sizeBytes: 1234 }
 
 const RECORD: Proxy3dRecord = {
   job_id: 'a'.repeat(32),
@@ -23,275 +28,248 @@ const RECORD: Proxy3dRecord = {
   result_url: `/api/proxy-3d/${'a'.repeat(32)}/result.glb`,
   limitations: 'Proxy 3D preview only. It is not real virtual try-on.',
   created_at: 1_750_000_000,
+  sides: 'single',
+  back_input: null,
+  back_alpha_mask_used: null,
 }
 
 const freeze = (state: Proxy3dFlowState): Proxy3dFlowState =>
   Object.freeze({ ...state })
 
-describe('proxy3dFlowReducer', () => {
-  it('walks the happy path: idle → selected → uploading → ready', () => {
-    let state = proxy3dFlowReducer(freeze(INITIAL_PROXY3D_STATE), {
-      type: 'SELECT_FILE',
-      file: FILE,
-      alpha: 'usable',
-    })
-    expect(state.status).toBe('selected')
-    expect(state.file).toEqual(FILE)
-    expect(state.error).toBeNull()
+const run = (
+  actions: Proxy3dFlowAction[],
+  start: Proxy3dFlowState = INITIAL_PROXY3D_STATE,
+): Proxy3dFlowState =>
+  actions.reduce((s, a) => proxy3dFlowReducer(freeze(s), a), start)
 
-    state = proxy3dFlowReducer(freeze(state), { type: 'UPLOAD_START' })
+describe('proxy3dFlowReducer — per-side selection (B3.7)', () => {
+  it('walks the single-sided happy path: front → uploading → ready', () => {
+    let state = run([
+      { type: 'SELECT_FILE', side: 'front', file: FRONT, alpha: 'usable' },
+    ])
+    expect(state.front.file).toEqual(FRONT)
+    expect(state.back.file).toBeNull()
+    expect(plannedGeneration(state)).toBe('single')
+
+    state = run([{ type: 'UPLOAD_START' }], state)
     expect(state.status).toBe('uploading')
-
-    state = proxy3dFlowReducer(freeze(state), {
-      type: 'UPLOAD_SUCCESS',
-      record: RECORD,
-    })
+    state = run([{ type: 'UPLOAD_SUCCESS', record: RECORD }], state)
     expect(state.status).toBe('ready')
     expect(state.record).toEqual(RECORD)
-    expect(state.error).toBeNull()
   })
 
-  it('records a failure and allows a retry from failed', () => {
-    let state = proxy3dFlowReducer(INITIAL_PROXY3D_STATE, {
-      type: 'SELECT_FILE',
-      file: FILE,
-      alpha: 'usable',
-    })
-    state = proxy3dFlowReducer(state, { type: 'UPLOAD_START' })
-    state = proxy3dFlowReducer(freeze(state), {
-      type: 'UPLOAD_FAILURE',
-      message: 'The backend rejected the request (HTTP 422).',
-    })
-    expect(state.status).toBe('failed')
-    expect(state.error).toMatch(/422/)
-    expect(state.errorIsConnectivity).toBe(false)
-    expect(state.file).toEqual(FILE)
-
-    // Retry straight from failed.
-    state = proxy3dFlowReducer(freeze(state), { type: 'UPLOAD_START' })
-    expect(state.status).toBe('uploading')
-    expect(state.error).toBeNull()
-    expect(state.errorIsConnectivity).toBe(false)
+  it('plans dual generation when both sides are resolved', () => {
+    const state = run([
+      { type: 'SELECT_FILE', side: 'front', file: FRONT, alpha: 'usable' },
+      { type: 'SELECT_FILE', side: 'back', file: BACK, alpha: 'usable' },
+    ])
+    expect(plannedGeneration(state)).toBe('dual')
   })
 
-  it('flags connectivity failures so the UI can hint about the backend', () => {
-    let state = proxy3dFlowReducer(INITIAL_PROXY3D_STATE, {
-      type: 'SELECT_FILE',
-      file: FILE,
-      alpha: 'usable',
-    })
-    state = proxy3dFlowReducer(state, { type: 'UPLOAD_START' })
-    state = proxy3dFlowReducer(freeze(state), {
-      type: 'UPLOAD_FAILURE',
-      message: 'Could not reach the local proxy-3D backend.',
-      connectivity: true,
-    })
-    expect(state.status).toBe('failed')
-    expect(state.errorIsConnectivity).toBe(true)
-
-    // A later validation failure clears the flag.
-    state = proxy3dFlowReducer(state, { type: 'UPLOAD_START' })
-    state = proxy3dFlowReducer(state, {
-      type: 'UPLOAD_FAILURE',
-      message: 'The PNG is fully transparent.',
-    })
-    expect(state.errorIsConnectivity).toBe(false)
-  })
-
-  it('clears the selection and keeps the reason on REJECT_FILE', () => {
-    const state = proxy3dFlowReducer(INITIAL_PROXY3D_STATE, {
-      type: 'REJECT_FILE',
-      reason: PROXY3D_COPY.rejectNotPng,
-    })
-    expect(state.status).toBe('idle')
-    expect(state.file).toBeNull()
-    expect(state.error).toBe(PROXY3D_COPY.rejectNotPng)
-  })
-
-  it('replacing the file from ready discards the previous record', () => {
-    let state = proxy3dFlowReducer(INITIAL_PROXY3D_STATE, {
-      type: 'SELECT_FILE',
-      file: FILE,
-      alpha: 'usable',
-    })
-    state = proxy3dFlowReducer(state, { type: 'UPLOAD_START' })
-    state = proxy3dFlowReducer(state, { type: 'UPLOAD_SUCCESS', record: RECORD })
-
-    const next = { name: 'coat.png', sizeBytes: 4096, previewUrl: null }
-    state = proxy3dFlowReducer(freeze(state), {
-      type: 'SELECT_FILE',
-      file: next,
-      alpha: 'usable',
-    })
-    expect(state.status).toBe('selected')
-    expect(state.file).toEqual(next)
-    expect(state.record).toBeNull()
-  })
-
-  it('ignores out-of-order actions', () => {
-    // No upload without a selection.
-    expect(
-      proxy3dFlowReducer(INITIAL_PROXY3D_STATE, { type: 'UPLOAD_START' }),
-    ).toEqual(INITIAL_PROXY3D_STATE)
-
-    // Success/failure only land while uploading.
-    const selected = proxy3dFlowReducer(INITIAL_PROXY3D_STATE, {
-      type: 'SELECT_FILE',
-      file: FILE,
-      alpha: 'usable',
-    })
-    expect(
-      proxy3dFlowReducer(selected, { type: 'UPLOAD_SUCCESS', record: RECORD })
-        .status,
-    ).toBe('selected')
-    expect(
-      proxy3dFlowReducer(selected, { type: 'UPLOAD_FAILURE', message: 'x' })
-        .status,
-    ).toBe('selected')
-
-    // Selections cannot change mid-upload.
-    const uploading = proxy3dFlowReducer(selected, { type: 'UPLOAD_START' })
-    expect(
-      proxy3dFlowReducer(uploading, { type: 'SELECT_FILE', file: FILE, alpha: 'usable' }),
-    ).toBe(uploading)
-    expect(
-      proxy3dFlowReducer(uploading, { type: 'REJECT_FILE', reason: 'x' }),
-    ).toBe(uploading)
-  })
-
-  it('RESET returns to the initial state from anywhere', () => {
-    let state = proxy3dFlowReducer(INITIAL_PROXY3D_STATE, {
-      type: 'SELECT_FILE',
-      file: FILE,
-      alpha: 'usable',
-    })
-    state = proxy3dFlowReducer(state, { type: 'UPLOAD_START' })
-    state = proxy3dFlowReducer(state, { type: 'UPLOAD_SUCCESS', record: RECORD })
-    expect(proxy3dFlowReducer(state, { type: 'RESET' })).toEqual(
-      INITIAL_PROXY3D_STATE,
+  it('requires the front: back alone cannot generate', () => {
+    const state = run([
+      { type: 'SELECT_FILE', side: 'back', file: BACK, alpha: 'usable' },
+    ])
+    expect(plannedGeneration(state)).toBeNull()
+    expect(proxy3dFlowReducer(state, { type: 'UPLOAD_START' }).status).toBe(
+      'editing',
     )
   })
-})
 
-describe('proxy3dFlowReducer — cutout-first (B3.6)', () => {
-  const CUTOUT = { previewUrl: 'data:image/png;base64,AA==', sizeBytes: 1234 }
-
-  const noAlpha = () =>
-    proxy3dFlowReducer(freeze(INITIAL_PROXY3D_STATE), {
-      type: 'SELECT_FILE',
-      file: FILE,
-      alpha: 'none',
-    })
-
-  it('routes a no-alpha selection to the warning state, never directly to selected', () => {
-    const state = noAlpha()
-    expect(state.status).toBe('no-alpha')
-    expect(state.alpha).toBe('none')
-    expect(state.cutout).toBeNull()
+  it('REMOVE_SIDE clears one side and downgrades the plan', () => {
+    let state = run([
+      { type: 'SELECT_FILE', side: 'front', file: FRONT, alpha: 'usable' },
+      { type: 'SELECT_FILE', side: 'back', file: BACK, alpha: 'usable' },
+    ])
+    state = run([{ type: 'REMOVE_SIDE', side: 'back' }], state)
+    expect(state.back.file).toBeNull()
+    expect(plannedGeneration(state)).toBe('single')
   })
 
-  it('an unknown alpha verdict behaves like the pre-B3.6 direct path', () => {
-    const state = proxy3dFlowReducer(INITIAL_PROXY3D_STATE, {
-      type: 'SELECT_FILE',
-      file: FILE,
-      alpha: 'unknown',
-    })
-    expect(state.status).toBe('selected')
+  it('a no-alpha side blocks generation until its explicit choice', () => {
+    const frontPending = run([
+      { type: 'SELECT_FILE', side: 'front', file: FRONT, alpha: 'none' },
+    ])
+    expect(sideReadiness(frontPending.front)).toBe('pending-choice')
+    expect(plannedGeneration(frontPending)).toBeNull()
+
+    const backPending = run([
+      { type: 'SELECT_FILE', side: 'front', file: FRONT, alpha: 'usable' },
+      { type: 'SELECT_FILE', side: 'back', file: BACK, alpha: 'none' },
+    ])
+    expect(plannedGeneration(backPending)).toBeNull()
   })
 
-  it('walks the cutout path: no-alpha → cutting → cutout-ready → uploading', () => {
-    let state = proxy3dFlowReducer(noAlpha(), { type: 'CUTOUT_START' })
-    expect(state.status).toBe('cutting')
-
-    state = proxy3dFlowReducer(freeze(state), {
-      type: 'CUTOUT_SUCCESS',
-      cutout: CUTOUT,
-    })
-    expect(state.status).toBe('cutout-ready')
-    expect(state.cutout).toEqual(CUTOUT)
-
-    state = proxy3dFlowReducer(freeze(state), { type: 'UPLOAD_START' })
-    expect(state.status).toBe('uploading')
-    expect(state.cutout).toEqual(CUTOUT)
-  })
-
-  it('a cutout failure returns to the explicit choices with the reason', () => {
-    let state = proxy3dFlowReducer(noAlpha(), { type: 'CUTOUT_START' })
-    state = proxy3dFlowReducer(freeze(state), {
-      type: 'CUTOUT_FAILURE',
-      reason: 'busy background',
-    })
-    expect(state.status).toBe('no-alpha')
-    expect(state.cutoutError).toBe('busy background')
-    // The explicit flat-card upload is still possible.
+  it('UPLOAD_START is still allowed from a pending front (the explicit flat card)', () => {
+    const state = run([
+      { type: 'SELECT_FILE', side: 'front', file: FRONT, alpha: 'none' },
+    ])
     expect(proxy3dFlowReducer(state, { type: 'UPLOAD_START' }).status).toBe(
       'uploading',
     )
   })
+})
 
-  it('allows the EXPLICIT flat-card upload straight from no-alpha', () => {
-    const state = proxy3dFlowReducer(noAlpha(), { type: 'UPLOAD_START' })
-    expect(state.status).toBe('uploading')
+describe('proxy3dFlowReducer — per-side cutout (B3.6/B3.7)', () => {
+  const frontPending = () =>
+    run([{ type: 'SELECT_FILE', side: 'front', file: FRONT, alpha: 'none' }])
+
+  it('walks the cutout path on the front side', () => {
+    let state = run([{ type: 'CUTOUT_START', side: 'front' }], frontPending())
+    expect(state.front.cutting).toBe(true)
+    expect(plannedGeneration(state)).toBeNull()
+
+    state = run(
+      [{ type: 'CUTOUT_SUCCESS', side: 'front', cutout: CUTOUT }],
+      state,
+    )
+    expect(state.front.cutout).toEqual(CUTOUT)
+    expect(sideReadiness(state.front)).toBe('ready-cutout')
+    expect(plannedGeneration(state)).toBe('single')
   })
 
-  it('keeps the cutout through a failed upload for retry', () => {
-    let state = proxy3dFlowReducer(noAlpha(), { type: 'CUTOUT_START' })
-    state = proxy3dFlowReducer(state, { type: 'CUTOUT_SUCCESS', cutout: CUTOUT })
-    state = proxy3dFlowReducer(state, { type: 'UPLOAD_START' })
-    state = proxy3dFlowReducer(state, {
-      type: 'UPLOAD_FAILURE',
-      message: 'x',
-    })
-    expect(state.status).toBe('failed')
-    expect(state.cutout).toEqual(CUTOUT)
+  it('walks the cutout path on the back side independently', () => {
+    let state = run([
+      { type: 'SELECT_FILE', side: 'front', file: FRONT, alpha: 'usable' },
+      { type: 'SELECT_FILE', side: 'back', file: BACK, alpha: 'none' },
+      { type: 'CUTOUT_START', side: 'back' },
+    ])
+    expect(state.back.cutting).toBe(true)
+    expect(state.front.cutting).toBe(false)
+
+    state = run(
+      [{ type: 'CUTOUT_SUCCESS', side: 'back', cutout: CUTOUT }],
+      state,
+    )
+    expect(state.back.cutout).toEqual(CUTOUT)
+    expect(plannedGeneration(state)).toBe('dual')
+  })
+
+  it('a cutout failure keeps the explicit choices with the reason', () => {
+    let state = run([{ type: 'CUTOUT_START', side: 'front' }], frontPending())
+    state = run(
+      [{ type: 'CUTOUT_FAILURE', side: 'front', reason: 'busy background' }],
+      state,
+    )
+    expect(state.front.cutting).toBe(false)
+    expect(state.front.cutoutError).toBe('busy background')
+    expect(sideReadiness(state.front)).toBe('pending-choice')
+  })
+
+  it('USE_BACK_AS_IS resolves a pending back without a cutout', () => {
+    let state = run([
+      { type: 'SELECT_FILE', side: 'front', file: FRONT, alpha: 'usable' },
+      { type: 'SELECT_FILE', side: 'back', file: BACK, alpha: 'none' },
+    ])
+    state = run([{ type: 'USE_BACK_AS_IS' }], state)
+    expect(sideReadiness(state.back)).toBe('ready-as-is')
+    expect(plannedGeneration(state)).toBe('dual')
   })
 
   it('guards cutout actions against out-of-order use', () => {
-    // CUTOUT_START only fires from no-alpha.
+    // No cutout on a usable side.
+    const usable = run([
+      { type: 'SELECT_FILE', side: 'front', file: FRONT, alpha: 'usable' },
+    ])
     expect(
-      proxy3dFlowReducer(INITIAL_PROXY3D_STATE, { type: 'CUTOUT_START' }),
-    ).toEqual(INITIAL_PROXY3D_STATE)
-    const selected = proxy3dFlowReducer(INITIAL_PROXY3D_STATE, {
-      type: 'SELECT_FILE',
-      file: FILE,
-      alpha: 'usable',
-    })
+      proxy3dFlowReducer(usable, { type: 'CUTOUT_START', side: 'front' })
+        .front.cutting,
+    ).toBe(false)
+    // Success/failure only land while cutting.
     expect(
-      proxy3dFlowReducer(selected, { type: 'CUTOUT_START' }).status,
-    ).toBe('selected')
-
-    // CUTOUT_SUCCESS/FAILURE only land while cutting.
-    expect(
-      proxy3dFlowReducer(noAlpha(), { type: 'CUTOUT_SUCCESS', cutout: CUTOUT })
-        .cutout,
+      proxy3dFlowReducer(frontPending(), {
+        type: 'CUTOUT_SUCCESS',
+        side: 'front',
+        cutout: CUTOUT,
+      }).front.cutout,
     ).toBeNull()
-    expect(
-      proxy3dFlowReducer(noAlpha(), { type: 'CUTOUT_FAILURE', reason: 'x' })
-        .cutoutError,
-    ).toBeNull()
-
     // Selection cannot change mid-cutout.
-    const cutting = proxy3dFlowReducer(noAlpha(), { type: 'CUTOUT_START' })
+    const cutting = run(
+      [{ type: 'CUTOUT_START', side: 'front' }],
+      frontPending(),
+    )
     expect(
       proxy3dFlowReducer(cutting, {
         type: 'SELECT_FILE',
-        file: FILE,
+        side: 'back',
+        file: BACK,
         alpha: 'usable',
       }),
     ).toBe(cutting)
+    // USE_BACK_AS_IS needs a pending no-alpha back.
+    expect(
+      proxy3dFlowReducer(usable, { type: 'USE_BACK_AS_IS' }).back.useAsIs,
+    ).toBe(false)
   })
 
-  it('replacing the file clears any previous cutout', () => {
-    let state = proxy3dFlowReducer(noAlpha(), { type: 'CUTOUT_START' })
-    state = proxy3dFlowReducer(state, { type: 'CUTOUT_SUCCESS', cutout: CUTOUT })
-    state = proxy3dFlowReducer(state, {
-      type: 'SELECT_FILE',
-      file: { name: 'other.png', sizeBytes: 99, previewUrl: null },
-      alpha: 'usable',
-    })
-    expect(state.cutout).toBeNull()
-    expect(state.cutoutError).toBeNull()
-    expect(state.status).toBe('selected')
+  it('replacing a side clears its previous cutout and as-is choice', () => {
+    const state = run([
+      { type: 'SELECT_FILE', side: 'front', file: FRONT, alpha: 'usable' },
+      { type: 'SELECT_FILE', side: 'back', file: BACK, alpha: 'none' },
+      { type: 'USE_BACK_AS_IS' },
+      {
+        type: 'SELECT_FILE',
+        side: 'back',
+        file: { name: 'other.png', sizeBytes: 99, previewUrl: null },
+        alpha: 'usable',
+      },
+    ])
+    expect(state.back.useAsIs).toBe(false)
+    expect(state.back.cutout).toBeNull()
+    expect(sideReadiness(state.back)).toBe('ready-original')
+  })
+})
+
+describe('proxy3dFlowReducer — failures & reset', () => {
+  it('records a failure, keeps both sides, and allows retry', () => {
+    let state = run([
+      { type: 'SELECT_FILE', side: 'front', file: FRONT, alpha: 'usable' },
+      { type: 'SELECT_FILE', side: 'back', file: BACK, alpha: 'usable' },
+      { type: 'UPLOAD_START' },
+      { type: 'UPLOAD_FAILURE', message: 'HTTP 422', connectivity: false },
+    ])
+    expect(state.status).toBe('failed')
+    expect(state.front.file).toEqual(FRONT)
+    expect(state.back.file).toEqual(BACK)
+    expect(state.errorIsConnectivity).toBe(false)
+
+    state = run([{ type: 'UPLOAD_START' }], state)
+    expect(state.status).toBe('uploading')
+    expect(state.error).toBeNull()
+  })
+
+  it('flags connectivity failures so the UI can hint about the backend', () => {
+    const state = run([
+      { type: 'SELECT_FILE', side: 'front', file: FRONT, alpha: 'usable' },
+      { type: 'UPLOAD_START' },
+      {
+        type: 'UPLOAD_FAILURE',
+        message: 'Could not reach the local proxy-3D backend.',
+        connectivity: true,
+      },
+    ])
+    expect(state.errorIsConnectivity).toBe(true)
+  })
+
+  it('keeps the reason on REJECT_FILE without touching the sides', () => {
+    const state = run([
+      { type: 'SELECT_FILE', side: 'front', file: FRONT, alpha: 'usable' },
+      { type: 'REJECT_FILE', reason: PROXY3D_COPY.rejectNotPng },
+    ])
+    expect(state.error).toBe(PROXY3D_COPY.rejectNotPng)
+    expect(state.front.file).toEqual(FRONT)
+  })
+
+  it('RESET returns to the initial state from anywhere', () => {
+    const state = run([
+      { type: 'SELECT_FILE', side: 'front', file: FRONT, alpha: 'usable' },
+      { type: 'SELECT_FILE', side: 'back', file: BACK, alpha: 'usable' },
+      { type: 'UPLOAD_START' },
+      { type: 'UPLOAD_SUCCESS', record: RECORD },
+    ])
+    expect(proxy3dFlowReducer(state, { type: 'RESET' })).toEqual(
+      INITIAL_PROXY3D_STATE,
+    )
   })
 })
 
@@ -314,10 +292,16 @@ describe('PROXY3D_COPY honesty', () => {
     }
   })
 
-  it('describes the artifact as a proxy preview', () => {
-    expect(PROXY3D_COPY.panelTitle).toMatch(/proxy/i)
-    expect(PROXY3D_COPY.intro).toMatch(/proxy 3D preview/i)
-    expect(PROXY3D_COPY.viewerCaption).toMatch(/experimental/i)
+  it('labels every mode as a proxy/fallback, never more', () => {
+    expect(PROXY3D_RESULT_LABEL['extruded-alpha-contour']).toMatch(
+      /Single-sided silhouette proxy/,
+    )
+    expect(PROXY3D_RESULT_LABEL['extruded-alpha-contour-dual']).toMatch(
+      /Dual-sided silhouette proxy/,
+    )
+    expect(PROXY3D_RESULT_LABEL['textured-plane']).toMatch(
+      /Flat image card fallback/,
+    )
   })
 })
 

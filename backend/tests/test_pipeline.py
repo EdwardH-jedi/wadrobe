@@ -16,6 +16,7 @@ from tests.conftest import (
     make_corrupt_png_bytes,
     make_jpeg_bytes,
     make_opaque_png,
+    make_transparent_back_png,
     make_transparent_garment_png,
 )
 
@@ -121,3 +122,94 @@ class TestGeneration:
         assert "proxy 3d preview" in text
         assert "not real virtual try-on" in text
         assert "not accurate garment geometry" in text
+
+
+class TestDualSided:
+    def test_dual_generation_with_mismatched_sizes(self):
+        # Front 240x320, back 100x140 — bounding-box alignment must cope.
+        result = pipeline.generate(
+            make_transparent_garment_png(240, 320),
+            make_transparent_back_png(100, 140),
+        )
+        assert result.sides == "dual"
+        assert result.method == pipeline.METHOD_EXTRUDED_DUAL
+        assert result.back_alpha_mask_used is True
+        assert result.back_width == 100 and result.back_height == 140
+        assert result.vertex_count > 0 and result.face_count > 0
+        assert "bounding box" in result.limitations
+
+        # Three submeshes, two of them textured.
+        scene = trimesh.load(
+            io.BytesIO(result.glb_bytes), file_type="glb", process=False
+        )
+        assert len(scene.geometry) == 3
+        z_min = min(g.vertices[:, 2].min() for g in scene.geometry.values())
+        z_max = max(g.vertices[:, 2].max() for g in scene.geometry.values())
+        assert (z_max - z_min) == pytest.approx(config.EXTRUDE_DEPTH_RATIO)
+
+    def test_dual_parts_carry_distinct_textures(self):
+        from PIL import Image
+
+        result = pipeline.generate(
+            make_transparent_garment_png(120, 160),
+            make_transparent_back_png(100, 140),
+        )
+        import pygltflib
+
+        parsed = pygltflib.GLTF2.load_from_bytes(result.glb_bytes)
+        assert len(parsed.images) == 2  # two distinct embedded textures
+        assert len(parsed.materials) == 3
+        # Exactly one untextured (wall) material.
+        untextured = [
+            m
+            for m in parsed.materials
+            if m.pbrMetallicRoughness.baseColorTexture is None
+        ]
+        assert len(untextured) == 1
+
+    def test_fully_transparent_back_is_a_clean_422(self):
+        from tests.conftest import make_fully_transparent_png
+
+        with pytest.raises(pipeline.Proxy3dError) as err:
+            pipeline.generate(
+                make_transparent_garment_png(),
+                make_fully_transparent_png(),
+            )
+        assert err.value.status_code == 422
+        assert err.value.detail.startswith("Back image:")
+
+    def test_non_png_back_is_rejected_naming_the_side(self):
+        with pytest.raises(pipeline.Proxy3dError) as err:
+            pipeline.generate(make_transparent_garment_png(), make_jpeg_bytes())
+        assert err.value.status_code == 415
+        assert err.value.detail.startswith("Back image:")
+
+
+class TestBackAlignment:
+    def test_aligned_back_texture_matches_front_canvas_and_centers_content(self):
+        import numpy as np
+        from PIL import Image
+
+        front_texture = Image.new("RGBA", (200, 300), (0, 0, 0, 0))
+        # Front silhouette bbox: rows 60..240, cols 50..150 (in mask coords ==
+        # original coords here since front_size == texture size).
+        front_mask = np.zeros((300, 200), dtype=bool)
+        front_mask[60:240, 50:150] = True
+
+        back = Image.new("RGBA", (80, 80), (0, 0, 0, 0))
+        back.paste(Image.new("RGBA", (40, 40), (255, 0, 0, 255)), (20, 20))
+        back_mask = np.asarray(back.getchannel("A")) >= 128
+
+        aligned = pipeline.build_aligned_back_texture(
+            front_texture, front_mask, (200, 300), back, back_mask
+        )
+        assert aligned.size == front_texture.size
+        a = np.asarray(aligned.getchannel("A")) >= 128
+        bbox = pipeline._mask_bbox(a)
+        assert bbox is not None
+        left, top, right, bottom = bbox
+        # Scaled to the front bbox height (180px) and centered on its center
+        # (100, 150).
+        assert (bottom - top) == pytest.approx(180, abs=3)
+        assert (left + right) / 2 == pytest.approx(100, abs=3)
+        assert (top + bottom) / 2 == pytest.approx(150, abs=3)

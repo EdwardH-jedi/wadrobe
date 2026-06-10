@@ -42,12 +42,25 @@ python -m venv .venv
 
 | Route | Purpose |
 |---|---|
-| `POST /api/proxy-3d` | multipart upload (`file`, a PNG); generates synchronously; returns the job record (201) |
+| `POST /api/proxy-3d` | multipart upload (`file`, a PNG front image; optional `back_file`, a PNG back image); generates synchronously; returns the job record (201) |
 | `GET /api/proxy-3d/{job_id}` | returns the persisted job record |
 | `GET /api/proxy-3d/{job_id}/result.glb` | returns the GLB (`model/gltf-binary`) |
 
+**Dual-sided (B3.7):** when `back_file` is sent and the front has a usable
+alpha mask, the GLB carries three submeshes — front faces with the front
+texture, back faces with the back texture (U-mirrored so it reads correctly
+from behind), and side walls in a neutral color derived from the front
+texture. The back image is normalized onto the front texture's canvas by
+bounding-box alignment (scaled to the front silhouette's bbox height,
+centered on its center — no outline matching). The record reports
+`sides: "single" | "dual"`, `back_input`, and `back_alpha_mask_used`.
+A front without usable alpha still produces the single-sided flat card
+(any back image is ignored; the UI gates that path behind an explicit
+choice).
+
 Errors: `415` non-PNG · `413` over the byte limit · `422` corrupt /
-oversized / fully transparent image · `404` unknown job.
+oversized / fully transparent image (back-image failures are prefixed
+"Back image:") · `404` unknown job.
 
 ### curl example
 

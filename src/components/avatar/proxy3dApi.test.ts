@@ -12,6 +12,9 @@ const RECORD: Proxy3dRecord = {
   result_url: `/api/proxy-3d/${'b'.repeat(32)}/result.glb`,
   limitations: 'Proxy 3D preview only.',
   created_at: 1_750_000_000,
+  sides: 'single',
+  back_input: null,
+  back_alpha_mask_used: null,
 }
 
 const PNG_BLOB = new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], {
@@ -30,22 +33,45 @@ describe('createProxy3d', () => {
       expect(input).toBe(PROXY3D_ENDPOINT)
       expect(init?.method).toBe('POST')
       expect(init?.body).toBeInstanceOf(FormData)
-      const sent = (init?.body as FormData).get('file')
+      const form = init?.body as FormData
+      const sent = form.get('file')
       expect(sent).toBeInstanceOf(File)
       expect((sent as File).name).toBe('tee.png')
+      // No back image in the single-sided call.
+      expect(form.get('back_file')).toBeNull()
       return jsonResponse(201, RECORD)
     })
 
-    const record = await createProxy3d(PNG_BLOB, 'tee.png', fetchFn)
+    const record = await createProxy3d(PNG_BLOB, 'tee.png', { fetchFn })
     expect(record).toEqual(RECORD)
     expect(fetchFn).toHaveBeenCalledOnce()
+  })
+
+  it('appends back_file for a dual-sided request (B3.7)', async () => {
+    const backBlob = new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], {
+      type: 'image/png',
+    })
+    const fetchFn = vi.fn(async (_input: string, init?: RequestInit) => {
+      const form = init?.body as FormData
+      const back = form.get('back_file')
+      expect(back).toBeInstanceOf(File)
+      expect((back as File).name).toBe('back-cutout.png')
+      return jsonResponse(201, { ...RECORD, sides: 'dual' })
+    })
+
+    const record = await createProxy3d(PNG_BLOB, 'tee.png', {
+      back: backBlob,
+      backName: 'back-cutout.png',
+      fetchFn,
+    })
+    expect(record.sides).toBe('dual')
   })
 
   it('surfaces the backend detail message on HTTP errors', async () => {
     const fetchFn = vi.fn(async () =>
       jsonResponse(422, { detail: 'The PNG is fully transparent.' }),
     )
-    const error = await createProxy3d(PNG_BLOB, 'x.png', fetchFn).catch(
+    const error = await createProxy3d(PNG_BLOB, 'x.png', { fetchFn }).catch(
       (e: unknown) => e,
     )
     expect(error).toBeInstanceOf(Proxy3dApiError)
@@ -61,7 +87,7 @@ describe('createProxy3d', () => {
     const fetchFn = vi.fn(
       async () => new Response('<html>boom</html>', { status: 500 }),
     )
-    const error = await createProxy3d(PNG_BLOB, 'x.png', fetchFn).catch(
+    const error = await createProxy3d(PNG_BLOB, 'x.png', { fetchFn }).catch(
       (e: unknown) => e,
     )
     expect(error).toBeInstanceOf(Proxy3dApiError)
@@ -74,7 +100,7 @@ describe('createProxy3d', () => {
     const fetchFn = vi.fn(async () =>
       jsonResponse(500, { detail: 'GLB export produced an invalid file.' }),
     )
-    const error = await createProxy3d(PNG_BLOB, 'x.png', fetchFn).catch(
+    const error = await createProxy3d(PNG_BLOB, 'x.png', { fetchFn }).catch(
       (e: unknown) => e,
     )
     expect(error).toBeInstanceOf(Proxy3dApiError)
@@ -87,7 +113,7 @@ describe('createProxy3d', () => {
     const fetchFn = vi.fn(
       async () => new Response('nope', { status: 413 }),
     )
-    const error = await createProxy3d(PNG_BLOB, 'x.png', fetchFn).catch(
+    const error = await createProxy3d(PNG_BLOB, 'x.png', { fetchFn }).catch(
       (e: unknown) => e,
     )
     expect(error).toBeInstanceOf(Proxy3dApiError)
@@ -100,7 +126,7 @@ describe('createProxy3d', () => {
     const fetchFn = vi.fn(async () => {
       throw new TypeError('fetch failed')
     })
-    const error = await createProxy3d(PNG_BLOB, 'x.png', fetchFn).catch(
+    const error = await createProxy3d(PNG_BLOB, 'x.png', { fetchFn }).catch(
       (e: unknown) => e,
     )
     expect(error).toBeInstanceOf(Proxy3dApiError)

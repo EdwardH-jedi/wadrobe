@@ -2453,6 +2453,37 @@
 .proxy3dlab__file--cutout {
   border-color: var(--accent-line);
 }
+.proxy3dlab__sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 14px;
+}
+@media (max-width: 900px) {
+  .proxy3dlab__sides {
+    grid-template-columns: 1fr;
+  }
+}
+.proxy3dlab__side {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--ink-850);
+}
+.proxy3dlab__sidelabel {
+  margin-bottom: 10px;
+}
+.proxy3dlab__choicenote {
+  margin-top: 8px;
+  font-size: 12px;
+}
+.proxy3dlab__asisnote {
+  margin-top: 12px;
+  font-size: 13px;
+}
+.proxy3dlab__rotatehint {
+  margin: 0 0 10px;
+}
 .proxy3dlab__verdict {
   display: inline-block;
   margin: 0 0 14px;

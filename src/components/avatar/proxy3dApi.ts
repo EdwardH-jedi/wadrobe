@@ -18,8 +18,16 @@ export class Proxy3dApiError extends Error {
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>
 
+export interface CreateProxy3dOptions {
+  /** Optional back-side PNG for a dual-sided proxy (B3.7). */
+  back?: Blob
+  backName?: string
+  fetchFn?: FetchLike
+}
+
 /**
- * POST the PNG and return the generated proxy-3D record.
+ * POST the front PNG (and optionally a back PNG) and return the generated
+ * proxy-3D record.
  *
  * @throws Proxy3dApiError with the backend's `detail` message on HTTP errors,
  *   or a reachability message (status null) when the request itself fails.
@@ -27,14 +35,18 @@ export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>
 export async function createProxy3d(
   file: Blob,
   fileName: string,
-  fetchFn?: FetchLike,
+  options: CreateProxy3dOptions = {},
 ): Promise<Proxy3dRecord> {
   // Call the global lazily and unextracted (extracted `fetch` loses its
   // window binding in strict-mode modules).
-  const doFetch: FetchLike = fetchFn ?? ((input, init) => fetch(input, init))
+  const doFetch: FetchLike =
+    options.fetchFn ?? ((input, init) => fetch(input, init))
 
   const form = new FormData()
   form.append('file', file, fileName)
+  if (options.back) {
+    form.append('back_file', options.back, options.backName ?? 'back.png')
+  }
 
   let response: Response
   try {

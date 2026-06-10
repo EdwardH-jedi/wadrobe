@@ -46,13 +46,22 @@ class MeshStats(BaseModel):
 class Proxy3dRecord(BaseModel):
     job_id: str
     status: Literal["done"]
-    method: Literal["extruded-alpha-contour", "textured-plane"]
+    method: Literal[
+        "extruded-alpha-contour",
+        "extruded-alpha-contour-dual",
+        "textured-plane",
+    ]
     alpha_mask_used: bool
     input: InputInfo
     mesh: MeshStats
     result_url: str
     limitations: str
     created_at: float
+    # B3.7 dual-sided fields. Defaults keep records persisted by earlier
+    # versions loadable.
+    sides: Literal["single", "dual"] = "single"
+    back_input: InputInfo | None = None
+    back_alpha_mask_used: bool | None = None
 
 
 @app.exception_handler(pipeline.Proxy3dError)
@@ -61,11 +70,22 @@ async def proxy3d_error_handler(_request, exc: pipeline.Proxy3dError):
 
 
 @app.post("/api/proxy-3d", response_model=Proxy3dRecord, status_code=201)
-async def create_proxy_3d(file: UploadFile = File(...)) -> Proxy3dRecord:
+async def create_proxy_3d(
+    file: UploadFile = File(...),
+    back_file: UploadFile | None = File(default=None),
+) -> Proxy3dRecord:
     data = await file.read()
-    result = pipeline.generate(data)
+    back_data = await back_file.read() if back_file is not None else None
+    result = pipeline.generate(data, back_data)
 
     job_id = uuid.uuid4().hex
+    back_input = None
+    if result.back_width is not None and result.back_height is not None:
+        back_input = InputInfo(
+            width=result.back_width,
+            height=result.back_height,
+            has_alpha=bool(result.back_has_alpha),
+        )
     record = Proxy3dRecord(
         job_id=job_id,
         status="done",
@@ -80,6 +100,9 @@ async def create_proxy_3d(file: UploadFile = File(...)) -> Proxy3dRecord:
         result_url=f"/api/proxy-3d/{job_id}/result.glb",
         limitations=result.limitations,
         created_at=time.time(),
+        sides=result.sides,  # type: ignore[arg-type]
+        back_input=back_input,
+        back_alpha_mask_used=result.back_alpha_mask_used,
     )
     storage.save_job(job_id, result.glb_bytes, record.model_dump())
     return record
