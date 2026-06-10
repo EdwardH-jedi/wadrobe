@@ -51,6 +51,78 @@ export interface Proxy3dRecord {
   sides?: 'single' | 'dual'
   back_input?: InputInfo | null
   back_alpha_mask_used?: boolean | null
+  /** B3.8: the manual back alignment the backend actually applied. */
+  back_alignment?: {
+    scale: number
+    offset_x: number
+    offset_y: number
+    manual: boolean
+  } | null
+}
+
+/** Track A cutout tuning seams exposed in the lab (B3.8). */
+export interface CutoutSettings {
+  /** RGB distance treated as "same as the background" (Track A `tolerance`). */
+  tolerance: number
+  /** Border-uniformity gate that must pass before the fill runs. */
+  uniformityMin: number
+}
+
+export const DEFAULT_CUTOUT_SETTINGS: CutoutSettings = {
+  tolerance: 42,
+  uniformityMin: 0.82,
+}
+
+export const CUTOUT_SETTING_LIMITS = {
+  tolerance: { min: 10, max: 120, step: 1 },
+  uniformityMin: { min: 0.5, max: 0.95, step: 0.01 },
+} as const
+
+export function clampCutoutSetting(
+  setting: keyof CutoutSettings,
+  value: number,
+): number {
+  const { min, max } = CUTOUT_SETTING_LIMITS[setting]
+  if (!Number.isFinite(value)) return DEFAULT_CUTOUT_SETTINGS[setting]
+  return Math.min(max, Math.max(min, value))
+}
+
+/** Manual back alignment (B3.8) — normalized units, mirrored by the backend. */
+export interface BackAlignment {
+  scale: number
+  offsetX: number
+  offsetY: number
+}
+
+export const DEFAULT_BACK_ALIGNMENT: BackAlignment = {
+  scale: 1,
+  offsetX: 0,
+  offsetY: 0,
+}
+
+export const BACK_ALIGNMENT_LIMITS = {
+  scale: { min: 0.25, max: 4, step: 0.05 },
+  offsetX: { min: -0.5, max: 0.5, step: 0.01 },
+  offsetY: { min: -0.5, max: 0.5, step: 0.01 },
+} as const
+
+export function clampBackAlignment(patch: Partial<BackAlignment>): Partial<BackAlignment> {
+  const out: Partial<BackAlignment> = {}
+  for (const key of ['scale', 'offsetX', 'offsetY'] as const) {
+    const value = patch[key]
+    if (value === undefined) continue
+    const { min, max } = BACK_ALIGNMENT_LIMITS[key]
+    out[key] = Number.isFinite(value)
+      ? Math.min(max, Math.max(min, value))
+      : DEFAULT_BACK_ALIGNMENT[key]
+  }
+  return out
+}
+
+export function isManualAlignment(alignment: BackAlignment): boolean {
+  return (
+    alignment.scale !== 1 || alignment.offsetX !== 0 || alignment.offsetY !== 0
+  )
 }
 
 export interface SelectedFileMeta {
@@ -74,6 +146,8 @@ export interface SideState {
   cutting: boolean
   /** Back-only explicit choice: project the uncut image onto the silhouette. */
   useAsIs: boolean
+  /** Track A cutout tuning for this side (B3.8). */
+  cutoutSettings: CutoutSettings
 }
 
 export const EMPTY_SIDE: SideState = {
@@ -83,12 +157,15 @@ export const EMPTY_SIDE: SideState = {
   cutoutError: null,
   cutting: false,
   useAsIs: false,
+  cutoutSettings: DEFAULT_CUTOUT_SETTINGS,
 }
 
 export interface Proxy3dFlowState {
   status: Proxy3dStatus
   front: SideState
   back: SideState
+  /** Manual back alignment for dual generation (B3.8). */
+  backAlignment: BackAlignment
   record: Proxy3dRecord | null
   error: string | null
   /** True when the failure looks like the backend being unreachable/down —
@@ -106,10 +183,19 @@ export type Proxy3dFlowAction =
     }
   | { type: 'REJECT_FILE'; reason: string }
   | { type: 'REMOVE_SIDE'; side: Proxy3dSide }
+  | {
+      type: 'SET_CUTOUT_SETTING'
+      side: Proxy3dSide
+      setting: keyof CutoutSettings
+      value: number
+    }
+  | { type: 'RESET_CUTOUT_SETTINGS'; side: Proxy3dSide }
   | { type: 'CUTOUT_START'; side: Proxy3dSide }
   | { type: 'CUTOUT_SUCCESS'; side: Proxy3dSide; cutout: CutoutMeta }
   | { type: 'CUTOUT_FAILURE'; side: Proxy3dSide; reason: string }
   | { type: 'USE_BACK_AS_IS' }
+  | { type: 'SET_BACK_ALIGNMENT'; patch: Partial<BackAlignment> }
+  | { type: 'RESET_BACK_ALIGNMENT' }
   | { type: 'UPLOAD_START' }
   | { type: 'UPLOAD_SUCCESS'; record: Proxy3dRecord }
   | { type: 'UPLOAD_FAILURE'; message: string; connectivity?: boolean }
@@ -119,6 +205,7 @@ export const INITIAL_PROXY3D_STATE: Proxy3dFlowState = {
   status: 'editing',
   front: EMPTY_SIDE,
   back: EMPTY_SIDE,
+  backAlignment: DEFAULT_BACK_ALIGNMENT,
   record: null,
   error: null,
   errorIsConnectivity: false,
@@ -176,12 +263,34 @@ export function proxy3dFlowReducer(
         error: null,
         errorIsConnectivity: false,
       }
+    case 'SET_CUTOUT_SETTING': {
+      if (isBusy(state)) return state
+      const value = clampCutoutSetting(action.setting, action.value)
+      return withSide(state, action.side, {
+        cutoutSettings: {
+          ...state[action.side].cutoutSettings,
+          [action.setting]: value,
+        },
+      })
+    }
+    case 'RESET_CUTOUT_SETTINGS':
+      if (isBusy(state)) return state
+      return withSide(state, action.side, {
+        cutoutSettings: DEFAULT_CUTOUT_SETTINGS,
+      })
     case 'CUTOUT_START': {
       if (isBusy(state)) return state
       const side = state[action.side]
       if (!side.file || side.alpha !== 'none') return state
+      // A (re)cut replaces any previous cutout — the component drops the
+      // matching blob ref at the same time.
       return {
-        ...withSide(state, action.side, { cutting: true, cutoutError: null }),
+        ...withSide(state, action.side, {
+          cutting: true,
+          cutoutError: null,
+          cutout: null,
+          useAsIs: false,
+        }),
         status: 'editing',
         record: null,
         error: null,
@@ -208,8 +317,27 @@ export function proxy3dFlowReducer(
       if (!back.file || back.alpha !== 'none' || back.cutout) return state
       return withSide(state, 'back', { useAsIs: true, cutoutError: null })
     }
+    case 'SET_BACK_ALIGNMENT':
+      if (isBusy(state)) return state
+      return {
+        ...state,
+        backAlignment: {
+          ...state.backAlignment,
+          ...clampBackAlignment(action.patch),
+        },
+      }
+    case 'RESET_BACK_ALIGNMENT':
+      if (isBusy(state)) return state
+      return { ...state, backAlignment: DEFAULT_BACK_ALIGNMENT }
     case 'UPLOAD_START':
-      if (state.status !== 'editing' && state.status !== 'failed') return state
+      // 'ready' is allowed too: adjust alignment/cutout, then regenerate.
+      if (
+        state.status !== 'editing' &&
+        state.status !== 'failed' &&
+        state.status !== 'ready'
+      ) {
+        return state
+      }
       if (isBusy(state)) return state
       if (!state.front.file) return state
       return {
@@ -351,6 +479,29 @@ export const PROXY3D_COPY = {
     'Background removed on your device. This transparent cutout will be ' +
     'sent instead of the original image.',
   cutoutFailedIntro: 'Local cutout did not work here: ',
+  // --- B3.8 cutout tuning + back alignment -------------------------------
+  cutoutTuningTitle: 'Cutout tuning',
+  cutoutTuningHint:
+    'Adjust the local edge flood fill, then recreate the cutout to compare.',
+  toleranceLabel: 'Background match tolerance',
+  uniformityLabel: 'Background uniformity gate',
+  recreateCutoutButton: 'Recreate cutout',
+  resetCutoutSettingsButton: 'Reset cutout settings',
+  alignTitle: 'Back alignment',
+  alignHint:
+    'Nudge how the back image sits on the front silhouette, then generate ' +
+    'to see it on the proxy.',
+  alignScaleLabel: 'Back scale',
+  alignOffsetXLabel: 'Back horizontal offset',
+  alignOffsetYLabel: 'Back vertical offset',
+  alignResetButton: 'Reset alignment',
+  alignPreviewNote:
+    'Approximate overlay — the local backend aligns by silhouette bounding ' +
+    'box, then applies these adjustments.',
+  planDualNote: 'Will generate: dual-sided silhouette proxy.',
+  planSingleNote:
+    'Will generate: single-sided silhouette proxy (front image only).',
+  regenerateButton: 'Regenerate proxy 3D preview',
 } as const
 
 /** Backend method -> honest, human-readable description. */
@@ -366,6 +517,20 @@ export const PROXY3D_RESULT_LABEL: Record<Proxy3dRecord['method'], string> = {
   'extruded-alpha-contour': 'Single-sided silhouette proxy 3D preview',
   'extruded-alpha-contour-dual': 'Dual-sided silhouette proxy 3D preview',
   'textured-plane': 'Flat image card fallback',
+}
+
+export const PROXY3D_RESULT_LABEL_DUAL_MANUAL =
+  'Dual-sided silhouette proxy 3D preview · manual alignment'
+
+/** The honest verdict for a record, including the manual-alignment variant. */
+export function resultLabelFor(record: Proxy3dRecord): string {
+  if (
+    record.method === 'extruded-alpha-contour-dual' &&
+    record.back_alignment?.manual
+  ) {
+    return PROXY3D_RESULT_LABEL_DUAL_MANUAL
+  }
+  return PROXY3D_RESULT_LABEL[record.method]
 }
 
 /** Compact byte count for the selected-file row ("184.2 KB"). */

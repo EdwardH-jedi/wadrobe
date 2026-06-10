@@ -22,6 +22,10 @@ export interface CreateProxy3dOptions {
   /** Optional back-side PNG for a dual-sided proxy (B3.7). */
   back?: Blob
   backName?: string
+  /** Manual back alignment (B3.8) — normalized; the backend clamps. */
+  backScale?: number
+  backOffsetX?: number
+  backOffsetY?: number
   fetchFn?: FetchLike
 }
 
@@ -46,6 +50,15 @@ export async function createProxy3d(
   form.append('file', file, fileName)
   if (options.back) {
     form.append('back_file', options.back, options.backName ?? 'back.png')
+    if (options.backScale !== undefined) {
+      form.append('back_scale', String(options.backScale))
+    }
+    if (options.backOffsetX !== undefined) {
+      form.append('back_offset_x', String(options.backOffsetX))
+    }
+    if (options.backOffsetY !== undefined) {
+      form.append('back_offset_y', String(options.backOffsetY))
+    }
   }
 
   let response: Response

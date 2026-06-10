@@ -185,6 +185,81 @@ class TestDualSided:
         assert err.value.detail.startswith("Back image:")
 
 
+class TestManualAlignment:
+    def test_clamp_back_alignment_bounds(self):
+        assert pipeline.clamp_back_alignment(99, -7, 7) == (4.0, -0.5, 0.5)
+        assert pipeline.clamp_back_alignment(0.01, 0.0, 0.0) == (0.25, 0.0, 0.0)
+        assert pipeline.clamp_back_alignment(1.0, 0.2, -0.1) == (1.0, 0.2, -0.1)
+        assert pipeline.clamp_back_alignment(
+            float("nan"), float("inf"), 0.0
+        ) == (1.0, 0.0, 0.0)
+
+    def test_offsets_shift_the_pasted_back_content(self):
+        import numpy as np
+        from PIL import Image
+
+        front_texture = Image.new("RGBA", (200, 300), (0, 0, 0, 0))
+        front_mask = np.zeros((300, 200), dtype=bool)
+        front_mask[60:240, 50:150] = True  # bbox center (100, 150)
+
+        back = Image.new("RGBA", (80, 80), (0, 0, 0, 0))
+        back.paste(Image.new("RGBA", (40, 40), (255, 0, 0, 255)), (20, 20))
+        back_mask = np.asarray(back.getchannel("A")) >= 128
+
+        # scale_mult 0.5 keeps the pasted content well inside the canvas so
+        # edge clipping cannot skew the measured center.
+        aligned = pipeline.build_aligned_back_texture(
+            front_texture,
+            front_mask,
+            (200, 300),
+            back,
+            back_mask,
+            scale_mult=0.5,
+            offset_x_frac=0.1,  # +20px of the 200px canvas
+            offset_y_frac=-0.1,  # -30px of the 300px canvas
+        )
+        a = np.asarray(aligned.getchannel("A")) >= 128
+        left, top, right, bottom = pipeline._mask_bbox(a)
+        assert (left + right) / 2 == pytest.approx(100 + 20, abs=3)
+        assert (top + bottom) / 2 == pytest.approx(150 - 30, abs=3)
+
+    def test_scale_mult_grows_the_pasted_back_content(self):
+        import numpy as np
+        from PIL import Image
+
+        front_texture = Image.new("RGBA", (200, 300), (0, 0, 0, 0))
+        front_mask = np.zeros((300, 200), dtype=bool)
+        front_mask[60:240, 50:150] = True  # bbox height 180
+
+        back = Image.new("RGBA", (80, 80), (0, 0, 0, 0))
+        back.paste(Image.new("RGBA", (40, 40), (255, 0, 0, 255)), (20, 20))
+        back_mask = np.asarray(back.getchannel("A")) >= 128
+
+        aligned = pipeline.build_aligned_back_texture(
+            front_texture,
+            front_mask,
+            (200, 300),
+            back,
+            back_mask,
+            scale_mult=0.5,
+        )
+        a = np.asarray(aligned.getchannel("A")) >= 128
+        left, top, right, bottom = pipeline._mask_bbox(a)
+        assert (bottom - top) == pytest.approx(90, abs=3)  # half of 180
+
+    def test_generate_dual_with_manual_alignment_flags_manual(self):
+        result = pipeline.generate(
+            make_transparent_garment_png(),
+            make_transparent_back_png(),
+            back_scale=1.5,
+            back_offset_x=0.2,
+        )
+        assert result.back_align_manual is True
+        assert result.back_align_scale == 1.5
+        assert "manually adjusted" in result.limitations
+        assert result.glb_bytes.startswith(b"glTF")
+
+
 class TestBackAlignment:
     def test_aligned_back_texture_matches_front_canvas_and_centers_content(self):
         import numpy as np

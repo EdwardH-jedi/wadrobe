@@ -67,6 +67,35 @@ describe('createProxy3d', () => {
     expect(record.sides).toBe('dual')
   })
 
+  it('sends manual back-alignment fields with a dual request (B3.8)', async () => {
+    const backBlob = new Blob([new Uint8Array([0x89])], { type: 'image/png' })
+    const fetchFn = vi.fn(async (_input: string, init?: RequestInit) => {
+      const form = init?.body as FormData
+      expect(form.get('back_scale')).toBe('1.5')
+      expect(form.get('back_offset_x')).toBe('0.2')
+      expect(form.get('back_offset_y')).toBe('-0.1')
+      return jsonResponse(201, { ...RECORD, sides: 'dual' })
+    })
+    await createProxy3d(PNG_BLOB, 'tee.png', {
+      back: backBlob,
+      backScale: 1.5,
+      backOffsetX: 0.2,
+      backOffsetY: -0.1,
+      fetchFn,
+    })
+    expect(fetchFn).toHaveBeenCalledOnce()
+  })
+
+  it('omits alignment fields on single-sided requests', async () => {
+    const fetchFn = vi.fn(async (_input: string, init?: RequestInit) => {
+      const form = init?.body as FormData
+      expect(form.get('back_scale')).toBeNull()
+      return jsonResponse(201, RECORD)
+    })
+    await createProxy3d(PNG_BLOB, 'tee.png', { backScale: 1.5, fetchFn })
+    expect(fetchFn).toHaveBeenCalledOnce()
+  })
+
   it('surfaces the backend detail message on HTTP errors', async () => {
     const fetchFn = vi.fn(async () =>
       jsonResponse(422, { detail: 'The PNG is fully transparent.' }),

@@ -408,6 +408,181 @@ describe('<Proxy3DLab />', () => {
     expect(alert).toHaveTextContent(PROXY3D_COPY.backendHint)
   })
 
+  describe('cutout tuning & back alignment (B3.8)', () => {
+    it('shows cutout tuning only for sides that need a cutout', async () => {
+      mockDetect.mockResolvedValueOnce('usable') // front
+      mockDetect.mockResolvedValueOnce('none') // back
+      render(<Proxy3DLab />)
+      selectFile('front', pngFile())
+      await screen.findByText('tee.png')
+      expect(
+        sideCard('front').queryByText(PROXY3D_COPY.cutoutTuningTitle),
+      ).not.toBeInTheDocument()
+
+      selectFile('back', pngFile('back.png'))
+      await sideCard('back').findByRole('alert')
+      expect(
+        sideCard('back').getByText(PROXY3D_COPY.cutoutTuningTitle),
+      ).toBeInTheDocument()
+    })
+
+    it('recreates the cutout with the tuned settings and supports reset', async () => {
+      const user = userEvent.setup()
+      mockDetect.mockResolvedValue('none')
+      const blobA = new Blob([new Uint8Array([1])], { type: 'image/png' })
+      const blobB = new Blob([new Uint8Array([2])], { type: 'image/png' })
+      mockCutout
+        .mockResolvedValueOnce({
+          status: 'success',
+          blob: blobA,
+          previewUrl: 'data:image/png;base64,AA==',
+        })
+        .mockResolvedValueOnce({
+          status: 'success',
+          blob: blobB,
+          previewUrl: 'data:image/png;base64,BB==',
+        })
+      render(<Proxy3DLab />)
+      selectFile('front', pngFile())
+      await screen.findByRole('alert')
+
+      // First cutout with the defaults.
+      await user.click(
+        sideCard('front').getByRole('button', {
+          name: PROXY3D_COPY.cutoutButton,
+        }),
+      )
+      await screen.findByText(PROXY3D_COPY.cutoutReadyTitle)
+      expect(mockCutout).toHaveBeenLastCalledWith(
+        expect.anything(),
+        expect.objectContaining({ tolerance: 42, uniformityMin: 0.82 }),
+      )
+
+      // Tune tolerance, recreate — the new settings are passed through.
+      fireEvent.change(
+        sideCard('front').getByLabelText(PROXY3D_COPY.toleranceLabel),
+        { target: { value: '80' } },
+      )
+      await user.click(
+        sideCard('front').getByRole('button', {
+          name: PROXY3D_COPY.recreateCutoutButton,
+        }),
+      )
+      await screen.findByText(PROXY3D_COPY.cutoutReadyTitle)
+      expect(mockCutout).toHaveBeenCalledTimes(2)
+      expect(mockCutout).toHaveBeenLastCalledWith(
+        expect.anything(),
+        expect.objectContaining({ tolerance: 80 }),
+      )
+
+      // Reset restores the default slider value.
+      await user.click(
+        sideCard('front').getByRole('button', {
+          name: PROXY3D_COPY.resetCutoutSettingsButton,
+        }),
+      )
+      expect(
+        sideCard('front').getByLabelText(PROXY3D_COPY.toleranceLabel),
+      ).toHaveValue('42')
+    })
+
+    it('shows alignment controls only when a dual generation is planned', async () => {
+      render(<Proxy3DLab />)
+      selectFile('front', pngFile())
+      await screen.findByText('tee.png')
+      expect(screen.queryByTestId('back-alignment')).not.toBeInTheDocument()
+
+      selectFile('back', pngFile('tee-back.png'))
+      await screen.findByText('tee-back.png')
+      expect(screen.getByTestId('back-alignment')).toBeInTheDocument()
+      expect(screen.getByText(PROXY3D_COPY.planDualNote)).toBeInTheDocument()
+    })
+
+    it('adjusted alignment values are sent with the dual submission', async () => {
+      const user = userEvent.setup()
+      mockCreate.mockResolvedValueOnce({
+        ...DUAL_RECORD,
+        back_alignment: { scale: 1.5, offset_x: 0.2, offset_y: 0, manual: true },
+      })
+      render(<Proxy3DLab />)
+      selectFile('front', pngFile())
+      await screen.findByText('tee.png')
+      selectFile('back', pngFile('tee-back.png'))
+      await screen.findByText('tee-back.png')
+
+      fireEvent.change(screen.getByLabelText(PROXY3D_COPY.alignScaleLabel), {
+        target: { value: '1.5' },
+      })
+      fireEvent.change(screen.getByLabelText(PROXY3D_COPY.alignOffsetXLabel), {
+        target: { value: '0.2' },
+      })
+      await user.click(
+        screen.getByRole('button', { name: PROXY3D_COPY.submitDualButton }),
+      )
+
+      await screen.findByText(PROXY3D_COPY.readyTitle)
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.any(File),
+        'tee.png',
+        expect.objectContaining({
+          backScale: 1.5,
+          backOffsetX: 0.2,
+          backOffsetY: 0,
+        }),
+      )
+      // The manual-alignment verdict and metadata row are shown.
+      expect(
+        screen.getByText(/manual alignment/i),
+      ).toBeInTheDocument()
+      expect(screen.getByText(/1\.50× · x 0\.20/)).toBeInTheDocument()
+    })
+
+    it('reset alignment returns the sliders to the bbox default', async () => {
+      render(<Proxy3DLab />)
+      selectFile('front', pngFile())
+      await screen.findByText('tee.png')
+      selectFile('back', pngFile('tee-back.png'))
+      await screen.findByText('tee-back.png')
+
+      fireEvent.change(screen.getByLabelText(PROXY3D_COPY.alignScaleLabel), {
+        target: { value: '2' },
+      })
+      expect(screen.getByLabelText(PROXY3D_COPY.alignScaleLabel)).toHaveValue('2')
+      fireEvent.click(
+        screen.getByRole('button', { name: PROXY3D_COPY.alignResetButton }),
+      )
+      expect(screen.getByLabelText(PROXY3D_COPY.alignScaleLabel)).toHaveValue('1')
+    })
+
+    it('regenerates from ready after adjusting alignment', async () => {
+      const user = userEvent.setup()
+      mockCreate.mockResolvedValue(DUAL_RECORD)
+      render(<Proxy3DLab />)
+      selectFile('front', pngFile())
+      await screen.findByText('tee.png')
+      selectFile('back', pngFile('tee-back.png'))
+      await screen.findByText('tee-back.png')
+      await user.click(
+        screen.getByRole('button', { name: PROXY3D_COPY.submitDualButton }),
+      )
+      await screen.findByText(PROXY3D_COPY.readyTitle)
+
+      fireEvent.change(screen.getByLabelText(PROXY3D_COPY.alignOffsetXLabel), {
+        target: { value: '0.3' },
+      })
+      await user.click(
+        screen.getByRole('button', { name: PROXY3D_COPY.regenerateButton }),
+      )
+      await screen.findByText(PROXY3D_COPY.readyTitle)
+      expect(mockCreate).toHaveBeenCalledTimes(2)
+      expect(mockCreate).toHaveBeenLastCalledWith(
+        expect.any(File),
+        'tee.png',
+        expect.objectContaining({ backOffsetX: 0.3 }),
+      )
+    })
+  })
+
   it('start over clears both sides and any result', async () => {
     const user = userEvent.setup()
     mockCreate.mockResolvedValueOnce(DUAL_RECORD)

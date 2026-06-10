@@ -19,11 +19,17 @@ from tests.conftest import (
 )
 
 
-def _post_png(client, data: bytes, name: str = "garment.png", back: bytes | None = None):
+def _post_png(
+    client,
+    data: bytes,
+    name: str = "garment.png",
+    back: bytes | None = None,
+    form: dict | None = None,
+):
     files = {"file": (name, data, "image/png")}
     if back is not None:
         files["back_file"] = ("back.png", back, "image/png")
-    return client.post("/api/proxy-3d", files=files)
+    return client.post("/api/proxy-3d", files=files, data=form)
 
 
 def test_accepts_transparent_png(client):
@@ -192,6 +198,68 @@ def test_opaque_front_with_back_falls_back_to_single_flat_card(client):
     assert body["method"] == "textured-plane"
     assert body["sides"] == "single"
     assert body["back_input"] is None
+
+
+def test_dual_without_alignment_fields_reports_defaults_not_manual(client):
+    body = _post_png(
+        client,
+        make_transparent_garment_png(),
+        back=make_transparent_back_png(),
+    ).json()
+    assert body["back_alignment"] == {
+        "scale": 1.0,
+        "offset_x": 0.0,
+        "offset_y": 0.0,
+        "manual": False,
+    }
+    assert "bounding box" in body["limitations"]
+
+
+def test_dual_with_manual_alignment_reports_applied_values(client):
+    response = _post_png(
+        client,
+        make_transparent_garment_png(),
+        back=make_transparent_back_png(),
+        form={"back_scale": "1.5", "back_offset_x": "0.2", "back_offset_y": "-0.1"},
+    )
+    assert response.status_code == 201
+    body = response.json()
+    assert body["back_alignment"] == {
+        "scale": 1.5,
+        "offset_x": 0.2,
+        "offset_y": -0.1,
+        "manual": True,
+    }
+    assert "manually adjusted" in body["limitations"]
+    assert "not a fit estimate" in body["limitations"]
+    # The GLB stays parser-valid.
+    glb = client.get(f"/api/proxy-3d/{body['job_id']}/result.glb").content
+    assert glb.startswith(b"glTF")
+
+
+def test_alignment_values_are_clamped(client):
+    body = _post_png(
+        client,
+        make_transparent_garment_png(),
+        back=make_transparent_back_png(),
+        form={"back_scale": "99", "back_offset_x": "-7", "back_offset_y": "7"},
+    ).json()
+    assert body["back_alignment"] == {
+        "scale": 4.0,
+        "offset_x": -0.5,
+        "offset_y": 0.5,
+        "manual": True,
+    }
+
+
+def test_alignment_fields_on_single_sided_are_ignored(client):
+    body = _post_png(
+        client,
+        make_transparent_garment_png(),
+        form={"back_scale": "2.0"},
+    ).json()
+    assert body["sides"] == "single"
+    assert body["back_alignment"] is None
 
 
 def test_unknown_job_id_is_404(client):

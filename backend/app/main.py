@@ -13,7 +13,7 @@ from __future__ import annotations
 import time
 import uuid
 
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from typing import Literal
@@ -43,6 +43,15 @@ class MeshStats(BaseModel):
     faces: int
 
 
+class BackAlignment(BaseModel):
+    """Applied (post-clamp) manual back alignment (B3.8)."""
+
+    scale: float
+    offset_x: float
+    offset_y: float
+    manual: bool
+
+
 class Proxy3dRecord(BaseModel):
     job_id: str
     status: Literal["done"]
@@ -62,6 +71,8 @@ class Proxy3dRecord(BaseModel):
     sides: Literal["single", "dual"] = "single"
     back_input: InputInfo | None = None
     back_alpha_mask_used: bool | None = None
+    # B3.8: manual back alignment actually applied (None on single-sided).
+    back_alignment: BackAlignment | None = None
 
 
 @app.exception_handler(pipeline.Proxy3dError)
@@ -73,10 +84,19 @@ async def proxy3d_error_handler(_request, exc: pipeline.Proxy3dError):
 async def create_proxy_3d(
     file: UploadFile = File(...),
     back_file: UploadFile | None = File(default=None),
+    back_scale: float = Form(default=1.0),
+    back_offset_x: float = Form(default=0.0),
+    back_offset_y: float = Form(default=0.0),
 ) -> Proxy3dRecord:
     data = await file.read()
     back_data = await back_file.read() if back_file is not None else None
-    result = pipeline.generate(data, back_data)
+    result = pipeline.generate(
+        data,
+        back_data,
+        back_scale=back_scale,
+        back_offset_x=back_offset_x,
+        back_offset_y=back_offset_y,
+    )
 
     job_id = uuid.uuid4().hex
     back_input = None
@@ -103,6 +123,18 @@ async def create_proxy_3d(
         sides=result.sides,  # type: ignore[arg-type]
         back_input=back_input,
         back_alpha_mask_used=result.back_alpha_mask_used,
+        back_alignment=(
+            BackAlignment(
+                scale=result.back_align_scale,
+                offset_x=result.back_align_offset_x,
+                offset_y=result.back_align_offset_y,
+                manual=bool(result.back_align_manual),
+            )
+            if result.back_align_scale is not None
+            and result.back_align_offset_x is not None
+            and result.back_align_offset_y is not None
+            else None
+        ),
     )
     storage.save_job(job_id, result.glb_bytes, record.model_dump())
     return record

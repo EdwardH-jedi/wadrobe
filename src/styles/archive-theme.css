@@ -2484,6 +2484,84 @@
 .proxy3dlab__rotatehint {
   margin: 0 0 10px;
 }
+.proxy3dlab__tuning {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+.proxy3dlab__tuninghint {
+  margin: 4px 0 10px;
+  font-size: 12px;
+}
+.proxy3dlab__slider {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 10px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: var(--text-300);
+}
+.proxy3dlab__slider span {
+  grid-column: 1 / -1;
+}
+.proxy3dlab__slider input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.proxy3dlab__slider code {
+  align-self: center;
+  min-width: 44px;
+  text-align: right;
+  color: var(--text-200);
+}
+.proxy3dlab__align {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius);
+  background: var(--ink-850);
+}
+.proxy3dlab__aligngrid {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .proxy3dlab__aligngrid {
+    grid-template-columns: 1fr;
+  }
+}
+.proxy3dlab__alignpreview {
+  position: relative;
+  height: 200px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background:
+    repeating-conic-gradient(var(--ink-650) 0% 25%, var(--ink-750) 0% 50%)
+    0 0 / 14px 14px;
+}
+.proxy3dlab__alignfront {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 92%;
+  max-height: 92%;
+  opacity: 0.95;
+}
+.proxy3dlab__alignback {
+  position: absolute;
+  max-width: 80%;
+  max-height: 80%;
+  opacity: 0.55;
+  outline: 1px dashed var(--accent-line);
+}
+.proxy3dlab__plannote {
+  margin-top: 14px;
+  font-size: 13px;
+}
 .proxy3dlab__verdict {
   display: inline-block;
   margin: 0 0 14px;

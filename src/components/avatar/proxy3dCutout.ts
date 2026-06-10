@@ -15,6 +15,7 @@ import {
   defaultCutoutDeps,
   CUTOUT_REASONS,
   type CutoutDeps,
+  type CutoutOptions,
   type RasterImage,
 } from '../../lib/image/garmentCutout'
 import { dataUrlToBlob } from '../../lib/storage/garmentAssetStorage'
@@ -161,12 +162,16 @@ const pngCutoutDeps: CutoutDeps = {
 /**
  * Run the local flood-fill cutout on the selected file and return a
  * transparent PNG blob. Same honest contract as Track A: never throws;
- * `unavailable`/`failed` carry user-safe reasons.
+ * `unavailable`/`failed` carry user-safe reasons. `options` exposes Track
+ * A's existing tuning seams (tolerance / uniformityMin) — see B3.8.
  */
-export async function runProxyCutout(file: Blob): Promise<ProxyCutoutOutcome> {
+export async function runProxyCutout(
+  file: Blob,
+  options: CutoutOptions = {},
+): Promise<ProxyCutoutOutcome> {
   const { url, revoke } = await fileToImageUrl(file)
   try {
-    const result = await attemptGarmentCutout(url, pngCutoutDeps)
+    const result = await attemptGarmentCutout(url, pngCutoutDeps, options)
     if (result.status !== 'success') return result
     const blob = dataUrlToBlob(result.cutoutImageUrl)
     if (!blob) {

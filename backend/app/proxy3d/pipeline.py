@@ -34,6 +34,17 @@ DUAL_LIMITATIONS_SUFFIX = (
     "precisely."
 )
 
+DUAL_MANUAL_LIMITATIONS_SUFFIX = (
+    " The back image is projected onto the front image's silhouette with "
+    "manually adjusted scale/offset — the alignment is user-tuned but still "
+    "approximate, and it is not a fit estimate or real garment "
+    "reconstruction."
+)
+
+# Manual back-alignment bounds (normalized units; clamped, never rejected).
+BACK_SCALE_MIN, BACK_SCALE_MAX = 0.25, 4.0
+BACK_OFFSET_LIMIT = 0.5  # fraction of the front texture's width/height
+
 METHOD_EXTRUDED = "extruded-alpha-contour"
 METHOD_EXTRUDED_DUAL = "extruded-alpha-contour-dual"
 METHOD_PLANE = "textured-plane"
@@ -64,6 +75,11 @@ class GenerationResult:
     back_height: int | None = None
     back_has_alpha: bool | None = None
     back_alpha_mask_used: bool | None = None
+    # Applied (post-clamp) manual back alignment; None on single-sided.
+    back_align_scale: float | None = None
+    back_align_offset_x: float | None = None
+    back_align_offset_y: float | None = None
+    back_align_manual: bool | None = None
 
 
 def validate_upload(data: bytes) -> None:
@@ -163,20 +179,39 @@ def _mask_bbox(mask: np.ndarray) -> tuple[int, int, int, int] | None:
     return (left, top, right, bottom)
 
 
+def clamp_back_alignment(
+    scale: float, offset_x: float, offset_y: float
+) -> tuple[float, float, float]:
+    """Clamp manual alignment values into safe normalized ranges."""
+
+    def _num(value: float, fallback: float) -> float:
+        return float(value) if np.isfinite(value) else fallback
+
+    scale = min(BACK_SCALE_MAX, max(BACK_SCALE_MIN, _num(scale, 1.0)))
+    offset_x = min(BACK_OFFSET_LIMIT, max(-BACK_OFFSET_LIMIT, _num(offset_x, 0.0)))
+    offset_y = min(BACK_OFFSET_LIMIT, max(-BACK_OFFSET_LIMIT, _num(offset_y, 0.0)))
+    return scale, offset_x, offset_y
+
+
 def build_aligned_back_texture(
     front_texture: Image.Image,
     front_mask: np.ndarray,
     front_size: tuple[int, int],
     back_rgba: Image.Image,
     back_mask: np.ndarray | None,
+    scale_mult: float = 1.0,
+    offset_x_frac: float = 0.0,
+    offset_y_frac: float = 0.0,
 ) -> Image.Image:
     """Normalize the back image onto a canvas matching the front texture.
 
     Deterministic bounding-box alignment: the back's content (its alpha bbox,
     or the whole image when opaque) is scaled uniformly so its height matches
     the front silhouette's bbox height (clamped to the canvas width), then
-    pasted centered on the front bbox center. No outline matching — honest
-    proxy alignment only.
+    pasted centered on the front bbox center. Manual adjustments (B3.8) are
+    applied on top: `scale_mult` multiplies the bbox-fit scale and the
+    offsets shift the paste position by a fraction of the canvas size. No
+    outline matching — honest proxy alignment only.
     """
     canvas = Image.new("RGBA", front_texture.size, (0, 0, 0, 0))
     tex_w, tex_h = front_texture.size
@@ -204,14 +239,17 @@ def build_aligned_back_texture(
     crop_w, crop_h = max(1, crop.size[0]), max(1, crop.size[1])
 
     scale = f_height / crop_h
-    # Avoid spilling far past the canvas if the back crop is very wide.
+    # Avoid spilling far past the canvas if the back crop is very wide —
+    # only for the automatic fit; a manual scale_mult may exceed on purpose
+    # (the paste simply clips at the canvas edges).
     scale = min(scale, tex_w / crop_w)
+    scale *= scale_mult
     new_w = max(1, round(crop_w * scale))
     new_h = max(1, round(crop_h * scale))
     resized = crop.resize((new_w, new_h), Image.Resampling.LANCZOS)
 
-    paste_x = round(f_cx - new_w / 2.0)
-    paste_y = round(f_cy - new_h / 2.0)
+    paste_x = round(f_cx - new_w / 2.0 + offset_x_frac * tex_w)
+    paste_y = round(f_cy - new_h / 2.0 + offset_y_frac * tex_h)
     canvas.paste(resized, (paste_x, paste_y), resized)
     return canvas
 
@@ -229,7 +267,13 @@ def _decode_back(back_data: bytes) -> tuple[Image.Image, bool]:
     return img.convert("RGBA"), has_alpha
 
 
-def generate(data: bytes, back_data: bytes | None = None) -> GenerationResult:
+def generate(
+    data: bytes,
+    back_data: bytes | None = None,
+    back_scale: float = 1.0,
+    back_offset_x: float = 0.0,
+    back_offset_y: float = 0.0,
+) -> GenerationResult:
     validate_upload(data)
     img = load_png(data)
 
@@ -247,6 +291,10 @@ def generate(data: bytes, back_data: bytes | None = None) -> GenerationResult:
     back_has_alpha: bool | None = None
     back_alpha_mask_used: bool | None = None
     limitations = LIMITATIONS_TEXT
+    align_scale: float | None = None
+    align_offset_x: float | None = None
+    align_offset_y: float | None = None
+    align_manual: bool | None = None
 
     if mask is not None:
         grid = mask_to_grid(mask)
@@ -266,8 +314,23 @@ def generate(data: bytes, back_data: bytes | None = None) -> GenerationResult:
                     exc.status_code, f"Back image: {exc.detail}"
                 ) from exc
             back_alpha_mask_used = back_mask is not None
+            align_scale, align_offset_x, align_offset_y = clamp_back_alignment(
+                back_scale, back_offset_x, back_offset_y
+            )
+            align_manual = (
+                align_scale != 1.0
+                or align_offset_x != 0.0
+                or align_offset_y != 0.0
+            )
             back_texture = build_aligned_back_texture(
-                texture, mask, (width, height), back_rgba, back_mask
+                texture,
+                mask,
+                (width, height),
+                back_rgba,
+                back_mask,
+                scale_mult=align_scale,
+                offset_x_frac=align_offset_x,
+                offset_y_frac=align_offset_y,
             )
             parts = meshbuild.build_extruded_parts(grid, width, height)
             glb_bytes = meshbuild.export_dual_glb(
@@ -276,7 +339,11 @@ def generate(data: bytes, back_data: bytes | None = None) -> GenerationResult:
             method = METHOD_EXTRUDED_DUAL
             alpha_mask_used = True
             sides = "dual"
-            limitations = LIMITATIONS_TEXT + DUAL_LIMITATIONS_SUFFIX
+            limitations = LIMITATIONS_TEXT + (
+                DUAL_MANUAL_LIMITATIONS_SUFFIX
+                if align_manual
+                else DUAL_LIMITATIONS_SUFFIX
+            )
             vertex_count = sum(len(p.vertices) for p in parts.values())
             face_count = sum(len(p.faces) for p in parts.values())
         else:
@@ -315,4 +382,8 @@ def generate(data: bytes, back_data: bytes | None = None) -> GenerationResult:
         back_height=back_height,
         back_has_alpha=back_has_alpha,
         back_alpha_mask_used=back_alpha_mask_used,
+        back_align_scale=align_scale,
+        back_align_offset_x=align_offset_x,
+        back_align_offset_y=align_offset_y,
+        back_align_manual=align_manual,
     )

@@ -58,6 +58,13 @@ A front without usable alpha still produces the single-sided flat card
 (any back image is ignored; the UI gates that path behind an explicit
 choice).
 
+**Manual back alignment (B3.8):** optional form fields `back_scale`
+(multiplies the bbox-fit scale; clamped to 0.25–4.0), `back_offset_x` and
+`back_offset_y` (fractions of the front texture's width/height; clamped to
+±0.5) adjust the normalization. The record reports the applied (post-clamp)
+values under `back_alignment` with a `manual` flag, and the limitations
+text notes that user-tuned alignment is still approximate.
+
 Errors: `415` non-PNG · `413` over the byte limit · `422` corrupt /
 oversized / fully transparent image (back-image failures are prefixed
 "Back image:") · `404` unknown job.

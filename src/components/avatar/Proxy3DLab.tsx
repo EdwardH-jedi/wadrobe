@@ -1,8 +1,9 @@
-// Proxy 3D Lab view (Track B3 → B3.7): upload a front PNG (required) and an
-// optional back PNG, run the per-side cutout-first flow (B3.6) on whichever
-// side lacks transparency, and generate a single- or dual-sided proxy 3D
-// preview. The flat image card stays an explicit front-side fallback, never
-// a silent default. Entirely additive — no Track A state is touched.
+// Proxy 3D Lab view (Track B3 → B3.8): upload a front PNG (required) and an
+// optional back PNG, run the per-side cutout-first flow (B3.6) with tunable
+// Track A cutout settings (B3.8), adjust the back alignment manually, and
+// generate a single- or dual-sided proxy 3D preview. The flat image card
+// stays an explicit front-side fallback, never a silent default. Entirely
+// additive — no Track A state is touched.
 import { useEffect, useReducer, useRef, type ChangeEvent } from 'react'
 import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
@@ -11,15 +12,18 @@ import { GlbViewer } from './GlbViewer'
 import { Proxy3dApiError, createProxy3d } from './proxy3dApi'
 import { detectUsableAlpha, runProxyCutout } from './proxy3dCutout'
 import {
+  BACK_ALIGNMENT_LIMITS,
+  CUTOUT_SETTING_LIMITS,
   INITIAL_PROXY3D_STATE,
   MAX_PROXY3D_UPLOAD_BYTES,
   PROXY3D_COPY,
   PROXY3D_METHOD_LABEL,
-  PROXY3D_RESULT_LABEL,
   formatBytes,
   plannedGeneration,
   proxy3dFlowReducer,
+  resultLabelFor,
   sideReadiness,
+  type CutoutSettings,
   type Proxy3dSide,
   type SideState,
 } from './proxy3dFlow'
@@ -116,8 +120,14 @@ export function Proxy3DLab() {
   const handleCutout = async (side: Proxy3dSide) => {
     const file = filesRef.current[side]
     if (!file || busy) return
+    // A (re)cut replaces the previous result — drop the stale blob now.
+    cutoutBlobsRef.current[side] = null
+    const settings = state[side].cutoutSettings
     dispatch({ type: 'CUTOUT_START', side })
-    const outcome = await runProxyCutout(file)
+    const outcome = await runProxyCutout(file, {
+      tolerance: settings.tolerance,
+      uniformityMin: settings.uniformityMin,
+    })
     if (outcome.status === 'success') {
       cutoutBlobsRef.current[side] = outcome.blob
       dispatch({
@@ -129,7 +139,6 @@ export function Proxy3DLab() {
         },
       })
     } else {
-      cutoutBlobsRef.current[side] = null
       dispatch({ type: 'CUTOUT_FAILURE', side, reason: outcome.reason })
     }
   }
@@ -152,6 +161,13 @@ export function Proxy3DLab() {
       const record = await createProxy3d(payload.front, payload.frontName, {
         back: payload.back,
         backName: payload.backName,
+        ...(payload.back
+          ? {
+              backScale: state.backAlignment.scale,
+              backOffsetX: state.backAlignment.offsetX,
+              backOffsetY: state.backAlignment.offsetY,
+            }
+          : {}),
       })
       dispatch({ type: 'UPLOAD_SUCCESS', record })
     } catch (error) {
@@ -207,7 +223,79 @@ export function Proxy3DLab() {
   }
 
   const plan = plannedGeneration(state)
-  const { record } = state
+  const { record, backAlignment } = state
+
+  const renderSlider = (
+    label: string,
+    value: number,
+    limits: { min: number; max: number; step: number },
+    display: string,
+    onChange: (value: number) => void,
+  ) => (
+    <label className="proxy3dlab__slider">
+      <span>{label}</span>
+      <input
+        type="range"
+        aria-label={label}
+        min={limits.min}
+        max={limits.max}
+        step={limits.step}
+        value={value}
+        disabled={busy}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
+      <code>{display}</code>
+    </label>
+  )
+
+  const renderCutoutTuning = (side: Proxy3dSide, sideState: SideState) => {
+    const settings = sideState.cutoutSettings
+    const setSetting = (setting: keyof CutoutSettings) => (value: number) =>
+      dispatch({ type: 'SET_CUTOUT_SETTING', side, setting, value })
+    return (
+      <div className="proxy3dlab__tuning">
+        <div className="eyebrow">{PROXY3D_COPY.cutoutTuningTitle}</div>
+        <div className="muted proxy3dlab__tuninghint">
+          {PROXY3D_COPY.cutoutTuningHint}
+        </div>
+        {renderSlider(
+          PROXY3D_COPY.toleranceLabel,
+          settings.tolerance,
+          CUTOUT_SETTING_LIMITS.tolerance,
+          String(settings.tolerance),
+          setSetting('tolerance'),
+        )}
+        {renderSlider(
+          PROXY3D_COPY.uniformityLabel,
+          settings.uniformityMin,
+          CUTOUT_SETTING_LIMITS.uniformityMin,
+          settings.uniformityMin.toFixed(2),
+          setSetting('uniformityMin'),
+        )}
+        <div className="row proxy3dlab__choices">
+          {sideState.cutout && (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              onClick={() => void handleCutout(side)}
+            >
+              <Icon name="refresh" size={15} />
+              {PROXY3D_COPY.recreateCutoutButton}
+            </Button>
+          )}
+          <Button
+            variant="quiet"
+            size="sm"
+            disabled={busy}
+            onClick={() => dispatch({ type: 'RESET_CUTOUT_SETTINGS', side })}
+          >
+            {PROXY3D_COPY.resetCutoutSettingsButton}
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   const renderSideCard = (side: Proxy3dSide) => {
     const sideState: SideState = state[side]
@@ -364,9 +452,17 @@ export function Proxy3DLab() {
             </div>
           </div>
         )}
+
+        {sideState.alpha === 'none' && renderCutoutTuning(side, sideState)}
       </div>
     )
   }
+
+  const frontPreviewUrl =
+    state.front.cutout?.previewUrl ?? state.front.file?.previewUrl ?? null
+  const backPreviewUrl =
+    state.back.cutout?.previewUrl ?? state.back.file?.previewUrl ?? null
+  const showAlignment = plan === 'dual'
 
   return (
     <div className="stack-lg proxy3dlab">
@@ -378,6 +474,84 @@ export function Proxy3DLab() {
           {renderSideCard('front')}
           {renderSideCard('back')}
         </div>
+
+        {showAlignment && (
+          <div className="proxy3dlab__align" data-testid="back-alignment">
+            <div className="eyebrow">{PROXY3D_COPY.alignTitle}</div>
+            <div className="muted proxy3dlab__tuninghint">
+              {PROXY3D_COPY.alignHint}
+            </div>
+            <div className="proxy3dlab__aligngrid">
+              <div>
+                {renderSlider(
+                  PROXY3D_COPY.alignScaleLabel,
+                  backAlignment.scale,
+                  BACK_ALIGNMENT_LIMITS.scale,
+                  `${backAlignment.scale.toFixed(2)}×`,
+                  (value) =>
+                    dispatch({
+                      type: 'SET_BACK_ALIGNMENT',
+                      patch: { scale: value },
+                    }),
+                )}
+                {renderSlider(
+                  PROXY3D_COPY.alignOffsetXLabel,
+                  backAlignment.offsetX,
+                  BACK_ALIGNMENT_LIMITS.offsetX,
+                  backAlignment.offsetX.toFixed(2),
+                  (value) =>
+                    dispatch({
+                      type: 'SET_BACK_ALIGNMENT',
+                      patch: { offsetX: value },
+                    }),
+                )}
+                {renderSlider(
+                  PROXY3D_COPY.alignOffsetYLabel,
+                  backAlignment.offsetY,
+                  BACK_ALIGNMENT_LIMITS.offsetY,
+                  backAlignment.offsetY.toFixed(2),
+                  (value) =>
+                    dispatch({
+                      type: 'SET_BACK_ALIGNMENT',
+                      patch: { offsetY: value },
+                    }),
+                )}
+                <Button
+                  variant="quiet"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => dispatch({ type: 'RESET_BACK_ALIGNMENT' })}
+                >
+                  {PROXY3D_COPY.alignResetButton}
+                </Button>
+              </div>
+              {frontPreviewUrl && backPreviewUrl && (
+                <div>
+                  <div className="proxy3dlab__alignpreview">
+                    <img
+                      src={frontPreviewUrl}
+                      alt=""
+                      className="proxy3dlab__alignfront"
+                    />
+                    <img
+                      src={backPreviewUrl}
+                      alt=""
+                      className="proxy3dlab__alignback"
+                      style={{
+                        left: `${50 + backAlignment.offsetX * 100}%`,
+                        top: `${50 + backAlignment.offsetY * 100}%`,
+                        transform: `translate(-50%, -50%) scale(${backAlignment.scale})`,
+                      }}
+                    />
+                  </div>
+                  <div className="muted proxy3dlab__choicenote">
+                    {PROXY3D_COPY.alignPreviewNote}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {state.error && (
           <div className="proxy3dlab__error" role="alert">
@@ -394,6 +568,14 @@ export function Proxy3DLab() {
           </div>
         )}
 
+        {plan && (
+          <div className="muted proxy3dlab__plannote">
+            {plan === 'dual'
+              ? PROXY3D_COPY.planDualNote
+              : PROXY3D_COPY.planSingleNote}
+          </div>
+        )}
+
         <div className="row proxy3dlab__actions">
           <Button
             variant="primary"
@@ -403,9 +585,11 @@ export function Proxy3DLab() {
             <Icon name="cube" size={16} />
             {state.status === 'failed'
               ? PROXY3D_COPY.retryButton
-              : plan === 'dual'
-                ? PROXY3D_COPY.submitDualButton
-                : PROXY3D_COPY.submitButton}
+              : state.status === 'ready'
+                ? PROXY3D_COPY.regenerateButton
+                : plan === 'dual'
+                  ? PROXY3D_COPY.submitDualButton
+                  : PROXY3D_COPY.submitButton}
           </Button>
           {(state.front.file || state.back.file || state.record) && (
             <Button variant="quiet" disabled={busy} onClick={handleReset}>
@@ -439,9 +623,7 @@ export function Proxy3DLab() {
             </a>
           }
         >
-          <div className="proxy3dlab__verdict">
-            {PROXY3D_RESULT_LABEL[record.method]}
-          </div>
+          <div className="proxy3dlab__verdict">{resultLabelFor(record)}</div>
 
           <dl className="proxy3dlab__meta">
             <dt>{PROXY3D_COPY.metaJobId}</dt>
@@ -481,6 +663,16 @@ export function Proxy3DLab() {
                   <dd>{record.back_alpha_mask_used ? 'Yes' : 'No'}</dd>
                 </>
               )}
+            {record.back_alignment?.manual && (
+              <>
+                <dt>{PROXY3D_COPY.alignTitle}</dt>
+                <dd>
+                  {record.back_alignment.scale.toFixed(2)}× · x{' '}
+                  {record.back_alignment.offset_x.toFixed(2)} · y{' '}
+                  {record.back_alignment.offset_y.toFixed(2)}
+                </dd>
+              </>
+            )}
             <dt>{PROXY3D_COPY.metaVertices}</dt>
             <dd>{record.mesh.vertices.toLocaleString()}</dd>
             <dt>{PROXY3D_COPY.metaFaces}</dt>

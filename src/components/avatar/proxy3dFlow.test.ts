@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { PROXY3D_FORBIDDEN_CLAIM_TERMS } from '../../test/honesty'
 import {
+  DEFAULT_BACK_ALIGNMENT,
+  DEFAULT_CUTOUT_SETTINGS,
   INITIAL_PROXY3D_STATE,
   PROXY3D_COPY,
   PROXY3D_METHOD_LABEL,
   PROXY3D_RESULT_LABEL,
+  PROXY3D_RESULT_LABEL_DUAL_MANUAL,
   formatBytes,
   plannedGeneration,
   proxy3dFlowReducer,
+  resultLabelFor,
   sideReadiness,
   type Proxy3dFlowAction,
   type Proxy3dFlowState,
@@ -273,6 +277,118 @@ describe('proxy3dFlowReducer — failures & reset', () => {
   })
 })
 
+describe('proxy3dFlowReducer — cutout tuning & back alignment (B3.8)', () => {
+  const frontPending = () =>
+    run([{ type: 'SELECT_FILE', side: 'front', file: FRONT, alpha: 'none' }])
+
+  it('sets and clamps cutout settings per side', () => {
+    let state = run(
+      [
+        { type: 'SET_CUTOUT_SETTING', side: 'front', setting: 'tolerance', value: 70 },
+      ],
+      frontPending(),
+    )
+    expect(state.front.cutoutSettings.tolerance).toBe(70)
+    expect(state.back.cutoutSettings).toEqual(DEFAULT_CUTOUT_SETTINGS)
+
+    state = run(
+      [
+        { type: 'SET_CUTOUT_SETTING', side: 'front', setting: 'tolerance', value: 9999 },
+        { type: 'SET_CUTOUT_SETTING', side: 'front', setting: 'uniformityMin', value: -1 },
+      ],
+      state,
+    )
+    expect(state.front.cutoutSettings.tolerance).toBe(120)
+    expect(state.front.cutoutSettings.uniformityMin).toBe(0.5)
+  })
+
+  it('resets cutout settings per side', () => {
+    let state = run(
+      [
+        { type: 'SET_CUTOUT_SETTING', side: 'front', setting: 'tolerance', value: 99 },
+        { type: 'RESET_CUTOUT_SETTINGS', side: 'front' },
+      ],
+      frontPending(),
+    )
+    expect(state.front.cutoutSettings).toEqual(DEFAULT_CUTOUT_SETTINGS)
+    // Replacing the file also restores defaults.
+    state = run(
+      [
+        { type: 'SET_CUTOUT_SETTING', side: 'front', setting: 'tolerance', value: 99 },
+        { type: 'SELECT_FILE', side: 'front', file: FRONT, alpha: 'none' },
+      ],
+      state,
+    )
+    expect(state.front.cutoutSettings).toEqual(DEFAULT_CUTOUT_SETTINGS)
+  })
+
+  it('a re-cut clears the previous cutout (and its as-is choice)', () => {
+    let state = run(
+      [
+        { type: 'CUTOUT_START', side: 'front' },
+        { type: 'CUTOUT_SUCCESS', side: 'front', cutout: CUTOUT },
+      ],
+      frontPending(),
+    )
+    expect(state.front.cutout).toEqual(CUTOUT)
+    state = run([{ type: 'CUTOUT_START', side: 'front' }], state)
+    expect(state.front.cutout).toBeNull()
+    expect(state.front.cutting).toBe(true)
+  })
+
+  it('sets, clamps and resets the back alignment', () => {
+    let state = run([
+      { type: 'SET_BACK_ALIGNMENT', patch: { scale: 1.5, offsetX: 0.2 } },
+    ])
+    expect(state.backAlignment).toEqual({ scale: 1.5, offsetX: 0.2, offsetY: 0 })
+
+    state = run(
+      [{ type: 'SET_BACK_ALIGNMENT', patch: { scale: 99, offsetY: -7 } }],
+      state,
+    )
+    expect(state.backAlignment.scale).toBe(4)
+    expect(state.backAlignment.offsetY).toBe(-0.5)
+    expect(state.backAlignment.offsetX).toBe(0.2)
+
+    state = run([{ type: 'RESET_BACK_ALIGNMENT' }], state)
+    expect(state.backAlignment).toEqual(DEFAULT_BACK_ALIGNMENT)
+  })
+
+  it('allows regenerating from ready (adjust → generate again)', () => {
+    let state = run([
+      { type: 'SELECT_FILE', side: 'front', file: FRONT, alpha: 'usable' },
+      { type: 'UPLOAD_START' },
+      { type: 'UPLOAD_SUCCESS', record: RECORD },
+      { type: 'SET_BACK_ALIGNMENT', patch: { offsetX: 0.1 } },
+    ])
+    expect(state.status).toBe('ready')
+    state = run([{ type: 'UPLOAD_START' }], state)
+    expect(state.status).toBe('uploading')
+    expect(state.record).toBeNull()
+  })
+
+  it('resultLabelFor distinguishes manual alignment', () => {
+    const dual: Proxy3dRecord = {
+      ...RECORD,
+      method: 'extruded-alpha-contour-dual',
+      sides: 'dual',
+      back_alignment: { scale: 1, offset_x: 0, offset_y: 0, manual: false },
+    }
+    expect(resultLabelFor(dual)).toBe(
+      PROXY3D_RESULT_LABEL['extruded-alpha-contour-dual'],
+    )
+    expect(
+      resultLabelFor({
+        ...dual,
+        back_alignment: { scale: 1.5, offset_x: 0.2, offset_y: 0, manual: true },
+      }),
+    ).toBe(PROXY3D_RESULT_LABEL_DUAL_MANUAL)
+    expect(resultLabelFor(RECORD)).toBe(
+      PROXY3D_RESULT_LABEL['extruded-alpha-contour'],
+    )
+  })
+})
+
 describe('PROXY3D_COPY honesty', () => {
   it('never makes forbidden capability claims', () => {
     for (const [key, value] of Object.entries(PROXY3D_COPY)) {
@@ -290,6 +406,9 @@ describe('PROXY3D_COPY honesty', () => {
         PROXY3D_FORBIDDEN_CLAIM_TERMS,
       )
     }
+    expect(PROXY3D_RESULT_LABEL_DUAL_MANUAL).not.toMatch(
+      PROXY3D_FORBIDDEN_CLAIM_TERMS,
+    )
   })
 
   it('labels every mode as a proxy/fallback, never more', () => {
