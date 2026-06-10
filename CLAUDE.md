@@ -12,15 +12,20 @@ AvatarWardrobe contains two explicitly separated tracks:
 - **Track A — Fit Archive closet layer (BUILT).** Everything described in the
   rest of this file: the local-first 2.5D fashion archive (Vite + React, no
   backend). Phases 1–12.5 are complete per `PLAN.md`.
-- **Track B — Avatar Lab (B2–B3 done).** A user-authorized, additive track
+- **Track B — Avatar Lab (B2–B3.9 done).** A user-authorized, additive track
   toward an optional FastAPI job backend + 3D/GLB avatar try-on pipeline. As
   of 2026-06-10: **B2** — a backend spike in `backend/` (FastAPI, local-only,
   pytest-covered) that turns a PNG into an honest **proxy 3D** GLB (a
   textured, lightly extruded silhouette card, explicitly NOT real try-on);
-  **B3** — an additive frontend "Proxy 3D Lab" view (`'lab'` in `views.ts`,
-  `src/components/avatar/`). `three` is a dependency but is loaded ONLY via
-  dynamic import inside the lab's GLB viewer — Track A's bundle and startup
-  are unaffected; keep it that way. See `docs/AVATAR_TRACK.md`.
+  **B3–B3.8** — an additive frontend "Proxy 3D Lab" view (`'lab'` in
+  `views.ts`, `src/components/avatar/`) with per-side cutout-first flows,
+  dual-sided front/back generation, cutout tuning, and manual back
+  alignment; **B3.9** — the closet bridge: `GarmentItem.proxy3dPreview?`
+  (optional, parser-tolerant, metadata-only — NO blob-store bytes, so it is
+  intentionally NOT in `garmentBlobKeys`) links a piece to its generated
+  preview. `three` is a dependency but is loaded ONLY via dynamic import
+  inside the lab's GLB viewer — Track A's bundle and startup are unaffected;
+  keep it that way. See `docs/AVATAR_TRACK.md`.
 
 Track B may add a backend and 3D dependencies **inside its own explicitly
 started phases only** (see `docs/AVATAR_TRACK.md`); until then, every "What

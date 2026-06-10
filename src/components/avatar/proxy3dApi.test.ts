@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import { Proxy3dApiError, createProxy3d, PROXY3D_ENDPOINT } from './proxy3dApi'
+import {
+  Proxy3dApiError,
+  createProxy3d,
+  getProxy3d,
+  PROXY3D_ENDPOINT,
+} from './proxy3dApi'
 import type { Proxy3dRecord } from './proxy3dFlow'
 
 const RECORD: Proxy3dRecord = {
@@ -161,5 +166,35 @@ describe('createProxy3d', () => {
     expect(error).toBeInstanceOf(Proxy3dApiError)
     expect((error as Proxy3dApiError).status).toBeNull()
     expect((error as Proxy3dApiError).message).toMatch(/could not reach/i)
+  })
+})
+
+describe('getProxy3d (B3.9)', () => {
+  it('fetches the persisted record by job id', async () => {
+    const fetchFn = vi.fn(async (input: string) => {
+      expect(input).toBe(`${PROXY3D_ENDPOINT}/${RECORD.job_id}`)
+      return jsonResponse(200, RECORD)
+    })
+    const record = await getProxy3d(RECORD.job_id, fetchFn)
+    expect(record).toEqual(RECORD)
+  })
+
+  it('reports a missing job honestly (404)', async () => {
+    const fetchFn = vi.fn(
+      async () => new Response('{"detail":"Unknown"}', { status: 404 }),
+    )
+    const error = await getProxy3d('gone', fetchFn).catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(Proxy3dApiError)
+    expect((error as Proxy3dApiError).status).toBe(404)
+    expect((error as Proxy3dApiError).message).toMatch(/no longer exists/i)
+  })
+
+  it('reports an unreachable backend with a null status', async () => {
+    const fetchFn = vi.fn(async () => {
+      throw new TypeError('fetch failed')
+    })
+    const error = await getProxy3d('x', fetchFn).catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(Proxy3dApiError)
+    expect((error as Proxy3dApiError).status).toBeNull()
   })
 })

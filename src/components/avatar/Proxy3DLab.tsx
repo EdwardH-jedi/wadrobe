@@ -1,15 +1,34 @@
-// Proxy 3D Lab view (Track B3 → B3.8): upload a front PNG (required) and an
-// optional back PNG, run the per-side cutout-first flow (B3.6) with tunable
-// Track A cutout settings (B3.8), adjust the back alignment manually, and
-// generate a single- or dual-sided proxy 3D preview. The flat image card
-// stays an explicit front-side fallback, never a silent default. Entirely
-// additive — no Track A state is touched.
-import { useEffect, useReducer, useRef, type ChangeEvent } from 'react'
+// Proxy 3D Lab view (Track B3 → B3.9): upload a front PNG (required) and an
+// optional back PNG, run the per-side cutout-first flow with tunable Track A
+// cutout settings, adjust the back alignment manually, and generate a
+// single- or dual-sided proxy 3D preview. Since B3.9 the lab can also be
+// LINKED to a closet piece: the piece's archive image preloads as the front,
+// a successful generation can be saved to the piece (job id + honest
+// metadata only — the GLB stays in the local backend), and a saved preview
+// can be reopened, regenerated, or unlinked. Standalone use is unchanged.
+import {
+  useEffect,
+  useReducer,
+  useRef,
+  useState,
+  type ChangeEvent,
+} from 'react'
+import type {
+  GarmentItem,
+  GarmentProxy3dPreview,
+} from '../../domain/garmentTypes'
+import { getGarmentDisplayImage } from '../../domain/garmentAsset'
+import { formatDate } from '../../lib/format'
 import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
 import { Panel } from '../ui/Panel'
 import { GlbViewer } from './GlbViewer'
-import { Proxy3dApiError, createProxy3d } from './proxy3dApi'
+import { Proxy3dApiError, createProxy3d, getProxy3d } from './proxy3dApi'
+import {
+  PROXY3D_MODE_LABEL,
+  garmentImageToPngFile,
+  previewFromRecord,
+} from './proxy3dBridge'
 import { detectUsableAlpha, runProxyCutout } from './proxy3dCutout'
 import {
   BACK_ALIGNMENT_LIMITS,
@@ -37,7 +56,129 @@ interface SideRefs {
   back: File | null
 }
 
-export function Proxy3DLab() {
+export interface Proxy3DLabProps {
+  /** Track A bridge (B3.9): the closet piece this lab session is linked to. */
+  linkedGarment?: GarmentItem | null
+  /** Attach (preview) or remove (null) the piece's saved preview link. */
+  onSetPreview?: (preview: GarmentProxy3dPreview | null) => void
+  /** Detach the lab from the piece (keeps the lab's current state). */
+  onUnlink?: () => void
+}
+
+/** Reopen panel for a piece's saved preview (B3.9). Checks the local backend
+ *  first and stays honest when the result is gone or the backend is off. */
+function SavedPreviewPanel({
+  garmentName,
+  preview,
+  onRegenerate,
+  onRemove,
+}: {
+  garmentName: string
+  preview: GarmentProxy3dPreview
+  onRegenerate: () => void
+  onRemove?: (() => void) | undefined
+}) {
+  const [availability, setAvailability] = useState<
+    'checking' | 'available' | 'missing'
+  >('checking')
+
+  useEffect(() => {
+    let active = true
+    setAvailability('checking')
+    getProxy3d(preview.jobId)
+      .then(() => {
+        if (active) setAvailability('available')
+      })
+      .catch(() => {
+        if (active) setAvailability('missing')
+      })
+    return () => {
+      active = false
+    }
+  }, [preview.jobId])
+
+  const resultUrl = `/api/proxy-3d/${preview.jobId}/result.glb`
+
+  return (
+    <Panel
+      title={PROXY3D_COPY.savedPreviewTitle}
+      actions={
+        availability === 'available' ? (
+          <a
+            className="btn btn--primary"
+            href={resultUrl}
+            download="result.glb"
+          >
+            <Icon name="upload" size={16} style={{ rotate: '180deg' }} />
+            {PROXY3D_COPY.downloadButton}
+          </a>
+        ) : undefined
+      }
+    >
+      <div className="proxy3dlab__verdict">
+        {PROXY3D_MODE_LABEL[preview.mode]}
+      </div>
+
+      <dl className="proxy3dlab__meta">
+        <dt>{PROXY3D_COPY.linkedEyebrow}</dt>
+        <dd>{garmentName}</dd>
+        <dt>{PROXY3D_COPY.savedModeLabel}</dt>
+        <dd>{PROXY3D_MODE_LABEL[preview.mode]}</dd>
+        <dt>{PROXY3D_COPY.savedGeneratedLabel}</dt>
+        <dd>{formatDate(preview.generatedAt)}</dd>
+        {preview.vertexCount !== undefined && (
+          <>
+            <dt>{PROXY3D_COPY.metaVertices}</dt>
+            <dd>{preview.vertexCount.toLocaleString()}</dd>
+          </>
+        )}
+        {preview.faceCount !== undefined && (
+          <>
+            <dt>{PROXY3D_COPY.metaFaces}</dt>
+            <dd>{preview.faceCount.toLocaleString()}</dd>
+          </>
+        )}
+      </dl>
+
+      <div className="proxy3dlab__limits">
+        <span className="eyebrow">{PROXY3D_COPY.limitationsLabel}</span>
+        <p>{preview.limitations}</p>
+      </div>
+
+      {availability === 'checking' && (
+        <p className="muted">{PROXY3D_COPY.savedChecking}</p>
+      )}
+      {availability === 'missing' && (
+        <div className="proxy3dlab__warn" role="alert">
+          <Icon name="info" size={16} />
+          <div>{PROXY3D_COPY.savedMissing}</div>
+        </div>
+      )}
+      {availability === 'available' && <GlbViewer src={resultUrl} />}
+
+      <div className="row proxy3dlab__actions">
+        <Button variant="primary" onClick={onRegenerate}>
+          <Icon name="refresh" size={16} />
+          {PROXY3D_COPY.savedRegenerateButton}
+        </Button>
+        {onRemove && (
+          <Button variant="quiet" onClick={onRemove}>
+            {PROXY3D_COPY.savedRemoveButton}
+          </Button>
+        )}
+      </div>
+      <p className="muted proxy3dlab__choicenote">
+        {PROXY3D_COPY.savedRemoveNote}
+      </p>
+    </Panel>
+  )
+}
+
+export function Proxy3DLab({
+  linkedGarment,
+  onSetPreview,
+  onUnlink,
+}: Proxy3DLabProps = {}) {
   const [state, dispatch] = useReducer(
     proxy3dFlowReducer,
     INITIAL_PROXY3D_STATE,
@@ -56,6 +197,17 @@ export function Proxy3DLab() {
   }
   // Guards async alpha-detection results against a newer selection per side.
   const selectSeqRef = useRef({ front: 0, back: 0 })
+
+  const linked = linkedGarment ?? null
+  // 'saved' shows the reopen panel for an existing preview; 'generate' runs
+  // the normal lab flow (preloading the piece image as the front).
+  const [linkedView, setLinkedView] = useState<'saved' | 'generate'>(
+    linked?.proxy3dPreview ? 'saved' : 'generate',
+  )
+  const [prepare, setPrepare] = useState<'idle' | 'working' | 'failed'>('idle')
+  const [attached, setAttached] = useState(false)
+  // The garment id the front image was last preloaded for.
+  const preparedForRef = useRef<string | null>(null)
 
   const revokePreview = (side: Proxy3dSide) => {
     const url = previewUrlsRef.current[side]
@@ -117,6 +269,52 @@ export function Proxy3DLab() {
     })
   }
 
+  // Reset bridge-local state when the linked piece changes (or unlinks), and
+  // fall back to the generate flow when a saved preview link disappears.
+  // Declared BEFORE the preload effect so on mount/piece-change the reset
+  // runs first and cannot clobber the preload's 'working' status.
+  useEffect(() => {
+    setAttached(false)
+    setPrepare('idle')
+    setLinkedView(linked?.proxy3dPreview ? 'saved' : 'generate')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linked?.id])
+  useEffect(() => {
+    if (linkedView === 'saved' && !linked?.proxy3dPreview) {
+      setLinkedView('generate')
+    }
+  }, [linkedView, linked?.proxy3dPreview])
+
+  // B3.9: preload the linked piece's display image as the front (once per
+  // piece). Conversion to PNG keeps any cutout transparency; when it fails
+  // (no canvas / undecodable) the lab stays usable via manual selection.
+  // No cancellation cleanup on purpose: React StrictMode double-invokes
+  // effects, and cancelling the first run while the ref guard blocks the
+  // second would prepare nothing. A stale completion is already deduped by
+  // handleFile's per-side selection sequence guard.
+  useEffect(() => {
+    if (!linked || linkedView !== 'generate') return
+    if (preparedForRef.current === linked.id) return
+    preparedForRef.current = linked.id
+    if (filesRef.current.front) return // user already picked a front
+    setPrepare('working')
+    void (async () => {
+      const file = await garmentImageToPngFile(
+        getGarmentDisplayImage(linked),
+        `${linked.name}.png`,
+      )
+      if (!file) {
+        setPrepare('failed')
+        return
+      }
+      await handleFile('front', file)
+      setPrepare('idle')
+    })()
+    // handleFile is recreated per render; the preparedForRef guard makes this
+    // effect once-per-piece, so the narrow dependency list is intentional.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linked?.id, linkedView])
+
   const handleCutout = async (side: Proxy3dSide) => {
     const file = filesRef.current[side]
     if (!file || busy) return
@@ -156,6 +354,7 @@ export function Proxy3DLab() {
     back?: Blob
     backName?: string
   }) => {
+    setAttached(false)
     dispatch({ type: 'UPLOAD_START' })
     try {
       const record = await createProxy3d(payload.front, payload.frontName, {
@@ -213,12 +412,26 @@ export function Proxy3DLab() {
     void submit({ front: frontFile, frontName: frontFile.name })
   }
 
+  const handleAttach = () => {
+    if (!state.record || !onSetPreview) return
+    onSetPreview(previewFromRecord(state.record, Date.now()))
+    setAttached(true)
+  }
+
+  const handleRegenerateSaved = () => {
+    preparedForRef.current = null // re-prepare the front from the piece image
+    setLinkedView('generate')
+  }
+
   const handleReset = () => {
     if (busy) return
     clearSideRefs('front')
     clearSideRefs('back')
     selectSeqRef.current.front++
     selectSeqRef.current.back++
+    preparedForRef.current = null
+    setAttached(false)
+    setPrepare('idle')
     dispatch({ type: 'RESET' })
   }
 
@@ -342,6 +555,17 @@ export function Proxy3DLab() {
           )}
         </div>
 
+        {!isBack && prepare === 'working' && (
+          <div className="muted proxy3dlab__asisnote">
+            {PROXY3D_COPY.linkedPreparing}
+          </div>
+        )}
+        {!isBack && prepare === 'failed' && (
+          <div className="muted proxy3dlab__asisnote">
+            {PROXY3D_COPY.linkedPrepareFailed}
+          </div>
+        )}
+
         {file && (
           <div className="proxy3dlab__file">
             {file.previewUrl && (
@@ -458,6 +682,20 @@ export function Proxy3DLab() {
     )
   }
 
+  // B3.9: reopen mode for a piece's saved preview.
+  if (linked?.proxy3dPreview && linkedView === 'saved') {
+    return (
+      <div className="stack-lg proxy3dlab">
+        <SavedPreviewPanel
+          garmentName={linked.name}
+          preview={linked.proxy3dPreview}
+          onRegenerate={handleRegenerateSaved}
+          onRemove={onSetPreview ? () => onSetPreview(null) : undefined}
+        />
+      </div>
+    )
+  }
+
   const frontPreviewUrl =
     state.front.cutout?.previewUrl ?? state.front.file?.previewUrl ?? null
   const backPreviewUrl =
@@ -467,6 +705,22 @@ export function Proxy3DLab() {
   return (
     <div className="stack-lg proxy3dlab">
       <Panel title={PROXY3D_COPY.panelTitle}>
+        {linked && (
+          <div className="proxy3dlab__linked">
+            <div>
+              <span className="eyebrow">{PROXY3D_COPY.linkedEyebrow}</span>
+              <div className="proxy3dlab__filename">{linked.name}</div>
+              <div className="muted proxy3dlab__choicenote">
+                {PROXY3D_COPY.linkedGenerateHint}
+              </div>
+            </div>
+            {onUnlink && (
+              <Button variant="quiet" size="sm" onClick={onUnlink}>
+                {PROXY3D_COPY.unlinkButton}
+              </Button>
+            )}
+          </div>
+        )}
         <p className="muted proxy3dlab__intro">{PROXY3D_COPY.intro}</p>
         <p className="muted proxy3dlab__hint">{PROXY3D_COPY.dropHint}</p>
 
@@ -625,7 +879,30 @@ export function Proxy3DLab() {
         >
           <div className="proxy3dlab__verdict">{resultLabelFor(record)}</div>
 
+          {linked && onSetPreview && (
+            <div className="row proxy3dlab__attach">
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={attached}
+                onClick={handleAttach}
+              >
+                <Icon name="check" size={15} />
+                {PROXY3D_COPY.attachButton}
+              </Button>
+              {attached && (
+                <span className="muted">{PROXY3D_COPY.attachedNote}</span>
+              )}
+            </div>
+          )}
+
           <dl className="proxy3dlab__meta">
+            {linked && (
+              <>
+                <dt>{PROXY3D_COPY.linkedEyebrow}</dt>
+                <dd>{linked.name}</dd>
+              </>
+            )}
             <dt>{PROXY3D_COPY.metaJobId}</dt>
             <dd>
               <code>{record.job_id}</code>

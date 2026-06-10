@@ -76,6 +76,31 @@ export interface GarmentAsset {
 }
 
 /**
+ * Track B bridge (B3.9): the link from a garment to a generated proxy 3D
+ * preview. Only the job id + honest metadata are persisted — the GLB itself
+ * lives in the LOCAL backend's job storage (`backend/data/proxy_3d/`), so
+ * reopening it requires that backend to be running and the result to still
+ * exist. This is an experimental proxy 3D preview, NOT real try-on, garment
+ * reconstruction, or fit estimation. Optional and parser-tolerant: legacy
+ * records simply lack it.
+ */
+export interface GarmentProxy3dPreview {
+  /** Job id in the local proxy-3d backend (`/api/proxy-3d/{jobId}`). */
+  jobId: string
+  /** Epoch milliseconds (consistent with createdAt/updatedAt). */
+  generatedAt: number
+  mode: 'flat-card' | 'single-sided' | 'dual-sided'
+  /** Backend method string, e.g. "extruded-alpha-contour-dual". */
+  method: string
+  frontAlphaMaskUsed?: boolean
+  backAlphaMaskUsed?: boolean
+  vertexCount?: number
+  faceCount?: number
+  /** The backend's honest limitations text, shown verbatim when reopened. */
+  limitations: string
+}
+
+/**
  * A single archived garment ("Archive Piece").
  *
  * `imageDataUrl` always holds a *downscaled* thumbnail (see
@@ -108,6 +133,13 @@ export interface GarmentItem {
    * so pre-Phase-8 garments (which only have `imageDataUrl`) still render.
    */
   asset?: GarmentAsset
+  /**
+   * Link to a generated proxy 3D preview (Track B bridge, B3.9). Optional —
+   * legacy garments and garments without a generated preview lack it. Holds
+   * metadata only, never binary data; intentionally NOT part of
+   * `garmentBlobKeys` (no blob-store bytes are owned by this field).
+   */
+  proxy3dPreview?: GarmentProxy3dPreview
   /** Epoch milliseconds. */
   createdAt: number
   /** Epoch milliseconds. */

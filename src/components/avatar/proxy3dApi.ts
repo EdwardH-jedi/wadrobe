@@ -103,3 +103,33 @@ export async function createProxy3d(
 
   return (await response.json()) as Proxy3dRecord
 }
+
+/**
+ * Fetch the persisted record for an existing job (used to reopen a saved
+ * preview). Throws Proxy3dApiError: status 404 when the job is gone, null
+ * when the backend is unreachable.
+ */
+export async function getProxy3d(
+  jobId: string,
+  fetchFn?: FetchLike,
+): Promise<Proxy3dRecord> {
+  const doFetch: FetchLike = fetchFn ?? ((input, init) => fetch(input, init))
+  let response: Response
+  try {
+    response = await doFetch(`${PROXY3D_ENDPOINT}/${jobId}`)
+  } catch {
+    throw new Proxy3dApiError(
+      'Could not reach the local proxy-3D backend.',
+      null,
+    )
+  }
+  if (!response.ok) {
+    throw new Proxy3dApiError(
+      response.status === 404
+        ? 'This preview no longer exists in the local backend storage.'
+        : `The backend could not return the preview (HTTP ${response.status}).`,
+      response.status,
+    )
+  }
+  return (await response.json()) as Proxy3dRecord
+}

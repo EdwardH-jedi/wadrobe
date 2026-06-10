@@ -4,7 +4,10 @@
 // persists whole arrays (garments, saved outfits) plus the current outfit.
 // Garment images are already downscaled thumbnails, so whole-array writes stay
 // well within quota for realistic archive sizes.
-import type { GarmentItem } from '../../domain/garmentTypes'
+import type {
+  GarmentItem,
+  GarmentProxy3dPreview,
+} from '../../domain/garmentTypes'
 import {
   OUTFIT_SLOT_ORDER,
   createEmptyOutfit,
@@ -93,8 +96,38 @@ function isSavedOutfit(value: unknown): value is SavedOutfit {
   )
 }
 
+const PROXY3D_MODES = new Set(['flat-card', 'single-sided', 'dual-sided'])
+
+/** Tolerant validator for the optional Track B preview link (B3.9): a
+ *  malformed value is dropped (the garment itself is kept). */
+function isProxy3dPreview(value: unknown): value is GarmentProxy3dPreview {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.jobId === 'string' &&
+    value.jobId.length > 0 &&
+    typeof value.generatedAt === 'number' &&
+    Number.isFinite(value.generatedAt) &&
+    typeof value.mode === 'string' &&
+    PROXY3D_MODES.has(value.mode) &&
+    typeof value.method === 'string' &&
+    typeof value.limitations === 'string'
+  )
+}
+
+function sanitizeGarment(garment: GarmentItem): GarmentItem {
+  if (
+    garment.proxy3dPreview !== undefined &&
+    !isProxy3dPreview(garment.proxy3dPreview)
+  ) {
+    const cleaned = { ...garment }
+    delete cleaned.proxy3dPreview
+    return cleaned
+  }
+  return garment
+}
+
 export function parseGarments(raw: unknown): GarmentItem[] {
-  return Array.isArray(raw) ? raw.filter(isGarmentItem) : []
+  return Array.isArray(raw) ? raw.filter(isGarmentItem).map(sanitizeGarment) : []
 }
 
 export function parseSavedOutfits(raw: unknown): SavedOutfit[] {

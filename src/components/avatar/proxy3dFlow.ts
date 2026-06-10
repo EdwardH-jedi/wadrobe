@@ -502,6 +502,28 @@ export const PROXY3D_COPY = {
   planSingleNote:
     'Will generate: single-sided silhouette proxy (front image only).',
   regenerateButton: 'Regenerate proxy 3D preview',
+  // --- B3.9 closet ↔ proxy 3D bridge --------------------------------------
+  linkedEyebrow: 'Linked closet piece',
+  linkedGenerateHint:
+    'The piece archive image is preloaded as the front — add an optional ' +
+    'back photo, then generate. The result can be saved to this piece.',
+  linkedPreparing: 'Preparing the piece image…',
+  linkedPrepareFailed:
+    'Could not prepare the piece image here — choose a PNG manually instead.',
+  unlinkButton: 'Detach from piece',
+  attachButton: 'Save preview to this piece',
+  attachedNote: 'Saved to this piece — reopen it any time from the closet.',
+  savedPreviewTitle: 'Saved proxy 3D preview',
+  savedChecking: 'Checking the saved preview…',
+  savedMissing:
+    'This saved preview is not available right now — the local backend may ' +
+    'be off, or its stored result was removed. Regenerate to create a fresh ' +
+    'one.',
+  savedGeneratedLabel: 'Generated',
+  savedModeLabel: 'Mode',
+  savedRegenerateButton: 'Regenerate preview',
+  savedRemoveButton: 'Remove preview link',
+  savedRemoveNote: 'Removing only unlinks it from this piece.',
 } as const
 
 /** Backend method -> honest, human-readable description. */

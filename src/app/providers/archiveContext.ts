@@ -5,6 +5,7 @@ import type {
   ClothingCategory,
   GarmentDraft,
   GarmentItem,
+  GarmentProxy3dPreview,
 } from '../../domain/garmentTypes'
 import type { ArchiveEvent } from '../../domain/archiveTypes'
 import type {
@@ -32,6 +33,12 @@ export interface ArchiveContextValue {
   // --- Actions ---
   addGarment: (draft: GarmentDraft) => GarmentItem
   updateGarment: (id: string, draft: GarmentDraft) => void
+  /** Attach (or, with null, remove) a proxy 3D preview link (Track B bridge,
+   *  B3.9). Metadata only — the GLB stays in the local backend's storage. */
+  setGarmentProxy3dPreview: (
+    id: string,
+    preview: GarmentProxy3dPreview | null,
+  ) => void
   removeGarment: (id: string) => void
   /** Select a garment into its category slot (replaces any current pick). */
   selectGarment: (garmentId: string) => void

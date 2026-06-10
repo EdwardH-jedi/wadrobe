@@ -17,6 +17,7 @@ import type {
   ClothingCategory,
   GarmentDraft,
   GarmentItem,
+  GarmentProxy3dPreview,
 } from '../../domain/garmentTypes'
 import type { ArchiveEvent, ArchiveEventType } from '../../domain/archiveTypes'
 import {
@@ -207,6 +208,30 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
           event: makeEvent('garment_updated', `Updated: ${garment.name}`, {
             garmentId: garment.id,
           }),
+        })
+      },
+
+      setGarmentProxy3dPreview: (
+        id: string,
+        preview: GarmentProxy3dPreview | null,
+      ): void => {
+        const existing = state.garments.find((g) => g.id === id)
+        if (!existing) return
+        const garment: GarmentItem = {
+          ...existing,
+          proxy3dPreview: preview ?? undefined,
+          updatedAt: Date.now(),
+        }
+        dispatch({
+          type: 'UPDATE_GARMENT',
+          garment,
+          event: makeEvent(
+            'garment_updated',
+            preview
+              ? `Saved proxy 3D preview: ${garment.name}`
+              : `Removed proxy 3D preview: ${garment.name}`,
+            { garmentId: garment.id },
+          ),
         })
       },
 

@@ -13,9 +13,11 @@ import { CategoryTabs, type CategoryFilter } from './CategoryTabs'
 export interface ClosetPanelProps {
   onUpload: () => void
   onEdit: (garment: GarmentItem) => void
+  /** Track B bridge (B3.9): open the Proxy 3D Lab for a piece. */
+  onProxy3d?: (garment: GarmentItem) => void
 }
 
-export function ClosetPanel({ onUpload, onEdit }: ClosetPanelProps) {
+export function ClosetPanel({ onUpload, onEdit, onProxy3d }: ClosetPanelProps) {
   const { garments, currentOutfit, selectGarment, removeGarment, loadSampleArchive } =
     useArchive()
   const [category, setCategory] = useState<CategoryFilter>('all')
@@ -135,6 +137,7 @@ export function ClosetPanel({ onUpload, onEdit }: ClosetPanelProps) {
               onSelect={selectGarment}
               onEdit={onEdit}
               onRemove={handleRemove}
+              onProxy3d={onProxy3d}
             />
           ))}
         </div>

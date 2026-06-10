@@ -27,12 +27,24 @@ export function ArchiveStudio() {
     storageBackend,
     hydrated,
     loadSampleArchive,
+    setGarmentProxy3dPreview,
   } = useArchive()
 
   const [view, setView] = useState<StudioView>('studio')
   const [uploadOpen, setUploadOpen] = useState(false)
   const [editGarment, setEditGarment] = useState<GarmentItem | null>(null)
   const [enteredId, setEnteredId] = useState<string | null>(null)
+  // Track B bridge (B3.9): the closet piece the Proxy 3D Lab is linked to.
+  // Stored as an id and resolved live so the lab always sees current data.
+  const [labGarmentId, setLabGarmentId] = useState<string | null>(null)
+  const labGarment = labGarmentId
+    ? (garments.find((g) => g.id === labGarmentId) ?? null)
+    : null
+
+  const openProxy3d = (garment: GarmentItem) => {
+    setLabGarmentId(garment.id)
+    setView('lab')
+  }
 
   const meta = VIEW_META[view]
   const openUpload = () => {
@@ -63,7 +75,13 @@ export function ArchiveStudio() {
           </>
         )
       case 'closet':
-        return <ClosetPanel onUpload={openUpload} onEdit={setEditGarment} />
+        return (
+          <ClosetPanel
+            onUpload={openUpload}
+            onEdit={setEditGarment}
+            onProxy3d={openProxy3d}
+          />
+        )
       case 'mirror':
         return (
           <div className="stack-lg">
@@ -79,7 +97,18 @@ export function ArchiveStudio() {
       case 'outfits':
         return <OutfitWallBoard onOpenMirror={() => setView('mirror')} />
       case 'lab':
-        return <Proxy3DLab />
+        return (
+          <Proxy3DLab
+            linkedGarment={labGarment}
+            onSetPreview={
+              labGarment
+                ? (preview) =>
+                    setGarmentProxy3dPreview(labGarment.id, preview)
+                : undefined
+            }
+            onUnlink={() => setLabGarmentId(null)}
+          />
+        )
       default:
         return null
     }

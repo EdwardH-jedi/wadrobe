@@ -14,6 +14,8 @@ export interface GarmentCardProps {
   onSelect?: (id: string) => void
   onEdit?: (garment: GarmentItem) => void
   onRemove?: (id: string) => void
+  /** Track B bridge (B3.9): open the Proxy 3D Lab for this piece. */
+  onProxy3d?: (garment: GarmentItem) => void
 }
 
 export function GarmentCard({
@@ -23,8 +25,10 @@ export function GarmentCard({
   onSelect,
   onEdit,
   onRemove,
+  onProxy3d,
 }: GarmentCardProps) {
   const meta = CATEGORY_META[garment.category]
+  const hasPreview = Boolean(garment.proxy3dPreview)
 
   return (
     <article
@@ -40,6 +44,16 @@ export function GarmentCard({
         <span className="garment-card__cat">
           <Badge variant="outline">{meta.label}</Badge>
         </span>
+        {hasPreview && (
+          <span
+            className="garment-card__3d"
+            title="Proxy 3D preview saved"
+            aria-label="Proxy 3D preview saved"
+          >
+            <Icon name="cube" size={12} />
+            3D
+          </span>
+        )}
         {selected && (
           <span className="garment-card__check" aria-hidden="true">
             <Icon name="check" size={15} />
@@ -87,6 +101,19 @@ export function GarmentCard({
               onClick={() => onSelect(garment.id)}
             >
               {selected ? 'Styled' : 'Style'}
+            </Button>
+          )}
+          {onProxy3d && (
+            <Button
+              size="sm"
+              variant="quiet"
+              onClick={() => onProxy3d(garment)}
+              aria-label={
+                hasPreview ? 'View 3D preview' : 'Create 3D preview'
+              }
+              title={hasPreview ? 'View 3D preview' : 'Create 3D preview'}
+            >
+              <Icon name="cube" size={15} />
             </Button>
           )}
           {onEdit && (

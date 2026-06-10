@@ -3,8 +3,11 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Proxy3DLab } from './Proxy3DLab'
 import { PROXY3D_COPY, type Proxy3dRecord } from './proxy3dFlow'
-import { Proxy3dApiError, createProxy3d } from './proxy3dApi'
+import { Proxy3dApiError, createProxy3d, getProxy3d } from './proxy3dApi'
 import { detectUsableAlpha, runProxyCutout } from './proxy3dCutout'
+import { garmentImageToPngFile } from './proxy3dBridge'
+import { makeGarment } from '../../test/factories'
+import type { GarmentProxy3dPreview } from '../../domain/garmentTypes'
 
 // The viewer would dynamic-import three.js — keep WebGL out of jsdom.
 vi.mock('./GlbViewer', () => ({
@@ -14,17 +17,24 @@ vi.mock('./GlbViewer', () => ({
 }))
 vi.mock('./proxy3dApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./proxy3dApi')>()
-  return { ...actual, createProxy3d: vi.fn() }
+  return { ...actual, createProxy3d: vi.fn(), getProxy3d: vi.fn() }
 })
 // Alpha probing and the local flood fill need real canvas/decoding — mocked.
 vi.mock('./proxy3dCutout', () => ({
   detectUsableAlpha: vi.fn(),
   runProxyCutout: vi.fn(),
 }))
+// PNG conversion needs a real canvas — mocked; the pure helpers stay real.
+vi.mock('./proxy3dBridge', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./proxy3dBridge')>()
+  return { ...actual, garmentImageToPngFile: vi.fn() }
+})
 
 const mockCreate = vi.mocked(createProxy3d)
+const mockGet = vi.mocked(getProxy3d)
 const mockDetect = vi.mocked(detectUsableAlpha)
 const mockCutout = vi.mocked(runProxyCutout)
+const mockToPng = vi.mocked(garmentImageToPngFile)
 
 const SINGLE_RECORD: Proxy3dRecord = {
   job_id: 'c'.repeat(32),
@@ -83,9 +93,11 @@ const sideCard = (side: 'front' | 'back') =>
 describe('<Proxy3DLab />', () => {
   beforeEach(() => {
     mockCreate.mockReset()
+    mockGet.mockReset()
     mockDetect.mockReset()
     mockDetect.mockResolvedValue('usable')
     mockCutout.mockReset()
+    mockToPng.mockReset()
     // jsdom has no object URLs; the component treats them as optional.
     Object.assign(URL, {
       createObjectURL: vi.fn(() => 'blob:mock-preview'),
@@ -580,6 +592,175 @@ describe('<Proxy3DLab />', () => {
         'tee.png',
         expect.objectContaining({ backOffsetX: 0.3 }),
       )
+    })
+  })
+
+  describe('closet item bridge (B3.9)', () => {
+    const SAVED_PREVIEW: GarmentProxy3dPreview = {
+      jobId: 'f'.repeat(32),
+      generatedAt: 1_750_000_000_000,
+      mode: 'single-sided',
+      method: 'extruded-alpha-contour',
+      frontAlphaMaskUsed: true,
+      vertexCount: 2552,
+      faceCount: 5100,
+      limitations: 'Proxy 3D preview only.',
+    }
+
+    it('preloads the linked piece image as the front and shows the context', async () => {
+      const garment = makeGarment({ name: 'Wool Coat' })
+      mockToPng.mockResolvedValueOnce(
+        new File([new Uint8Array([0x89])], 'Wool Coat.png', {
+          type: 'image/png',
+        }),
+      )
+      render(<Proxy3DLab linkedGarment={garment} onSetPreview={vi.fn()} />)
+
+      expect(screen.getByText(PROXY3D_COPY.linkedEyebrow)).toBeInTheDocument()
+      expect(screen.getByText('Wool Coat')).toBeInTheDocument()
+      // The piece image lands as the preloaded front file.
+      expect(await screen.findByText('Wool Coat.png')).toBeInTheDocument()
+      expect(mockToPng).toHaveBeenCalledWith(
+        garment.imageDataUrl,
+        'Wool Coat.png',
+      )
+      expect(
+        screen.getByRole('button', { name: PROXY3D_COPY.submitButton }),
+      ).toBeEnabled()
+    })
+
+    it('stays usable with manual selection when preparation fails', async () => {
+      mockToPng.mockResolvedValueOnce(null)
+      render(
+        <Proxy3DLab
+          linkedGarment={makeGarment({ name: 'Silk Scarf' })}
+          onSetPreview={vi.fn()}
+        />,
+      )
+      expect(
+        await screen.findByText(PROXY3D_COPY.linkedPrepareFailed),
+      ).toBeInTheDocument()
+      // Manual selection still works.
+      selectFile('front', pngFile())
+      expect(await screen.findByText('tee.png')).toBeInTheDocument()
+    })
+
+    it('attaches generation metadata to the piece on explicit save', async () => {
+      const user = userEvent.setup()
+      const onSetPreview = vi.fn()
+      const garment = makeGarment({ name: 'Wool Coat' })
+      mockToPng.mockResolvedValueOnce(
+        new File([new Uint8Array([0x89])], 'Wool Coat.png', {
+          type: 'image/png',
+        }),
+      )
+      mockCreate.mockResolvedValueOnce(SINGLE_RECORD)
+      render(
+        <Proxy3DLab linkedGarment={garment} onSetPreview={onSetPreview} />,
+      )
+      await screen.findByText('Wool Coat.png')
+
+      await user.click(
+        screen.getByRole('button', { name: PROXY3D_COPY.submitButton }),
+      )
+      await screen.findByText(PROXY3D_COPY.readyTitle)
+
+      await user.click(
+        screen.getByRole('button', { name: PROXY3D_COPY.attachButton }),
+      )
+      expect(onSetPreview).toHaveBeenCalledWith(
+        expect.objectContaining({
+          jobId: SINGLE_RECORD.job_id,
+          mode: 'single-sided',
+          method: 'extruded-alpha-contour',
+          limitations: SINGLE_RECORD.limitations,
+        }),
+      )
+      expect(
+        screen.getByText(PROXY3D_COPY.attachedNote),
+      ).toBeInTheDocument()
+    })
+
+    it('reopens a saved preview when the backend still has it', async () => {
+      const garment = makeGarment({
+        name: 'Wool Coat',
+        proxy3dPreview: SAVED_PREVIEW,
+      })
+      mockGet.mockResolvedValueOnce(SINGLE_RECORD)
+      render(<Proxy3DLab linkedGarment={garment} onSetPreview={vi.fn()} />)
+
+      expect(
+        screen.getByText(PROXY3D_COPY.savedPreviewTitle),
+      ).toBeInTheDocument()
+      expect(
+        screen.getAllByText('Single-sided silhouette proxy').length,
+      ).toBeGreaterThan(0)
+      expect(screen.getByText('Wool Coat')).toBeInTheDocument()
+      expect(screen.getByText(SAVED_PREVIEW.limitations)).toBeInTheDocument()
+      // The viewer loads the backend GLB for the saved job.
+      const viewer = await screen.findByTestId('glb-viewer')
+      expect(viewer).toHaveAttribute(
+        'data-src',
+        `/api/proxy-3d/${SAVED_PREVIEW.jobId}/result.glb`,
+      )
+      // Download points at the same result.
+      expect(
+        screen.getByRole('link', {
+          name: new RegExp(PROXY3D_COPY.downloadButton),
+        }),
+      ).toHaveAttribute('href', `/api/proxy-3d/${SAVED_PREVIEW.jobId}/result.glb`)
+    })
+
+    it('is honest when the saved preview is gone and offers regenerate/remove', async () => {
+      const user = userEvent.setup()
+      const onSetPreview = vi.fn()
+      const garment = makeGarment({
+        name: 'Wool Coat',
+        proxy3dPreview: SAVED_PREVIEW,
+      })
+      mockGet.mockRejectedValueOnce(
+        new Proxy3dApiError('Could not reach the local proxy-3D backend.', null),
+      )
+      render(
+        <Proxy3DLab linkedGarment={garment} onSetPreview={onSetPreview} />,
+      )
+
+      expect(
+        await screen.findByText(PROXY3D_COPY.savedMissing),
+      ).toBeInTheDocument()
+      expect(screen.queryByTestId('glb-viewer')).not.toBeInTheDocument()
+
+      // Remove only unlinks.
+      await user.click(
+        screen.getByRole('button', { name: PROXY3D_COPY.savedRemoveButton }),
+      )
+      expect(onSetPreview).toHaveBeenCalledWith(null)
+    })
+
+    it('regenerate switches to the generate flow with the piece preloaded', async () => {
+      const user = userEvent.setup()
+      const garment = makeGarment({
+        name: 'Wool Coat',
+        proxy3dPreview: SAVED_PREVIEW,
+      })
+      mockGet.mockResolvedValueOnce(SINGLE_RECORD)
+      mockToPng.mockResolvedValueOnce(
+        new File([new Uint8Array([0x89])], 'Wool Coat.png', {
+          type: 'image/png',
+        }),
+      )
+      render(<Proxy3DLab linkedGarment={garment} onSetPreview={vi.fn()} />)
+      await screen.findByText(PROXY3D_COPY.savedPreviewTitle)
+
+      await user.click(
+        screen.getByRole('button', {
+          name: PROXY3D_COPY.savedRegenerateButton,
+        }),
+      )
+      expect(
+        screen.getByText(PROXY3D_COPY.linkedGenerateHint),
+      ).toBeInTheDocument()
+      expect(await screen.findByText('Wool Coat.png')).toBeInTheDocument()
     })
   })
 

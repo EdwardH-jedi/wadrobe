@@ -2562,6 +2562,38 @@
   margin-top: 14px;
   font-size: 13px;
 }
+.proxy3dlab__linked {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+}
+.proxy3dlab__attach {
+  margin: 0 0 16px;
+  gap: 10px;
+  align-items: center;
+}
+.garment-card__3d {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--accent-bright);
+  background: rgba(13, 13, 15, 0.72);
+}
 .proxy3dlab__verdict {
   display: inline-block;
   margin: 0 0 14px;
