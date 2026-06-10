@@ -6,6 +6,24 @@ Fit Archive / The Archive is an interactive fashion archive where users upload r
 
 This is not a real 3D virtual try-on product yet. The current goal is a convincing MVP illusion: real clothing photos become archive pieces and can be styled through layered 2.5D mannequin previews.
 
+## Project Tracks (added 2026-06-10)
+
+AvatarWardrobe now has two explicitly separated tracks:
+
+1. **Track A — Fit Archive closet layer (this plan).** The existing local-first
+   2.5D fashion archive described by this file. All phase numbering, non-goals,
+   and rules in this file apply to this track. Phases 1–12.5 are complete; the
+   next incomplete phase is Phase 13.
+2. **Track B — Avatar Lab (additive, NOT built).** An optional, additive
+   backend + 3D/GLB avatar try-on pipeline, documented in
+   `docs/AVATAR_TRACK.md`. Nothing in this repository implements it yet — no
+   FastAPI, no Python, no three.js, no GLB assets, no `/api/jobs` routes.
+   Track B work must never rewrite, rename, or degrade Track A code; its
+   phases are tracked in `docs/AVATAR_TRACK.md`, not here.
+
+The "Non-Goals For Now" list below remains binding for Track A. Backend/3D
+items become in-scope only inside explicitly started Track B phases.
+
 ## Core UX Promise
 
 The user should feel:

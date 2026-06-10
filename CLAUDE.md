@@ -5,6 +5,24 @@ first. User instructions always take precedence over this file.
 
 ---
 
+## 0. Project tracks (read this before anything else)
+
+AvatarWardrobe contains two explicitly separated tracks:
+
+- **Track A — Fit Archive closet layer (BUILT).** Everything described in the
+  rest of this file: the local-first 2.5D fashion archive (Vite + React, no
+  backend). Phases 1–12.5 are complete per `PLAN.md`.
+- **Track B — Avatar Lab (PLANNED, NOT built).** A user-authorized, additive
+  track: an optional FastAPI job backend + 3D/GLB avatar try-on pipeline and a
+  three.js viewer. See `docs/AVATAR_TRACK.md` for scope, phases, and rules. As
+  of 2026-06-10 it is documentation only — there is no backend, no Python, no
+  three.js, and no GLB code in this repository.
+
+Track B may add a backend and 3D dependencies **inside its own explicitly
+started phases only** (see `docs/AVATAR_TRACK.md`); until then, every "What
+NOT to build" rule below stands. Track B must never rewrite, rename, or
+degrade Track A code.
+
 ## 1. Project vision
 
 **The Archive** is an interactive fashion archive web app. A user uploads
@@ -31,7 +49,9 @@ visual focus.
 
 - ❌ NOT cute, childish, beige, cozy, or a kids-room game.
 - ❌ NO chibi/cartoon avatar. The mannequin is a **tall, faceless** silhouette.
-- ❌ NO backend, auth, accounts, or server in this phase. Storage is local.
+- ❌ NO backend, auth, accounts, or server in Track A. Storage is local.
+  (Track B may add an optional job backend in its own phases — see §0 and
+  `docs/AVATAR_TRACK.md`; none exists yet.)
 - ❌ NO real AI/Vision API calls yet (see `mockGarmentAnalysis.ts`).
 - ❌ NO claim — in UI, copy, comments, or docs — that the app performs **real
   3D virtual try-on**. It does not. It is a 2.5D layered composition.
@@ -160,6 +180,9 @@ See `docs/ROADMAP.md` for detail. Phase numbers match `PLAN.md`.
   higher-quality cutouts (the `CutoutDeps` + `assetBlobStore` seams are ready),
   real Vision API / product recognition, Three.js / R3F room, virtual try-on
   research.
+- **Track B — Avatar Lab (NOT built):** optional FastAPI job backend + 3D/GLB
+  avatar-lab viewer, planned as a separate additive track. Scope and phases
+  live in `docs/AVATAR_TRACK.md`, not in this roadmap.
 
 Extension points are documented inline in `mockGarmentAnalysis.ts`,
 `indexedDbStorage.ts`, `MannequinPreview.tsx`, and `lib/image/garmentCutout.ts`,
@@ -184,16 +207,18 @@ src/
   styles/         globals.css, archive-theme.css
   test/           setup, factories
 docs/             ARCHITECTURE, ROADMAP, AI_IMAGE_PIPELINE, QA_CHECKLIST,
-                  CODEX_REVIEW
+                  CODEX_REVIEW, AVATAR_TRACK
 .claude/skills/   product-vision, ui-style-guide, testing-harness,
                   ai-image-pipeline
 ```
 
 ## 10. Phase discipline & review
 
-- **`PLAN.md` is the source of truth.** Read it first; implement only the **next
-  incomplete phase** unless the user says otherwise. After each phase: update
-  PLAN.md status, run typecheck/test/lint/build, and report real output.
+- **`PLAN.md` is the source of truth for Track A.** Read it first; implement
+  only the **next incomplete phase** unless the user says otherwise. After each
+  phase: update PLAN.md status, run typecheck/test/lint/build, and report real
+  output. Track B (avatar lab) phases live in `docs/AVATAR_TRACK.md` and only
+  proceed when the user explicitly asks for them.
 - Keep changes **small, incremental, and verified**. Don't rewrite the app.
 - **Codex** is used for external review between phases; keep honest handoff notes
   in `docs/CODEX_REVIEW.md`.
