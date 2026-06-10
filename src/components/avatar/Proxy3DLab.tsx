@@ -1,18 +1,21 @@
-// Proxy 3D Lab view (Track B3): upload a PNG, send it to the local backend
-// (/api/proxy-3d), show the honest generation report, download the GLB, and
-// preview it in a lazily-loaded three.js viewer. Entirely additive — no
-// Track A state is touched; the view talks only to the Track B backend.
+// Proxy 3D Lab view (Track B3 + B3.6 cutout-first): upload a PNG, and when
+// it has no usable transparency, help the user create a LOCAL cutout first
+// (Track A's edge flood fill, re-encoded as PNG) instead of silently
+// generating a flat image card. The flat card stays available only as an
+// explicit choice. Entirely additive — no Track A state is touched.
 import { useEffect, useReducer, useRef, type ChangeEvent } from 'react'
 import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
 import { Panel } from '../ui/Panel'
 import { GlbViewer } from './GlbViewer'
 import { Proxy3dApiError, createProxy3d } from './proxy3dApi'
+import { detectUsableAlpha, runProxyCutout } from './proxy3dCutout'
 import {
   INITIAL_PROXY3D_STATE,
   MAX_PROXY3D_UPLOAD_BYTES,
   PROXY3D_COPY,
   PROXY3D_METHOD_LABEL,
+  PROXY3D_RESULT_LABEL,
   formatBytes,
   proxy3dFlowReducer,
 } from './proxy3dFlow'
@@ -27,8 +30,11 @@ export function Proxy3DLab() {
     INITIAL_PROXY3D_STATE,
   )
   const fileRef = useRef<File | null>(null)
+  const cutoutBlobRef = useRef<Blob | null>(null)
   const previewUrlRef = useRef<string | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
+  // Guards async alpha-detection results against a newer selection.
+  const selectSeqRef = useRef(0)
 
   const revokePreview = () => {
     if (previewUrlRef.current) {
@@ -42,20 +48,27 @@ export function Proxy3DLab() {
   // Revoke the thumbnail object URL when the view unmounts.
   useEffect(() => revokePreview, [])
 
-  const handleFile = (file: File | null | undefined) => {
-    if (!file || state.status === 'uploading') return
+  const busy = state.status === 'uploading' || state.status === 'cutting'
+
+  const handleFile = async (file: File | null | undefined) => {
+    if (!file || busy) return
+    const seq = ++selectSeqRef.current
     if (!isPngFile(file)) {
       revokePreview()
       fileRef.current = null
+      cutoutBlobRef.current = null
       dispatch({ type: 'REJECT_FILE', reason: PROXY3D_COPY.rejectNotPng })
       return
     }
     if (file.size > MAX_PROXY3D_UPLOAD_BYTES) {
       revokePreview()
       fileRef.current = null
+      cutoutBlobRef.current = null
       dispatch({ type: 'REJECT_FILE', reason: PROXY3D_COPY.rejectTooLarge })
       return
     }
+    const alpha = await detectUsableAlpha(file)
+    if (seq !== selectSeqRef.current) return // a newer file was picked
     revokePreview()
     // jsdom has no createObjectURL — the thumbnail is optional there.
     const previewUrl =
@@ -64,24 +77,47 @@ export function Proxy3DLab() {
         : null
     previewUrlRef.current = previewUrl
     fileRef.current = file
+    cutoutBlobRef.current = null
     dispatch({
       type: 'SELECT_FILE',
       file: { name: file.name, sizeBytes: file.size, previewUrl },
+      alpha,
     })
   }
 
   const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
-    handleFile(event.target.files?.[0])
+    void handleFile(event.target.files?.[0])
     // Allow re-selecting the same file after a reset.
     event.target.value = ''
   }
 
+  const handleCutout = async () => {
+    const file = fileRef.current
+    if (!file || state.status !== 'no-alpha') return
+    dispatch({ type: 'CUTOUT_START' })
+    const outcome = await runProxyCutout(file)
+    if (outcome.status === 'success') {
+      cutoutBlobRef.current = outcome.blob
+      dispatch({
+        type: 'CUTOUT_SUCCESS',
+        cutout: { previewUrl: outcome.previewUrl, sizeBytes: outcome.blob.size },
+      })
+    } else {
+      cutoutBlobRef.current = null
+      dispatch({ type: 'CUTOUT_FAILURE', reason: outcome.reason })
+    }
+  }
+
   const handleSubmit = async () => {
     const file = fileRef.current
-    if (!file || state.status === 'uploading') return
+    if (!file || busy) return
+    // A finished local cutout is what gets sent; otherwise the original.
+    const cutout = state.cutout ? cutoutBlobRef.current : null
     dispatch({ type: 'UPLOAD_START' })
     try {
-      const record = await createProxy3d(file, file.name)
+      const record = cutout
+        ? await createProxy3d(cutout, 'cutout.png')
+        : await createProxy3d(file, file.name)
       dispatch({ type: 'UPLOAD_SUCCESS', record })
     } catch (error) {
       // Unreachable backend or a bare 5xx (e.g. the dev proxy reporting a
@@ -99,14 +135,18 @@ export function Proxy3DLab() {
   }
 
   const handleReset = () => {
-    if (state.status === 'uploading') return
+    if (busy) return
     revokePreview()
     fileRef.current = null
+    cutoutBlobRef.current = null
+    selectSeqRef.current++
     dispatch({ type: 'RESET' })
   }
 
   const canSubmit =
-    (state.status === 'selected' || state.status === 'failed') &&
+    (state.status === 'selected' ||
+      state.status === 'cutout-ready' ||
+      state.status === 'failed') &&
     fileRef.current !== null
 
   const { file, record } = state
@@ -126,7 +166,7 @@ export function Proxy3DLab() {
           />
           <Button
             variant="ghost"
-            disabled={state.status === 'uploading'}
+            disabled={busy}
             onClick={() => inputRef.current?.click()}
           >
             <Icon name="image" size={16} />
@@ -153,6 +193,60 @@ export function Proxy3DLab() {
           </div>
         )}
 
+        {state.status === 'no-alpha' && (
+          <div className="proxy3dlab__warn" role="alert">
+            <Icon name="info" size={16} />
+            <div>
+              <b>{PROXY3D_COPY.noAlphaTitle} — </b>
+              {PROXY3D_COPY.noAlphaWarning}
+              {state.cutoutError && (
+                <div className="muted">
+                  {PROXY3D_COPY.cutoutFailedIntro}
+                  {state.cutoutError}
+                </div>
+              )}
+              <div className="row proxy3dlab__choices">
+                <Button variant="primary" onClick={() => void handleCutout()}>
+                  <Icon name="sparkles" size={16} />
+                  {PROXY3D_COPY.cutoutButton}
+                </Button>
+                <Button variant="ghost" onClick={() => void handleSubmit()}>
+                  {PROXY3D_COPY.flatCardButton}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {state.status === 'cutting' && (
+          <div className="proxy3dlab__working">
+            <Icon name="refresh" size={18} className="spin" />
+            <div>
+              <b>{PROXY3D_COPY.cuttingTitle}</b>
+              <div className="muted">{PROXY3D_COPY.cuttingHint}</div>
+            </div>
+          </div>
+        )}
+
+        {state.cutout && state.status !== 'uploading' && (
+          <div className="proxy3dlab__file proxy3dlab__file--cutout">
+            <img
+              src={state.cutout.previewUrl}
+              alt=""
+              className="proxy3dlab__thumb"
+            />
+            <div>
+              <div className="proxy3dlab__filename">
+                {PROXY3D_COPY.cutoutReadyTitle}
+              </div>
+              <div className="muted">
+                {formatBytes(state.cutout.sizeBytes)} ·{' '}
+                {PROXY3D_COPY.cutoutReadyHint}
+              </div>
+            </div>
+          </div>
+        )}
+
         {state.error && (
           <div className="proxy3dlab__error" role="alert">
             <Icon name="info" size={16} />
@@ -168,27 +262,32 @@ export function Proxy3DLab() {
           </div>
         )}
 
-        <div className="row proxy3dlab__actions">
-          <Button
-            variant="primary"
-            disabled={!canSubmit}
-            onClick={() => void handleSubmit()}
-          >
-            <Icon name="cube" size={16} />
-            {state.status === 'failed'
-              ? PROXY3D_COPY.retryButton
-              : PROXY3D_COPY.submitButton}
-          </Button>
-          {state.status !== 'idle' && (
+        {state.status !== 'no-alpha' && (
+          <div className="row proxy3dlab__actions">
             <Button
-              variant="quiet"
-              disabled={state.status === 'uploading'}
-              onClick={handleReset}
+              variant="primary"
+              disabled={!canSubmit}
+              onClick={() => void handleSubmit()}
             >
+              <Icon name="cube" size={16} />
+              {state.status === 'failed'
+                ? PROXY3D_COPY.retryButton
+                : PROXY3D_COPY.submitButton}
+            </Button>
+            {state.status !== 'idle' && (
+              <Button variant="quiet" disabled={busy} onClick={handleReset}>
+                {PROXY3D_COPY.resetButton}
+              </Button>
+            )}
+          </div>
+        )}
+        {state.status === 'no-alpha' && (
+          <div className="row proxy3dlab__actions">
+            <Button variant="quiet" onClick={handleReset}>
               {PROXY3D_COPY.resetButton}
             </Button>
-          )}
-        </div>
+          </div>
+        )}
 
         {state.status === 'uploading' && (
           <div className="proxy3dlab__working">
@@ -215,6 +314,10 @@ export function Proxy3DLab() {
             </a>
           }
         >
+          <div className="proxy3dlab__verdict">
+            {PROXY3D_RESULT_LABEL[record.method]}
+          </div>
+
           <dl className="proxy3dlab__meta">
             <dt>{PROXY3D_COPY.metaJobId}</dt>
             <dd>

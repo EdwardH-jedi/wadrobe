@@ -2430,6 +2430,40 @@
   margin-top: 2px;
   color: var(--danger);
 }
+.proxy3dlab__warn {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-sm);
+  color: var(--text-200);
+  background: var(--accent-soft);
+}
+.proxy3dlab__warn svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--accent);
+}
+.proxy3dlab__choices {
+  margin-top: 12px;
+  gap: 10px;
+}
+.proxy3dlab__file--cutout {
+  border-color: var(--accent-line);
+}
+.proxy3dlab__verdict {
+  display: inline-block;
+  margin: 0 0 14px;
+  padding: 4px 10px;
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--accent-bright);
+  background: var(--accent-soft);
+}
 .proxy3dlab__actions {
   margin-top: 16px;
   gap: 10px;

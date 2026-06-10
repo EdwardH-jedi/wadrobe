@@ -1,17 +1,35 @@
-// Pure state machine for the Proxy 3D Lab upload flow (Track B3), modeled on
-// the closet uploadFlow reducer: the reducer is deterministic and side-effect
-// free; file handles, object URLs and network calls live in the component.
+// Pure state machine for the Proxy 3D Lab upload flow (Track B3/B3.6),
+// modeled on the closet uploadFlow reducer: the reducer is deterministic and
+// side-effect free; file handles, blobs, object URLs and network calls live
+// in the component.
 //
-// Status graph:
-//   idle -> selected -> uploading -> ready
-//                    \-> (reject)     \-> failed -> uploading (retry)
+// Status graph (B3.6 cutout-first):
+//   idle -> selected ----------------------------> uploading -> ready
+//        \-> no-alpha -> cutting -> cutout-ready -/         \-> failed
+//             |  ^           \-> (failure: back to no-alpha)     (retry)
+//             |  '— cutout failure keeps the explicit choices
+//             '-> uploading  (ONLY via the explicit "flat card" button)
+//
+// A PNG without usable transparency NEVER generates silently: the user must
+// either run the local cutout first or explicitly choose the flat card.
 //
 // PROXY3D_COPY is the single source of user-facing wording for this flow and
 // is guarded by an honesty test (PROXY3D_FORBIDDEN_CLAIM_TERMS): the result
 // is always a "proxy 3D preview" / "image-to-3D proxy", never a try-on or a
 // fit/size claim.
 
-export type Proxy3dStatus = 'idle' | 'selected' | 'uploading' | 'ready' | 'failed'
+export type Proxy3dStatus =
+  | 'idle'
+  | 'selected'
+  | 'no-alpha'
+  | 'cutting'
+  | 'cutout-ready'
+  | 'uploading'
+  | 'ready'
+  | 'failed'
+
+/** Client-side verdict on the selected PNG's transparency. */
+export type Proxy3dAlphaVerdict = 'usable' | 'none' | 'unknown'
 
 /** Mirrors the backend's Proxy3dRecord response (backend/app/main.py). */
 export interface Proxy3dRecord {
@@ -40,9 +58,21 @@ export interface SelectedFileMeta {
   previewUrl: string | null
 }
 
+/** The locally produced transparent cutout shown before/instead of upload. */
+export interface CutoutMeta {
+  previewUrl: string
+  sizeBytes: number
+}
+
 export interface Proxy3dFlowState {
   status: Proxy3dStatus
   file: SelectedFileMeta | null
+  /** The client-side transparency verdict for the selected file. */
+  alpha: Proxy3dAlphaVerdict | null
+  /** Successful local cutout (the component holds the matching blob). */
+  cutout: CutoutMeta | null
+  /** Why the last local cutout attempt produced nothing usable. */
+  cutoutError: string | null
   record: Proxy3dRecord | null
   error: string | null
   /** True when the failure looks like the backend being unreachable/down —
@@ -52,8 +82,11 @@ export interface Proxy3dFlowState {
 }
 
 export type Proxy3dFlowAction =
-  | { type: 'SELECT_FILE'; file: SelectedFileMeta }
+  | { type: 'SELECT_FILE'; file: SelectedFileMeta; alpha: Proxy3dAlphaVerdict }
   | { type: 'REJECT_FILE'; reason: string }
+  | { type: 'CUTOUT_START' }
+  | { type: 'CUTOUT_SUCCESS'; cutout: CutoutMeta }
+  | { type: 'CUTOUT_FAILURE'; reason: string }
   | { type: 'UPLOAD_START' }
   | { type: 'UPLOAD_SUCCESS'; record: Proxy3dRecord }
   | { type: 'UPLOAD_FAILURE'; message: string; connectivity?: boolean }
@@ -62,6 +95,9 @@ export type Proxy3dFlowAction =
 export const INITIAL_PROXY3D_STATE: Proxy3dFlowState = {
   status: 'idle',
   file: null,
+  alpha: null,
+  cutout: null,
+  cutoutError: null,
   record: null,
   error: null,
   errorIsConnectivity: false,
@@ -76,27 +112,49 @@ export function proxy3dFlowReducer(
 ): Proxy3dFlowState {
   switch (action.type) {
     case 'SELECT_FILE':
-      // A new file can be picked any time except mid-upload.
-      if (state.status === 'uploading') return state
+      // A new file can be picked any time except mid-upload/mid-cutout.
+      if (state.status === 'uploading' || state.status === 'cutting') {
+        return state
+      }
       return {
-        status: 'selected',
+        status: action.alpha === 'none' ? 'no-alpha' : 'selected',
         file: action.file,
+        alpha: action.alpha,
+        cutout: null,
+        cutoutError: null,
         record: null,
         error: null,
         errorIsConnectivity: false,
       }
     case 'REJECT_FILE':
-      if (state.status === 'uploading') return state
-      return {
-        status: 'idle',
-        file: null,
-        record: null,
-        error: action.reason,
-        errorIsConnectivity: false,
+      if (state.status === 'uploading' || state.status === 'cutting') {
+        return state
       }
+      return {
+        ...INITIAL_PROXY3D_STATE,
+        error: action.reason,
+      }
+    case 'CUTOUT_START':
+      if (state.status !== 'no-alpha') return state
+      return { ...state, status: 'cutting', cutoutError: null }
+    case 'CUTOUT_SUCCESS':
+      if (state.status !== 'cutting') return state
+      return { ...state, status: 'cutout-ready', cutout: action.cutout }
+    case 'CUTOUT_FAILURE':
+      // Back to the explicit choices — the flat card stays available.
+      if (state.status !== 'cutting') return state
+      return { ...state, status: 'no-alpha', cutoutError: action.reason }
     case 'UPLOAD_START':
-      // From a fresh selection, or retrying after a failure.
-      if (state.status !== 'selected' && state.status !== 'failed') return state
+      // From a usable selection, a finished cutout, an EXPLICIT flat-card
+      // choice on a no-alpha image, or a retry after failure.
+      if (
+        state.status !== 'selected' &&
+        state.status !== 'cutout-ready' &&
+        state.status !== 'no-alpha' &&
+        state.status !== 'failed'
+      ) {
+        return state
+      }
       if (!state.file) return state
       return {
         ...state,
@@ -164,12 +222,34 @@ export const PROXY3D_COPY = {
     'works best.',
   rejectTooLarge:
     'That PNG is over the 10 MB limit for this experimental preview.',
+  // --- B3.6 cutout-first -------------------------------------------------
+  noAlphaTitle: 'No transparent background detected',
+  noAlphaWarning:
+    'This image has no transparent background. Generating now will create ' +
+    'a flat image card, not a silhouette proxy.',
+  cutoutButton: 'Create cutout first',
+  flatCardButton: 'Generate flat card anyway',
+  cuttingTitle: 'Removing the background locally…',
+  cuttingHint:
+    'An on-device edge flood fill — nothing is uploaded in this step, and ' +
+    'quality varies with the photo background.',
+  cutoutReadyTitle: 'Local cutout ready',
+  cutoutReadyHint:
+    'Background removed on your device. This transparent cutout will be ' +
+    'sent instead of the original image.',
+  cutoutFailedIntro: 'Local cutout did not work here: ',
 } as const
 
 /** "extruded-alpha-contour" -> honest, human-readable label. */
 export const PROXY3D_METHOD_LABEL: Record<Proxy3dRecord['method'], string> = {
   'extruded-alpha-contour': 'Extruded silhouette card (from the alpha mask)',
   'textured-plane': 'Flat textured plane (no usable transparency)',
+}
+
+/** Honest verdict shown on the result panel, by backend method. */
+export const PROXY3D_RESULT_LABEL: Record<Proxy3dRecord['method'], string> = {
+  'extruded-alpha-contour': 'Silhouette proxy 3D preview',
+  'textured-plane': 'Flat image card fallback',
 }
 
 /** Compact byte count for the selected-file row ("184.2 KB"). */

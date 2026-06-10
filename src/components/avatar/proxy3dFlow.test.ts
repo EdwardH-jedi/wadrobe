@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest'
+﻿import { describe, expect, it } from 'vitest'
 import { PROXY3D_FORBIDDEN_CLAIM_TERMS } from '../../test/honesty'
 import {
   INITIAL_PROXY3D_STATE,
   PROXY3D_COPY,
   PROXY3D_METHOD_LABEL,
+  PROXY3D_RESULT_LABEL,
   formatBytes,
   proxy3dFlowReducer,
   type Proxy3dFlowState,
@@ -32,6 +33,7 @@ describe('proxy3dFlowReducer', () => {
     let state = proxy3dFlowReducer(freeze(INITIAL_PROXY3D_STATE), {
       type: 'SELECT_FILE',
       file: FILE,
+      alpha: 'usable',
     })
     expect(state.status).toBe('selected')
     expect(state.file).toEqual(FILE)
@@ -53,6 +55,7 @@ describe('proxy3dFlowReducer', () => {
     let state = proxy3dFlowReducer(INITIAL_PROXY3D_STATE, {
       type: 'SELECT_FILE',
       file: FILE,
+      alpha: 'usable',
     })
     state = proxy3dFlowReducer(state, { type: 'UPLOAD_START' })
     state = proxy3dFlowReducer(freeze(state), {
@@ -75,6 +78,7 @@ describe('proxy3dFlowReducer', () => {
     let state = proxy3dFlowReducer(INITIAL_PROXY3D_STATE, {
       type: 'SELECT_FILE',
       file: FILE,
+      alpha: 'usable',
     })
     state = proxy3dFlowReducer(state, { type: 'UPLOAD_START' })
     state = proxy3dFlowReducer(freeze(state), {
@@ -108,6 +112,7 @@ describe('proxy3dFlowReducer', () => {
     let state = proxy3dFlowReducer(INITIAL_PROXY3D_STATE, {
       type: 'SELECT_FILE',
       file: FILE,
+      alpha: 'usable',
     })
     state = proxy3dFlowReducer(state, { type: 'UPLOAD_START' })
     state = proxy3dFlowReducer(state, { type: 'UPLOAD_SUCCESS', record: RECORD })
@@ -116,6 +121,7 @@ describe('proxy3dFlowReducer', () => {
     state = proxy3dFlowReducer(freeze(state), {
       type: 'SELECT_FILE',
       file: next,
+      alpha: 'usable',
     })
     expect(state.status).toBe('selected')
     expect(state.file).toEqual(next)
@@ -132,6 +138,7 @@ describe('proxy3dFlowReducer', () => {
     const selected = proxy3dFlowReducer(INITIAL_PROXY3D_STATE, {
       type: 'SELECT_FILE',
       file: FILE,
+      alpha: 'usable',
     })
     expect(
       proxy3dFlowReducer(selected, { type: 'UPLOAD_SUCCESS', record: RECORD })
@@ -145,7 +152,7 @@ describe('proxy3dFlowReducer', () => {
     // Selections cannot change mid-upload.
     const uploading = proxy3dFlowReducer(selected, { type: 'UPLOAD_START' })
     expect(
-      proxy3dFlowReducer(uploading, { type: 'SELECT_FILE', file: FILE }),
+      proxy3dFlowReducer(uploading, { type: 'SELECT_FILE', file: FILE, alpha: 'usable' }),
     ).toBe(uploading)
     expect(
       proxy3dFlowReducer(uploading, { type: 'REJECT_FILE', reason: 'x' }),
@@ -156,12 +163,135 @@ describe('proxy3dFlowReducer', () => {
     let state = proxy3dFlowReducer(INITIAL_PROXY3D_STATE, {
       type: 'SELECT_FILE',
       file: FILE,
+      alpha: 'usable',
     })
     state = proxy3dFlowReducer(state, { type: 'UPLOAD_START' })
     state = proxy3dFlowReducer(state, { type: 'UPLOAD_SUCCESS', record: RECORD })
     expect(proxy3dFlowReducer(state, { type: 'RESET' })).toEqual(
       INITIAL_PROXY3D_STATE,
     )
+  })
+})
+
+describe('proxy3dFlowReducer — cutout-first (B3.6)', () => {
+  const CUTOUT = { previewUrl: 'data:image/png;base64,AA==', sizeBytes: 1234 }
+
+  const noAlpha = () =>
+    proxy3dFlowReducer(freeze(INITIAL_PROXY3D_STATE), {
+      type: 'SELECT_FILE',
+      file: FILE,
+      alpha: 'none',
+    })
+
+  it('routes a no-alpha selection to the warning state, never directly to selected', () => {
+    const state = noAlpha()
+    expect(state.status).toBe('no-alpha')
+    expect(state.alpha).toBe('none')
+    expect(state.cutout).toBeNull()
+  })
+
+  it('an unknown alpha verdict behaves like the pre-B3.6 direct path', () => {
+    const state = proxy3dFlowReducer(INITIAL_PROXY3D_STATE, {
+      type: 'SELECT_FILE',
+      file: FILE,
+      alpha: 'unknown',
+    })
+    expect(state.status).toBe('selected')
+  })
+
+  it('walks the cutout path: no-alpha → cutting → cutout-ready → uploading', () => {
+    let state = proxy3dFlowReducer(noAlpha(), { type: 'CUTOUT_START' })
+    expect(state.status).toBe('cutting')
+
+    state = proxy3dFlowReducer(freeze(state), {
+      type: 'CUTOUT_SUCCESS',
+      cutout: CUTOUT,
+    })
+    expect(state.status).toBe('cutout-ready')
+    expect(state.cutout).toEqual(CUTOUT)
+
+    state = proxy3dFlowReducer(freeze(state), { type: 'UPLOAD_START' })
+    expect(state.status).toBe('uploading')
+    expect(state.cutout).toEqual(CUTOUT)
+  })
+
+  it('a cutout failure returns to the explicit choices with the reason', () => {
+    let state = proxy3dFlowReducer(noAlpha(), { type: 'CUTOUT_START' })
+    state = proxy3dFlowReducer(freeze(state), {
+      type: 'CUTOUT_FAILURE',
+      reason: 'busy background',
+    })
+    expect(state.status).toBe('no-alpha')
+    expect(state.cutoutError).toBe('busy background')
+    // The explicit flat-card upload is still possible.
+    expect(proxy3dFlowReducer(state, { type: 'UPLOAD_START' }).status).toBe(
+      'uploading',
+    )
+  })
+
+  it('allows the EXPLICIT flat-card upload straight from no-alpha', () => {
+    const state = proxy3dFlowReducer(noAlpha(), { type: 'UPLOAD_START' })
+    expect(state.status).toBe('uploading')
+  })
+
+  it('keeps the cutout through a failed upload for retry', () => {
+    let state = proxy3dFlowReducer(noAlpha(), { type: 'CUTOUT_START' })
+    state = proxy3dFlowReducer(state, { type: 'CUTOUT_SUCCESS', cutout: CUTOUT })
+    state = proxy3dFlowReducer(state, { type: 'UPLOAD_START' })
+    state = proxy3dFlowReducer(state, {
+      type: 'UPLOAD_FAILURE',
+      message: 'x',
+    })
+    expect(state.status).toBe('failed')
+    expect(state.cutout).toEqual(CUTOUT)
+  })
+
+  it('guards cutout actions against out-of-order use', () => {
+    // CUTOUT_START only fires from no-alpha.
+    expect(
+      proxy3dFlowReducer(INITIAL_PROXY3D_STATE, { type: 'CUTOUT_START' }),
+    ).toEqual(INITIAL_PROXY3D_STATE)
+    const selected = proxy3dFlowReducer(INITIAL_PROXY3D_STATE, {
+      type: 'SELECT_FILE',
+      file: FILE,
+      alpha: 'usable',
+    })
+    expect(
+      proxy3dFlowReducer(selected, { type: 'CUTOUT_START' }).status,
+    ).toBe('selected')
+
+    // CUTOUT_SUCCESS/FAILURE only land while cutting.
+    expect(
+      proxy3dFlowReducer(noAlpha(), { type: 'CUTOUT_SUCCESS', cutout: CUTOUT })
+        .cutout,
+    ).toBeNull()
+    expect(
+      proxy3dFlowReducer(noAlpha(), { type: 'CUTOUT_FAILURE', reason: 'x' })
+        .cutoutError,
+    ).toBeNull()
+
+    // Selection cannot change mid-cutout.
+    const cutting = proxy3dFlowReducer(noAlpha(), { type: 'CUTOUT_START' })
+    expect(
+      proxy3dFlowReducer(cutting, {
+        type: 'SELECT_FILE',
+        file: FILE,
+        alpha: 'usable',
+      }),
+    ).toBe(cutting)
+  })
+
+  it('replacing the file clears any previous cutout', () => {
+    let state = proxy3dFlowReducer(noAlpha(), { type: 'CUTOUT_START' })
+    state = proxy3dFlowReducer(state, { type: 'CUTOUT_SUCCESS', cutout: CUTOUT })
+    state = proxy3dFlowReducer(state, {
+      type: 'SELECT_FILE',
+      file: { name: 'other.png', sizeBytes: 99, previewUrl: null },
+      alpha: 'usable',
+    })
+    expect(state.cutout).toBeNull()
+    expect(state.cutoutError).toBeNull()
+    expect(state.status).toBe('selected')
   })
 })
 
@@ -174,6 +304,11 @@ describe('PROXY3D_COPY honesty', () => {
     }
     for (const [key, value] of Object.entries(PROXY3D_METHOD_LABEL)) {
       expect(value, `PROXY3D_METHOD_LABEL.${key}`).not.toMatch(
+        PROXY3D_FORBIDDEN_CLAIM_TERMS,
+      )
+    }
+    for (const [key, value] of Object.entries(PROXY3D_RESULT_LABEL)) {
+      expect(value, `PROXY3D_RESULT_LABEL.${key}`).not.toMatch(
         PROXY3D_FORBIDDEN_CLAIM_TERMS,
       )
     }
