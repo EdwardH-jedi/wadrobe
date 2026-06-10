@@ -1,0 +1,139 @@
+// Top-level composition: sidebar + contextual topbar + the active view, plus
+// the always-present rail (filmstrip) and the upload/edit modals.
+import { useState } from 'react'
+import type { GarmentItem } from '../../domain/garmentTypes'
+import { useArchive } from '../../app/providers/useArchive'
+import { Button } from '../ui/Button'
+import { Icon } from '../ui/Icon'
+import { Panel } from '../ui/Panel'
+import { ClosetPanel } from '../closet/ClosetPanel'
+import { GarmentFilmstrip } from '../closet/GarmentFilmstrip'
+import { UploadGarmentModal } from '../closet/UploadGarmentModal'
+import { EditGarmentModal } from '../closet/GarmentEditor'
+import { OutfitInspector } from '../outfit/OutfitInspector'
+import { OutfitBuilder } from '../outfit/OutfitBuilder'
+import { SidebarNav } from './SidebarNav'
+import { StudioScene } from './StudioScene'
+import { StudioFitRail } from './StudioFitRail'
+import { MirrorPreview } from './MirrorPreview'
+import { OutfitWallBoard } from './OutfitWallBoard'
+import { VIEW_META, type StudioView } from './views'
+
+export function ArchiveStudio() {
+  const {
+    garments,
+    savedOutfits,
+    storageBackend,
+    hydrated,
+    loadSampleArchive,
+  } = useArchive()
+
+  const [view, setView] = useState<StudioView>('studio')
+  const [uploadOpen, setUploadOpen] = useState(false)
+  const [editGarment, setEditGarment] = useState<GarmentItem | null>(null)
+  const [enteredId, setEnteredId] = useState<string | null>(null)
+
+  const meta = VIEW_META[view]
+  const openUpload = () => {
+    if (hydrated) setUploadOpen(true)
+  }
+
+  const handleArchived = (id: string) => {
+    setEnteredId(id)
+    window.setTimeout(() => setEnteredId(null), 1200)
+  }
+
+  const renderView = () => {
+    if (!hydrated) {
+      return (
+        <div className="empty" style={{ borderStyle: 'solid' }}>
+          <Icon name="refresh" size={34} className="empty__icon" />
+          <div className="empty__title display">Opening the archive…</div>
+        </div>
+      )
+    }
+
+    switch (view) {
+      case 'studio':
+        return (
+          <>
+            <StudioScene onOpen={setView} onUpload={openUpload} />
+            <StudioFitRail onOpenMirror={() => setView('mirror')} />
+          </>
+        )
+      case 'closet':
+        return <ClosetPanel onUpload={openUpload} onEdit={setEditGarment} />
+      case 'mirror':
+        return (
+          <div className="stack-lg">
+            <div className="mirrorview">
+              <MirrorPreview variant="full" />
+              <OutfitInspector />
+            </div>
+            <Panel title="Build the fit">
+              <OutfitBuilder onUpload={openUpload} />
+            </Panel>
+          </div>
+        )
+      case 'outfits':
+        return <OutfitWallBoard onOpenMirror={() => setView('mirror')} />
+      default:
+        return null
+    }
+  }
+
+  return (
+    <div className="app">
+      <SidebarNav
+        view={view}
+        onView={setView}
+        onUpload={openUpload}
+        garmentCount={garments.length}
+        outfitCount={savedOutfits.length}
+        storageBackend={storageBackend}
+        uploadDisabled={!hydrated}
+      />
+
+      <main className="main">
+        <header className="topbar">
+          <div className="topbar__titles">
+            <div className="eyebrow topbar__eyebrow">{meta.eyebrow}</div>
+            <h1 className="topbar__title">{meta.title}</h1>
+            <p className="topbar__sub">{meta.sub}</p>
+          </div>
+          <div className="topbar__actions">
+            {hydrated && garments.length === 0 && view !== 'studio' && (
+              <Button variant="ghost" onClick={loadSampleArchive}>
+                Load sample
+              </Button>
+            )}
+            <Button variant="primary" disabled={!hydrated} onClick={openUpload}>
+              <Icon name="upload" size={16} />
+              Upload
+            </Button>
+          </div>
+        </header>
+
+        <div className={view === 'studio' ? 'view view--flush' : 'view'}>
+          {renderView()}
+        </div>
+      </main>
+
+      <GarmentFilmstrip
+        onUpload={openUpload}
+        uploadDisabled={!hydrated}
+        highlightId={enteredId}
+      />
+
+      <UploadGarmentModal
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        onArchived={handleArchived}
+      />
+      <EditGarmentModal
+        garment={editGarment}
+        onClose={() => setEditGarment(null)}
+      />
+    </div>
+  )
+}
