@@ -47,7 +47,7 @@ export async function createProxy3d(
   }
 
   if (!response.ok) {
-    let detail = `The backend rejected the request (HTTP ${response.status}).`
+    let detail: string | null = null
     try {
       const body: unknown = await response.json()
       if (
@@ -58,9 +58,22 @@ export async function createProxy3d(
         detail = (body as { detail: string }).detail
       }
     } catch {
-      // Non-JSON error body — keep the generic message.
+      // Non-JSON error body.
     }
-    throw new Proxy3dApiError(detail, response.status)
+    if (detail === null && response.status >= 500) {
+      // A 5xx without the backend's JSON `detail` shape is almost always the
+      // dev proxy reporting that the backend is down (the Vite proxy turns a
+      // refused connection into a bare 500) — say that honestly instead of
+      // claiming the backend "rejected" a request it never saw.
+      throw new Proxy3dApiError(
+        `The local proxy-3D backend did not answer (HTTP ${response.status}) — it may not be running.`,
+        response.status,
+      )
+    }
+    throw new Proxy3dApiError(
+      detail ?? `The backend rejected the request (HTTP ${response.status}).`,
+      response.status,
+    )
   }
 
   return (await response.json()) as Proxy3dRecord

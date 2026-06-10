@@ -61,12 +61,37 @@ describe('proxy3dFlowReducer', () => {
     })
     expect(state.status).toBe('failed')
     expect(state.error).toMatch(/422/)
+    expect(state.errorIsConnectivity).toBe(false)
     expect(state.file).toEqual(FILE)
 
     // Retry straight from failed.
     state = proxy3dFlowReducer(freeze(state), { type: 'UPLOAD_START' })
     expect(state.status).toBe('uploading')
     expect(state.error).toBeNull()
+    expect(state.errorIsConnectivity).toBe(false)
+  })
+
+  it('flags connectivity failures so the UI can hint about the backend', () => {
+    let state = proxy3dFlowReducer(INITIAL_PROXY3D_STATE, {
+      type: 'SELECT_FILE',
+      file: FILE,
+    })
+    state = proxy3dFlowReducer(state, { type: 'UPLOAD_START' })
+    state = proxy3dFlowReducer(freeze(state), {
+      type: 'UPLOAD_FAILURE',
+      message: 'Could not reach the local proxy-3D backend.',
+      connectivity: true,
+    })
+    expect(state.status).toBe('failed')
+    expect(state.errorIsConnectivity).toBe(true)
+
+    // A later validation failure clears the flag.
+    state = proxy3dFlowReducer(state, { type: 'UPLOAD_START' })
+    state = proxy3dFlowReducer(state, {
+      type: 'UPLOAD_FAILURE',
+      message: 'The PNG is fully transparent.',
+    })
+    expect(state.errorIsConnectivity).toBe(false)
   })
 
   it('clears the selection and keeps the reason on REJECT_FILE', () => {

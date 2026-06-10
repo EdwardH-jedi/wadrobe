@@ -81,11 +81,30 @@ On the frontend, the additive **Proxy 3D Lab** view exists
 (idle → selected → uploading → ready/failed), a `proxy3dApi` client, and a
 `GlbViewer` that dynamic-imports `three` + GLTFLoader + OrbitControls only
 when mounted (Track A's bundle and startup are unaffected; the viewer falls
-back to download-only when WebGL is unavailable). Dev requests are proxied
-by Vite (`/api` → `127.0.0.1:8000`), so no CORS configuration exists or is
-needed. Lab copy is guarded by `PROXY3D_FORBIDDEN_CLAIM_TERMS`
-(`src/test/honesty.ts`) — "proxy 3D preview" / "image-to-3D proxy" wording
-only, never try-on/accuracy/fit claims.
+back to download-only when WebGL is unavailable). Lab copy is guarded by
+`PROXY3D_FORBIDDEN_CLAIM_TERMS` (`src/test/honesty.ts`) — "proxy 3D
+preview" / "image-to-3D proxy" wording only, never try-on/accuracy/fit
+claims.
+
+**Routing:** `/api` is proxied to `127.0.0.1:8000` by the Vite dev server
+(`server.proxy` in `vite.config.ts`), and `npm run preview` inherits the
+same proxy (verified), so no CORS configuration exists or is needed
+locally. A real production deployment still needs its own routing decision
+(serve `dist/` and `/api` behind one reverse proxy) — deliberately NOT
+solved in this phase.
+
+**B3.5 verification pass (2026-06-10):** exercised in real Chrome via CDP
+with synthesized input — OrbitControls drag/zoom, multiple uploads per
+session (one canvas at all times; navigation away leaves zero canvases; no
+console errors beyond the intentional 4xx network lines), the full PNG
+edge-case matrix (opaque fallback, fully-transparent / corrupt / over-size
+errors, 3000×3000 accepted, >10 MB client-rejected, spaces + Korean
+filenames), WebGL-disabled fallback message, and front/back/transparency/
+orientation checks with an asymmetric marker PNG. Two honesty fixes landed:
+a bare (non-JSON) 5xx is now reported as "backend did not answer — it may
+not be running" instead of "backend rejected the request", and the "make
+sure the backend is running" hint shows only on connectivity failures, not
+on validation errors the backend itself returned.
 
 ## 4. Dummy/proxy pipeline (deliberate scope ceiling)
 

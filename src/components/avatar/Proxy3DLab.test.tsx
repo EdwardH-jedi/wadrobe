@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Proxy3DLab } from './Proxy3DLab'
 import { PROXY3D_COPY, type Proxy3dRecord } from './proxy3dFlow'
-import { createProxy3d } from './proxy3dApi'
+import { Proxy3dApiError, createProxy3d } from './proxy3dApi'
 
 // The viewer would dynamic-import three.js — keep WebGL out of jsdom.
 vi.mock('./GlbViewer', () => ({
@@ -118,10 +118,10 @@ describe('<Proxy3DLab />', () => {
     )
   })
 
-  it('renders backend errors and supports retrying', async () => {
+  it('renders backend validation errors (no backend hint) and supports retrying', async () => {
     const user = userEvent.setup()
     mockCreate.mockRejectedValueOnce(
-      new Error('The PNG is fully transparent.'),
+      new Proxy3dApiError('The PNG is fully transparent.', 422),
     )
     render(<Proxy3DLab />)
     selectFile(pngFile())
@@ -133,7 +133,8 @@ describe('<Proxy3DLab />', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(PROXY3D_COPY.errorTitle)
     expect(alert).toHaveTextContent('The PNG is fully transparent.')
-    expect(alert).toHaveTextContent(PROXY3D_COPY.backendHint)
+    // The backend DID respond — no "is it running?" hint.
+    expect(alert).not.toHaveTextContent(PROXY3D_COPY.backendHint)
 
     // Retry succeeds.
     mockCreate.mockResolvedValueOnce(RECORD)
@@ -143,6 +144,23 @@ describe('<Proxy3DLab />', () => {
     expect(
       await screen.findByText(PROXY3D_COPY.readyTitle),
     ).toBeInTheDocument()
+  })
+
+  it('shows the backend hint only for connectivity failures', async () => {
+    const user = userEvent.setup()
+    mockCreate.mockRejectedValueOnce(
+      new Proxy3dApiError('Could not reach the local proxy-3D backend.', null),
+    )
+    render(<Proxy3DLab />)
+    selectFile(pngFile())
+
+    await user.click(
+      screen.getByRole('button', { name: PROXY3D_COPY.submitButton }),
+    )
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(/could not reach/i)
+    expect(alert).toHaveTextContent(PROXY3D_COPY.backendHint)
   })
 
   it('start over clears the selection and any result', async () => {

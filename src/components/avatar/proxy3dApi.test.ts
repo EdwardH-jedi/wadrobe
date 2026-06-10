@@ -55,7 +55,9 @@ describe('createProxy3d', () => {
     expect((error as Proxy3dApiError).status).toBe(422)
   })
 
-  it('falls back to a generic message when the error body is not JSON', async () => {
+  it('reports a non-JSON 5xx as the backend not answering (proxy-down case)', async () => {
+    // The Vite dev proxy turns a refused connection into a bare 500 — the
+    // honest message is "backend not answering", not "backend rejected".
     const fetchFn = vi.fn(
       async () => new Response('<html>boom</html>', { status: 500 }),
     )
@@ -63,7 +65,35 @@ describe('createProxy3d', () => {
       (e: unknown) => e,
     )
     expect(error).toBeInstanceOf(Proxy3dApiError)
+    expect((error as Proxy3dApiError).message).toMatch(/did not answer/i)
     expect((error as Proxy3dApiError).message).toMatch(/HTTP 500/)
+    expect((error as Proxy3dApiError).status).toBe(500)
+  })
+
+  it('keeps the backend detail for a JSON 5xx (a real backend error)', async () => {
+    const fetchFn = vi.fn(async () =>
+      jsonResponse(500, { detail: 'GLB export produced an invalid file.' }),
+    )
+    const error = await createProxy3d(PNG_BLOB, 'x.png', fetchFn).catch(
+      (e: unknown) => e,
+    )
+    expect(error).toBeInstanceOf(Proxy3dApiError)
+    expect((error as Proxy3dApiError).message).toBe(
+      'GLB export produced an invalid file.',
+    )
+  })
+
+  it('falls back to a generic message for a non-JSON 4xx', async () => {
+    const fetchFn = vi.fn(
+      async () => new Response('nope', { status: 413 }),
+    )
+    const error = await createProxy3d(PNG_BLOB, 'x.png', fetchFn).catch(
+      (e: unknown) => e,
+    )
+    expect(error).toBeInstanceOf(Proxy3dApiError)
+    expect((error as Proxy3dApiError).message).toMatch(
+      /rejected the request \(HTTP 413\)/,
+    )
   })
 
   it('reports an unreachable backend with a null status', async () => {

@@ -45,6 +45,10 @@ export interface Proxy3dFlowState {
   file: SelectedFileMeta | null
   record: Proxy3dRecord | null
   error: string | null
+  /** True when the failure looks like the backend being unreachable/down —
+   *  gates the "make sure the backend is running" hint so it never shows on
+   *  ordinary validation errors the backend itself returned. */
+  errorIsConnectivity: boolean
 }
 
 export type Proxy3dFlowAction =
@@ -52,7 +56,7 @@ export type Proxy3dFlowAction =
   | { type: 'REJECT_FILE'; reason: string }
   | { type: 'UPLOAD_START' }
   | { type: 'UPLOAD_SUCCESS'; record: Proxy3dRecord }
-  | { type: 'UPLOAD_FAILURE'; message: string }
+  | { type: 'UPLOAD_FAILURE'; message: string; connectivity?: boolean }
   | { type: 'RESET' }
 
 export const INITIAL_PROXY3D_STATE: Proxy3dFlowState = {
@@ -60,6 +64,7 @@ export const INITIAL_PROXY3D_STATE: Proxy3dFlowState = {
   file: null,
   record: null,
   error: null,
+  errorIsConnectivity: false,
 }
 
 /** Client-side mirror of the backend's upload byte limit. */
@@ -73,21 +78,45 @@ export function proxy3dFlowReducer(
     case 'SELECT_FILE':
       // A new file can be picked any time except mid-upload.
       if (state.status === 'uploading') return state
-      return { status: 'selected', file: action.file, record: null, error: null }
+      return {
+        status: 'selected',
+        file: action.file,
+        record: null,
+        error: null,
+        errorIsConnectivity: false,
+      }
     case 'REJECT_FILE':
       if (state.status === 'uploading') return state
-      return { status: 'idle', file: null, record: null, error: action.reason }
+      return {
+        status: 'idle',
+        file: null,
+        record: null,
+        error: action.reason,
+        errorIsConnectivity: false,
+      }
     case 'UPLOAD_START':
       // From a fresh selection, or retrying after a failure.
       if (state.status !== 'selected' && state.status !== 'failed') return state
       if (!state.file) return state
-      return { ...state, status: 'uploading', record: null, error: null }
+      return {
+        ...state,
+        status: 'uploading',
+        record: null,
+        error: null,
+        errorIsConnectivity: false,
+      }
     case 'UPLOAD_SUCCESS':
       if (state.status !== 'uploading') return state
       return { ...state, status: 'ready', record: action.record, error: null }
     case 'UPLOAD_FAILURE':
       if (state.status !== 'uploading') return state
-      return { ...state, status: 'failed', record: null, error: action.message }
+      return {
+        ...state,
+        status: 'failed',
+        record: null,
+        error: action.message,
+        errorIsConnectivity: action.connectivity ?? false,
+      }
     case 'RESET':
       return INITIAL_PROXY3D_STATE
     default:

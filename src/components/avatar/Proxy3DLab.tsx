@@ -7,7 +7,7 @@ import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
 import { Panel } from '../ui/Panel'
 import { GlbViewer } from './GlbViewer'
-import { createProxy3d } from './proxy3dApi'
+import { Proxy3dApiError, createProxy3d } from './proxy3dApi'
 import {
   INITIAL_PROXY3D_STATE,
   MAX_PROXY3D_UPLOAD_BYTES,
@@ -84,10 +84,16 @@ export function Proxy3DLab() {
       const record = await createProxy3d(file, file.name)
       dispatch({ type: 'UPLOAD_SUCCESS', record })
     } catch (error) {
+      // Unreachable backend or a bare 5xx (e.g. the dev proxy reporting a
+      // refused connection) -> show the "is the backend running?" hint.
+      const connectivity =
+        error instanceof Proxy3dApiError &&
+        (error.status === null || error.status >= 500)
       dispatch({
         type: 'UPLOAD_FAILURE',
         message:
           error instanceof Error ? error.message : 'The upload failed.',
+        connectivity,
       })
     }
   }
@@ -155,7 +161,7 @@ export function Proxy3DLab() {
                 <b>{PROXY3D_COPY.errorTitle} — </b>
               )}
               {state.error}
-              {state.status === 'failed' && (
+              {state.status === 'failed' && state.errorIsConnectivity && (
                 <div className="muted">{PROXY3D_COPY.backendHint}</div>
               )}
             </div>
