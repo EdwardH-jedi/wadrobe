@@ -1,9 +1,11 @@
 # AVATAR_TRACK.md — Track B: Avatar Lab (additive 3D/GLB track)
 
-> **Status: PLANNED — NOT BUILT.** As of 2026-06-10 this track is
-> documentation only. There is no FastAPI code, no Python, no three.js
-> dependency, no `.glb`/`.gltf` asset, and no `/api/jobs` route anywhere in
-> this repository. Do not imply otherwise in code, UI copy, comments, or docs.
+> **Status: SPIKE IN PROGRESS.** As of 2026-06-10, phase **B2 — PNG →
+> proxy-3D GLB feasibility spike** is implemented in `backend/` (FastAPI,
+> local-only, 22 pytest tests; see `backend/README.md`). There is still **no
+> three.js dependency and no Track B frontend code**, and the five pipeline
+> interfaces and the generic `/api/jobs` API are **NOT built**. Do not imply
+> more than this exists in code, UI copy, comments, or docs.
 
 ---
 
@@ -63,6 +65,15 @@ AvatarWardrobe/
   same way, with its user-facing copy guarded by the existing
   `FORBIDDEN_CLAIM_TERMS` honesty test pattern.
 
+**Current state (after B2):** only the spike subset of this architecture
+exists — `backend/app/main.py` (`/api/proxy-3d` routes), `app/config.py`,
+`app/storage.py`, and `app/proxy3d/` (pipeline + meshbuild), with results
+under `backend/data/proxy_3d/<job_id>/`. `app/jobs.py` and
+`app/pipeline/interfaces.py` are still future. The spike generates
+synchronously (sub-second deterministic work; a queue would only add states
+and races) but returns job-shaped records with a `job_id`, so a later async
+backend keeps the same API surface.
+
 ## 4. Dummy/proxy pipeline (deliberate scope ceiling)
 
 Hard 3D/ML parts ship as **honest proxies** so the demo loop works end to end
@@ -95,13 +106,18 @@ honesty-guard test pattern as `UPLOAD_COPY`.
 
 ## 6. Phase plan
 
+_Table revised 2026-06-10: at the user's direction, B2 was narrowed from a
+generic jobs API to a feasibility spike for the most important capability
+(image → proxy-3D GLB). The generic jobs API and avatar composition moved to
+B4–B5._
+
 | Phase | Scope | Status |
 |---|---|---|
 | **B1** | Git baseline + two-track docs (this file; CLAUDE.md §0; PLAN.md tracks note). No code changes. | ✅ Done (2026-06-10) |
-| **B2** | FastAPI skeleton: jobs API (`POST /api/jobs`, `GET /api/jobs/{id}`, `GET /api/jobs/{id}/result`), pipeline interfaces, dummy impls returning a static placeholder GLB, pytest suite. No frontend changes. | Not started |
-| **B3** | Real proxy composition: procedural avatar + bounding-box outfit merge via `trimesh`; per-job composed GLB; pipeline tests. | Not started |
-| **B4** | Frontend Avatar Lab view: image + outfit-GLB upload, job creation/polling reducer, three.js GLB viewer (dynamic import), Vite proxy. Track A tests stay green. | Not started |
-| **B5** | Job-state UX polish, honest error surfaces, result download, QA checklist additions. | Not started |
+| **B2** | Feasibility spike — PNG → proxy-3D GLB: `backend/` FastAPI service; `POST /api/proxy-3d` (synchronous, job-shaped records persisted to disk) + status/result GETs; alpha-mask extruded silhouette slab or textured-plane fallback; honest `limitations` metadata; 22 pytest tests; sample + verifier scripts. No frontend changes. | ✅ Done (2026-06-10) |
+| **B3** | Frontend Proxy 3D Lab view (additive): upload PNG → call `/api/proxy-3d` → show status/errors → download result.glb; optional three.js viewer lazy-loaded only inside the view; pure job-flow reducer + honesty-guarded copy; Vite dev proxy. Track A tests stay green. | Not started |
+| **B4** | Generic jobs API (`/api/jobs`) + pipeline interfaces (`IBodyEstimator`, `IAvatarBuilder`, `ITextureProjector`, `IOutfitFitter`, `IExporter`) with dummy impls; procedural avatar via `trimesh`. | Not started |
+| **B5** | Avatar composition end-to-end: bounding-box outfit-GLB merge onto the proxy avatar; per-job composed GLB; job-state UX polish + QA checklist additions. | Not started |
 | **B6** | Wardrobe bridge (later): optional `GarmentItem` fields (`sizeLabel`, `material`, `status`), outfit-GLB asset refs through the existing blob-store pattern (any new ref field MUST join `garmentBlobKeys`), resale-listing text generation (local, template-based). | Not started |
 
 Each phase ends with: `npm run typecheck`, `npm test`, `npm run build` (and

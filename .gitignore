@@ -12,6 +12,13 @@ coverage/
 *.log
 npm-debug.log*
 
+# Python (Track B backend)
+backend/.venv/
+backend/data/
+__pycache__/
+*.pyc
+.pytest_cache/
+
 # Claude session artifacts (keep .claude/skills/ tracked)
 .claude/scheduled_tasks.lock
 .claude/settings.local.json
