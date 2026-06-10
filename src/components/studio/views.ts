@@ -1,8 +1,9 @@
-// The four primary views and their editorial copy/icons. Upload is a modal,
-// not a view, so it is not listed here.
+// The primary views and their editorial copy/icons. Upload is a modal,
+// not a view, so it is not listed here. 'lab' is the additive Track B view
+// (Proxy 3D Lab) — see docs/AVATAR_TRACK.md.
 import type { IconName } from '../ui/Icon'
 
-export type StudioView = 'studio' | 'closet' | 'mirror' | 'outfits'
+export type StudioView = 'studio' | 'closet' | 'mirror' | 'outfits' | 'lab'
 
 export interface ViewMeta {
   id: StudioView
@@ -46,6 +47,20 @@ export const VIEW_META: Record<StudioView, ViewMeta> = {
     title: 'Saved Looks',
     sub: 'Your editorial outfit board.',
   },
+  lab: {
+    id: 'lab',
+    label: 'Proxy 3D',
+    icon: 'cube',
+    eyebrow: 'The Lab',
+    title: 'Proxy 3D Lab',
+    sub: 'Turn a PNG into an experimental image-to-3D proxy preview — a local demo with honest limits.',
+  },
 }
 
-export const VIEW_ORDER: StudioView[] = ['studio', 'closet', 'mirror', 'outfits']
+export const VIEW_ORDER: StudioView[] = [
+  'studio',
+  'closet',
+  'mirror',
+  'outfits',
+  'lab',
+]

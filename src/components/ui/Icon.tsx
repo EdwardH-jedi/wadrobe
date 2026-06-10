@@ -21,6 +21,7 @@ export type IconName =
   | 'refresh'
   | 'info'
   | 'shoe'
+  | 'cube'
 
 const PATHS: Record<IconName, JSX.Element> = {
   studio: (
@@ -134,6 +135,13 @@ const PATHS: Record<IconName, JSX.Element> = {
     <>
       <path d="M3 14h9l5 2 4 .5V18a1 1 0 0 1-1 1H3Z" />
       <path d="M3 14v-3l4-1 2 2 3 .5" />
+    </>
+  ),
+  cube: (
+    <>
+      <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9Z" />
+      <path d="M4 7.5l8 4.5 8-4.5" />
+      <path d="M12 12v9" />
     </>
   ),
 }

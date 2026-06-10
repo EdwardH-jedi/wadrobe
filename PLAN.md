@@ -14,14 +14,16 @@ AvatarWardrobe now has two explicitly separated tracks:
    2.5D fashion archive described by this file. All phase numbering, non-goals,
    and rules in this file apply to this track. Phases 1–12.5 are complete; the
    next incomplete phase is Phase 13.
-2. **Track B — Avatar Lab (additive; spike B2 done).** An optional, additive
+2. **Track B — Avatar Lab (additive; B2–B3 done).** An optional, additive
    backend + 3D/GLB avatar try-on pipeline, documented in
-   `docs/AVATAR_TRACK.md`. As of 2026-06-10, phase B2 is implemented in
-   `backend/`: a local FastAPI feasibility spike that converts a PNG into an
-   honest proxy-3D GLB (`POST /api/proxy-3d`). No three.js and no Track B
-   frontend code exist yet. Track B work must never rewrite, rename, or
-   degrade Track A code; its phases are tracked in `docs/AVATAR_TRACK.md`,
-   not here.
+   `docs/AVATAR_TRACK.md`. As of 2026-06-10: B2 — a local FastAPI spike in
+   `backend/` that converts a PNG into an honest proxy-3D GLB
+   (`POST /api/proxy-3d`); B3 — an additive frontend "Proxy 3D Lab" view
+   (`src/components/avatar/`) with a lazily-loaded three.js GLB viewer
+   (dynamic import only; Track A's bundle is unaffected). Pipeline
+   interfaces, `/api/jobs`, and avatar composition do not exist yet. Track B
+   work must never rewrite, rename, or degrade Track A code; its phases are
+   tracked in `docs/AVATAR_TRACK.md`, not here.
 
 The "Non-Goals For Now" list below remains binding for Track A. Backend/3D
 items become in-scope only inside explicitly started Track B phases.

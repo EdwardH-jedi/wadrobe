@@ -1,11 +1,12 @@
 # AVATAR_TRACK.md — Track B: Avatar Lab (additive 3D/GLB track)
 
-> **Status: SPIKE IN PROGRESS.** As of 2026-06-10, phase **B2 — PNG →
-> proxy-3D GLB feasibility spike** is implemented in `backend/` (FastAPI,
-> local-only, 22 pytest tests; see `backend/README.md`). There is still **no
-> three.js dependency and no Track B frontend code**, and the five pipeline
-> interfaces and the generic `/api/jobs` API are **NOT built**. Do not imply
-> more than this exists in code, UI copy, comments, or docs.
+> **Status: B2–B3 DONE.** As of 2026-06-10: the **B2 spike** (PNG →
+> proxy-3D GLB, `backend/`, FastAPI, 22 pytest tests; see
+> `backend/README.md`) and the **B3 frontend** (additive "Proxy 3D Lab" view,
+> `src/components/avatar/`, with `three` lazy-loaded only inside the GLB
+> viewer) are implemented. The five pipeline interfaces, the generic
+> `/api/jobs` API, and any avatar/outfit composition are **NOT built**. Do
+> not imply more than this exists in code, UI copy, comments, or docs.
 
 ---
 
@@ -65,7 +66,7 @@ AvatarWardrobe/
   same way, with its user-facing copy guarded by the existing
   `FORBIDDEN_CLAIM_TERMS` honesty test pattern.
 
-**Current state (after B2):** only the spike subset of this architecture
+**Current state (after B2–B3):** the spike subset of this architecture
 exists — `backend/app/main.py` (`/api/proxy-3d` routes), `app/config.py`,
 `app/storage.py`, and `app/proxy3d/` (pipeline + meshbuild), with results
 under `backend/data/proxy_3d/<job_id>/`. `app/jobs.py` and
@@ -73,6 +74,18 @@ under `backend/data/proxy_3d/<job_id>/`. `app/jobs.py` and
 synchronously (sub-second deterministic work; a queue would only add states
 and races) but returns job-shaped records with a `job_id`, so a later async
 backend keeps the same API surface.
+
+On the frontend, the additive **Proxy 3D Lab** view exists
+(`'lab'` in `src/components/studio/views.ts`, components in
+`src/components/avatar/`): a pure `proxy3dFlow` reducer
+(idle → selected → uploading → ready/failed), a `proxy3dApi` client, and a
+`GlbViewer` that dynamic-imports `three` + GLTFLoader + OrbitControls only
+when mounted (Track A's bundle and startup are unaffected; the viewer falls
+back to download-only when WebGL is unavailable). Dev requests are proxied
+by Vite (`/api` → `127.0.0.1:8000`), so no CORS configuration exists or is
+needed. Lab copy is guarded by `PROXY3D_FORBIDDEN_CLAIM_TERMS`
+(`src/test/honesty.ts`) — "proxy 3D preview" / "image-to-3D proxy" wording
+only, never try-on/accuracy/fit claims.
 
 ## 4. Dummy/proxy pipeline (deliberate scope ceiling)
 
@@ -115,7 +128,7 @@ B4–B5._
 |---|---|---|
 | **B1** | Git baseline + two-track docs (this file; CLAUDE.md §0; PLAN.md tracks note). No code changes. | ✅ Done (2026-06-10) |
 | **B2** | Feasibility spike — PNG → proxy-3D GLB: `backend/` FastAPI service; `POST /api/proxy-3d` (synchronous, job-shaped records persisted to disk) + status/result GETs; alpha-mask extruded silhouette slab or textured-plane fallback; honest `limitations` metadata; 22 pytest tests; sample + verifier scripts. No frontend changes. | ✅ Done (2026-06-10) |
-| **B3** | Frontend Proxy 3D Lab view (additive): upload PNG → call `/api/proxy-3d` → show status/errors → download result.glb; optional three.js viewer lazy-loaded only inside the view; pure job-flow reducer + honesty-guarded copy; Vite dev proxy. Track A tests stay green. | Not started |
+| **B3** | Frontend Proxy 3D Lab view (additive): upload PNG → call `/api/proxy-3d` → show status/errors + honest generation report → download result.glb; three.js viewer lazy-loaded only inside the view (WebGL-failure fallback, full disposal on unmount); pure job-flow reducer + honesty-guarded copy; Vite dev proxy. Verified in headless Chrome incl. texture orientation. Track A tests stay green (247 total). | ✅ Done (2026-06-10) |
 | **B4** | Generic jobs API (`/api/jobs`) + pipeline interfaces (`IBodyEstimator`, `IAvatarBuilder`, `ITextureProjector`, `IOutfitFitter`, `IExporter`) with dummy impls; procedural avatar via `trimesh`. | Not started |
 | **B5** | Avatar composition end-to-end: bounding-box outfit-GLB merge onto the proxy avatar; per-job composed GLB; job-state UX polish + QA checklist additions. | Not started |
 | **B6** | Wardrobe bridge (later): optional `GarmentItem` fields (`sizeLabel`, `material`, `status`), outfit-GLB asset refs through the existing blob-store pattern (any new ref field MUST join `garmentBlobKeys`), resale-listing text generation (local, template-based). | Not started |

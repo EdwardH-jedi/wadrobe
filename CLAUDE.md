@@ -12,13 +12,15 @@ AvatarWardrobe contains two explicitly separated tracks:
 - **Track A — Fit Archive closet layer (BUILT).** Everything described in the
   rest of this file: the local-first 2.5D fashion archive (Vite + React, no
   backend). Phases 1–12.5 are complete per `PLAN.md`.
-- **Track B — Avatar Lab (spike in progress).** A user-authorized, additive
-  track toward an optional FastAPI job backend + 3D/GLB avatar try-on pipeline
-  and a three.js viewer. As of 2026-06-10, phase **B2** is done: a feasibility
-  spike in `backend/` (FastAPI, local-only, pytest-covered) that turns a PNG
-  into an honest **proxy 3D** GLB — a textured, lightly extruded silhouette
-  card, explicitly NOT real try-on. There is still no three.js and no Track B
-  frontend code. See `docs/AVATAR_TRACK.md` for scope, phases, and rules.
+- **Track B — Avatar Lab (B2–B3 done).** A user-authorized, additive track
+  toward an optional FastAPI job backend + 3D/GLB avatar try-on pipeline. As
+  of 2026-06-10: **B2** — a backend spike in `backend/` (FastAPI, local-only,
+  pytest-covered) that turns a PNG into an honest **proxy 3D** GLB (a
+  textured, lightly extruded silhouette card, explicitly NOT real try-on);
+  **B3** — an additive frontend "Proxy 3D Lab" view (`'lab'` in `views.ts`,
+  `src/components/avatar/`). `three` is a dependency but is loaded ONLY via
+  dynamic import inside the lab's GLB viewer — Track A's bundle and startup
+  are unaffected; keep it that way. See `docs/AVATAR_TRACK.md`.
 
 Track B may add a backend and 3D dependencies **inside its own explicitly
 started phases only** (see `docs/AVATAR_TRACK.md`); until then, every "What
@@ -183,10 +185,11 @@ See `docs/ROADMAP.md` for detail. Phase numbers match `PLAN.md`.
   higher-quality cutouts (the `CutoutDeps` + `assetBlobStore` seams are ready),
   real Vision API / product recognition, Three.js / R3F room, virtual try-on
   research.
-- **Track B — Avatar Lab (B2 spike done):** optional FastAPI backend + 3D/GLB
-  avatar-lab viewer, a separate additive track. Phase B2 (PNG → proxy-3D GLB
-  spike, `backend/`) is implemented; the frontend viewer is not. Scope and
-  phases live in `docs/AVATAR_TRACK.md`, not in this roadmap.
+- **Track B — Avatar Lab (B2–B3 done):** optional FastAPI backend + 3D/GLB
+  proxy viewer, a separate additive track. B2 (PNG → proxy-3D GLB spike,
+  `backend/`) and B3 (frontend Proxy 3D Lab view + lazy three.js GLB viewer)
+  are implemented; pipeline interfaces, `/api/jobs`, and avatar composition
+  are not. Scope and phases live in `docs/AVATAR_TRACK.md`, not here.
 
 Extension points are documented inline in `mockGarmentAnalysis.ts`,
 `indexedDbStorage.ts`, `MannequinPreview.tsx`, and `lib/image/garmentCutout.ts`,
@@ -202,6 +205,8 @@ src/
     closet/       ClosetPanel, GarmentCard, GarmentFilmstrip, CategoryTabs,
                   UploadGarmentModal, GarmentEditor
     outfit/       OutfitInspector, OutfitBuilder, SavedOutfitCard, FitCheck
+    avatar/       Proxy3DLab, GlbViewer, proxy3dFlow, proxy3dApi (Track B3;
+                  three.js via dynamic import only)
     studio/       ArchiveStudio, StudioScene, SidebarNav, RoomZone,
                   ClothingRack, MirrorPreview, MannequinPreview, OutfitWallBoard
   domain/         garmentTypes, outfitTypes, archiveTypes, garmentTaxonomy,

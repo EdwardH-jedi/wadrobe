@@ -12,6 +12,7 @@ import { UploadGarmentModal } from '../closet/UploadGarmentModal'
 import { EditGarmentModal } from '../closet/GarmentEditor'
 import { OutfitInspector } from '../outfit/OutfitInspector'
 import { OutfitBuilder } from '../outfit/OutfitBuilder'
+import { Proxy3DLab } from '../avatar/Proxy3DLab'
 import { SidebarNav } from './SidebarNav'
 import { StudioScene } from './StudioScene'
 import { StudioFitRail } from './StudioFitRail'
@@ -77,6 +78,8 @@ export function ArchiveStudio() {
         )
       case 'outfits':
         return <OutfitWallBoard onOpenMirror={() => setView('mirror')} />
+      case 'lab':
+        return <Proxy3DLab />
       default:
         return null
     }
