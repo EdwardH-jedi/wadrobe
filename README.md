@@ -51,3 +51,4 @@ Garments, saved looks, and the current outfit persist across reloads via a
 storage adapter that prefers **IndexedDB**, falls back to **localStorage**, and
 finally to **in-memory** (non-persistent) if both are blocked. Images are
 downscaled to thumbnails before storage to stay within quota.
+
