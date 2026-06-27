@@ -15,9 +15,16 @@ export interface ClosetPanelProps {
   onEdit: (garment: GarmentItem) => void
   /** Track B bridge (B3.9): open the Proxy 3D Lab for a piece. */
   onProxy3d?: (garment: GarmentItem) => void
+  /** Wardrobe Flow A2: open the read-only archive card for a piece. */
+  onDetails?: (garment: GarmentItem) => void
 }
 
-export function ClosetPanel({ onUpload, onEdit, onProxy3d }: ClosetPanelProps) {
+export function ClosetPanel({
+  onUpload,
+  onEdit,
+  onProxy3d,
+  onDetails,
+}: ClosetPanelProps) {
   const { garments, currentOutfit, selectGarment, removeGarment, loadSampleArchive } =
     useArchive()
   const [category, setCategory] = useState<CategoryFilter>('all')
@@ -138,6 +145,7 @@ export function ClosetPanel({ onUpload, onEdit, onProxy3d }: ClosetPanelProps) {
               onEdit={onEdit}
               onRemove={handleRemove}
               onProxy3d={onProxy3d}
+              onDetails={onDetails}
             />
           ))}
         </div>

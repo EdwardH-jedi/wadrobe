@@ -7,9 +7,11 @@ import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
 import { Panel } from '../ui/Panel'
 import { ClosetPanel } from '../closet/ClosetPanel'
+import { ArchiveCard } from '../closet/ArchiveCard'
 import { GarmentFilmstrip } from '../closet/GarmentFilmstrip'
 import { UploadGarmentModal } from '../closet/UploadGarmentModal'
 import { EditGarmentModal } from '../closet/GarmentEditor'
+import { Modal } from '../ui/Modal'
 import { OutfitInspector } from '../outfit/OutfitInspector'
 import { OutfitBuilder } from '../outfit/OutfitBuilder'
 import { Proxy3DLab } from '../avatar/Proxy3DLab'
@@ -46,6 +48,13 @@ export function ArchiveStudio() {
     setView('lab')
   }
 
+  // Wardrobe Flow A2: the piece shown in the read-only archive card modal.
+  // Resolved live so edits reflect immediately.
+  const [detailGarmentId, setDetailGarmentId] = useState<string | null>(null)
+  const detailGarment = detailGarmentId
+    ? (garments.find((g) => g.id === detailGarmentId) ?? null)
+    : null
+
   const meta = VIEW_META[view]
   const openUpload = () => {
     if (hydrated) setUploadOpen(true)
@@ -80,6 +89,7 @@ export function ArchiveStudio() {
             onUpload={openUpload}
             onEdit={setEditGarment}
             onProxy3d={openProxy3d}
+            onDetails={(g) => setDetailGarmentId(g.id)}
           />
         )
       case 'mirror':
@@ -166,6 +176,15 @@ export function ArchiveStudio() {
         garment={editGarment}
         onClose={() => setEditGarment(null)}
       />
+      <Modal
+        open={detailGarment !== null}
+        onClose={() => setDetailGarmentId(null)}
+        eyebrow="Archive piece"
+        title={detailGarment?.name ?? ''}
+        size="lg"
+      >
+        {detailGarment && <ArchiveCard garment={detailGarment} />}
+      </Modal>
     </div>
   )
 }

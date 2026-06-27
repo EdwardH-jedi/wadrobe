@@ -16,6 +16,8 @@ export interface GarmentCardProps {
   onRemove?: (id: string) => void
   /** Track B bridge (B3.9): open the Proxy 3D Lab for this piece. */
   onProxy3d?: (garment: GarmentItem) => void
+  /** Wardrobe Flow A2: open the read-only archive card (photo + reference meta). */
+  onDetails?: (garment: GarmentItem) => void
 }
 
 export function GarmentCard({
@@ -26,6 +28,7 @@ export function GarmentCard({
   onEdit,
   onRemove,
   onProxy3d,
+  onDetails,
 }: GarmentCardProps) {
   const meta = CATEGORY_META[garment.category]
   const hasPreview = Boolean(garment.proxy3dPreview)
@@ -114,6 +117,17 @@ export function GarmentCard({
               title={hasPreview ? 'View 3D preview' : 'Create 3D preview'}
             >
               <Icon name="cube" size={15} />
+            </Button>
+          )}
+          {onDetails && (
+            <Button
+              size="sm"
+              variant="quiet"
+              onClick={() => onDetails(garment)}
+              aria-label="View details"
+              title="View archive details"
+            >
+              <Icon name="info" size={15} />
             </Button>
           )}
           {onEdit && (
