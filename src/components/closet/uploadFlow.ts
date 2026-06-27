@@ -7,6 +7,8 @@
 // Status flow (the spec's imageSelected folds into scanning, and
 // suggestionReady + editingMetadata into review):
 //   idle → scanning → crop → cutout → review → reference → archiving → archived
+//   scanning → consent → scanning   (vision opt-in: confirm sends the photo)
+//   consent → idle              (vision opt-in: cancel discards the input)
 //   scanning → error            (image could not be read)
 //   any → idle                  (RESET / reject)
 //
@@ -20,11 +22,13 @@
 import type { GarmentDraft, GarmentItem } from '../../domain/garmentTypes'
 import { buildUploadedAsset } from '../../domain/garmentAsset'
 import type { GarmentAnalysisGuess } from '../../lib/ai/garmentAnalysisTypes'
+import type { AnalyzerKind } from '../../lib/ai/createAnalyzer'
 import type { ProductMatchCandidate } from '../../lib/productMatch/productMatchTypes'
 
 export type UploadStatus =
   | 'idle'
   | 'scanning'
+  | 'consent'
   | 'crop'
   | 'cutout'
   | 'review'
@@ -62,6 +66,15 @@ export type UploadAction =
   | { type: 'SCAN_START' }
   /** The image could not be read/decoded. */
   | { type: 'SCAN_FAIL'; message: string }
+  /**
+   * Vision path, not yet consented: the local thumbnail is ready but the photo
+   * has not been sent. Pause for the user to opt into transmission.
+   */
+  | { type: 'NEED_CONSENT' }
+  /** Consent granted: resume scanning — the component re-runs the held input. */
+  | { type: 'GRANT_CONSENT' }
+  /** Consent declined: return the upload to the start (input is discarded). */
+  | { type: 'DENY_CONSENT' }
   /** The local demo produced a draft + suggestion; the crop step opens. */
   | { type: 'SUGGESTED'; draft: GarmentDraft; guess: GarmentAnalysisGuess }
   /**
@@ -101,6 +114,18 @@ export function uploadReducer(
 
     case 'SCAN_FAIL':
       return { ...initialUploadState, status: 'error', error: action.message }
+
+    case 'NEED_CONSENT':
+      if (state.status !== 'scanning') return state
+      return { ...state, status: 'consent' }
+
+    case 'GRANT_CONSENT':
+      if (state.status !== 'consent') return state
+      return { ...state, status: 'scanning' }
+
+    case 'DENY_CONSENT':
+      if (state.status !== 'consent') return state
+      return initialUploadState
 
     case 'SUGGESTED':
       return {
@@ -194,6 +219,21 @@ export const UPLOAD_COPY = {
   scanTitle: 'Reading silhouette, color & category locally…',
   scanBody:
     'A local demo drafts a starting point — no photo leaves your device. You’ll confirm or edit it next.',
+  // Cloud-analyzer variants (Phase 4): shown ONLY when the optional backend
+  // vision provider is active, so the copy is honest that the photo is sent to a
+  // server (the local/no-upload copy above would be false in that mode).
+  scanBadgeCloud: 'Cloud scan…',
+  scanEyebrowCloud: 'Cloud style scan',
+  scanTitleCloud: 'Reading silhouette, color & category in the cloud…',
+  scanBodyCloud:
+    'Your photo is sent to a configured server to draft a starting point. You’ll confirm or edit every field next.',
+  // Consent gate (Step 2): shown ONCE per session before the photo is sent on
+  // the cloud-analyzer path. The mock path never reaches this — nothing is sent.
+  consentTitle: 'Send this photo to draft details?',
+  consentBody:
+    'Your downscaled photo is sent to a configured server to draft a starting point — just this session. You confirm or edit every field next.',
+  consentConfirm: 'Send & scan',
+  consentCancel: 'Cancel',
   cropEyebrow: 'Prepare display asset',
   cropTitle: 'Crop the garment area',
   cropHint:
@@ -211,14 +251,53 @@ export const UPLOAD_COPY = {
   cutoutUse: 'Use cutout',
   cutoutSkip: 'Continue without cutout',
   suggestionLabel: 'Draft metadata suggestion',
+  // Provenance-neutral: true whether the draft came from the local mock or the
+  // optional cloud vision provider (the scan step states which one ran).
   suggestionHint:
-    'A local demo guess — confirm or adjust every field before archiving.',
+    'A draft guess — confirm or adjust every field before archiving.',
   referenceEyebrow: 'Reference (optional)',
   referenceTitle: 'Attach product context',
   referenceHint:
     'Reference candidates are local demos — nothing is matched for you. Confirm to archive with your uploaded photo, or add your own product details.',
+  referenceFetch: 'Read details from page',
+  referenceFetchWorking: 'Reading the product page…',
+  referenceFetchDone: 'Filled from the product page — confirm or edit.',
   archivingTitle: 'Sealing the archive…',
   archivedEyebrow: 'Archive Piece created',
   archivedHint: 'Filed to your archive — entering the rail.',
   errorTitle: 'Couldn’t read that image',
 } as const
+
+// --- Scan-step copy selection ------------------------------------------------
+// Pure selection of the scan-step copy by analyzer kind, extracted from the
+// component so the "photo is sent to a server" disclosure can be asserted
+// directly (the component only ever passes 'backend' once the user consented,
+// so the cloud claim is never rendered before consent).
+export interface ScanCopy {
+  eyebrow: string
+  title: string
+  badge: string
+  body: string
+}
+
+/**
+ * Cloud (server-transmission) copy for the backend analyzer, on-device copy for
+ * the mock. The caller is responsible for only requesting 'backend' once the
+ * photo is actually about to be sent (i.e. consent granted).
+ */
+export function scanCopyForKind(kind: AnalyzerKind): ScanCopy {
+  if (kind === 'backend') {
+    return {
+      eyebrow: UPLOAD_COPY.scanEyebrowCloud,
+      title: UPLOAD_COPY.scanTitleCloud,
+      badge: UPLOAD_COPY.scanBadgeCloud,
+      body: UPLOAD_COPY.scanBodyCloud,
+    }
+  }
+  return {
+    eyebrow: UPLOAD_COPY.scanEyebrow,
+    title: UPLOAD_COPY.scanTitle,
+    badge: UPLOAD_COPY.scanBadge,
+    body: UPLOAD_COPY.scanBody,
+  }
+}

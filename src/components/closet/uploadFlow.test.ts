@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   UPLOAD_COPY,
   initialUploadState,
+  scanCopyForKind,
   uploadReducer,
   type UploadState,
 } from './uploadFlow'
@@ -238,6 +239,46 @@ describe('uploadReducer', () => {
     expect(uploadReducer(reviewState(), { type: 'RESET' })).toEqual(
       initialUploadState,
     )
+  })
+})
+
+describe('vision consent gate (reducer)', () => {
+  it('scanning → consent → scanning when consent is granted', () => {
+    let s = uploadReducer(initialUploadState, { type: 'SCAN_START' })
+    s = uploadReducer(s, { type: 'NEED_CONSENT' })
+    expect(s.status).toBe('consent')
+    s = uploadReducer(s, { type: 'GRANT_CONSENT' })
+    expect(s.status).toBe('scanning')
+  })
+
+  it('consent → idle when denied', () => {
+    const s = uploadReducer(
+      { ...initialUploadState, status: 'consent' },
+      { type: 'DENY_CONSENT' },
+    )
+    expect(s.status).toBe('idle')
+  })
+})
+
+describe('scanCopyForKind', () => {
+  it('backend kind surfaces the server-transmission notice', () => {
+    const copy = scanCopyForKind('backend')
+    expect(copy.body).toBe(UPLOAD_COPY.scanBodyCloud)
+    expect(copy.body).toMatch(/server/i) // positive: the disclosure is real
+  })
+
+  it('mock kind keeps the on-device line', () => {
+    expect(scanCopyForKind('mock').body).toBe(UPLOAD_COPY.scanBody)
+  })
+
+  it('every scan copy and consent copy avoids forbidden claims', () => {
+    const copies = [
+      ...Object.values(scanCopyForKind('mock')),
+      ...Object.values(scanCopyForKind('backend')),
+      UPLOAD_COPY.consentTitle,
+      UPLOAD_COPY.consentBody,
+    ]
+    for (const v of copies) expect(v).not.toMatch(FORBIDDEN_CLAIM_TERMS)
   })
 })
 
