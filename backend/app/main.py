@@ -13,12 +13,13 @@ from __future__ import annotations
 import time
 import uuid
 
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, Form, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from typing import Literal
 
-from app import storage
+from app import jobs, storage
+from app.pipeline.interfaces import AvatarInputs
 from app.proxy3d import pipeline
 
 app = FastAPI(
@@ -153,4 +154,65 @@ async def get_proxy_3d_result(job_id: str) -> FileResponse:
     path = storage.glb_path(job_id)
     if path is None:
         raise pipeline.Proxy3dError(404, "Unknown proxy-3D job id.")
+    return FileResponse(path, media_type="model/gltf-binary", filename="result.glb")
+
+
+# --- Avatar jobs API (Track B, Phase B4a) ------------------------------------
+# Additive async job surface for the (heavier) avatar build. Mirrors the
+# proxy-3D error/handler pattern. The B4a avatar is a PLACEHOLDER box, not a real
+# avatar / body scan / accurate fit — provenance is recorded honestly in notes.
+
+
+class JobError(Exception):
+    def __init__(self, status_code: int, detail: str) -> None:
+        self.status_code = status_code
+        self.detail = detail
+
+
+@app.exception_handler(JobError)
+async def job_error_handler(_request, exc: JobError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+
+class JobRecord(BaseModel):
+    id: str
+    state: Literal["queued", "processing", "done", "failed"]
+    error: str | None = None
+
+
+@app.post("/api/jobs", response_model=JobRecord, status_code=202)
+async def create_job(
+    background_tasks: BackgroundTasks,
+    body_file: UploadFile = File(...),
+    face_file: UploadFile | None = File(default=None),
+    outfit_file: UploadFile | None = File(default=None),
+) -> JobRecord:
+    inputs = AvatarInputs(
+        body_image=await body_file.read(),
+        face_image=await face_file.read() if face_file is not None else None,
+        outfit_glb=await outfit_file.read() if outfit_file is not None else None,
+    )
+    job = jobs.store.create()
+    background_tasks.add_task(jobs.store.process, job.id, inputs)
+    return JobRecord(id=job.id, state=job.state.value)
+
+
+@app.get("/api/jobs/{job_id}", response_model=JobRecord)
+async def get_job(job_id: str) -> JobRecord:
+    job = jobs.store.get(job_id)
+    if job is None:
+        raise JobError(404, "Unknown job id.")
+    return JobRecord(id=job.id, state=job.state.value, error=job.error)
+
+
+@app.get("/api/jobs/{job_id}/result.glb")
+async def get_job_result(job_id: str) -> FileResponse:
+    job = jobs.store.get(job_id)
+    if job is None:
+        raise JobError(404, "Unknown job id.")
+    if job.state.value == "failed":
+        raise JobError(409, f"Job failed: {job.error}")
+    path = jobs.glb_path(job_id)
+    if path is None:
+        raise JobError(409, "Job result is not ready yet.")
     return FileResponse(path, media_type="model/gltf-binary", filename="result.glb")
