@@ -1,8 +1,12 @@
 # AI Image Pipeline (current + future)
 
-The app is built around a clean seam for image analysis so a real Vision model
-can be dropped in later without touching the UI or storage. **Today there are no
-network or model calls** — analysis is a deterministic mock.
+The app is built around a clean seam for image analysis. **By default there are
+no network or model calls** — analysis is a deterministic local mock. The seam is
+now wired (Track A Phase 4): when the operator sets `VITE_ANALYZER=vision` and
+`VITE_API_BASE`, `createAnalyzer.ts` selects a backend analyzer that POSTs the
+downscaled thumbnail to the `api/analyze` Vercel function (a Claude vision call)
+and maps the result via `parseVisionGuess` (`source: 'vision-api'`); any failure
+falls back to the mock. The default (env unset) remains mock-only with no upload.
 
 > **Note on "Phase" numbers — they collide.** PLAN.md's roadmap and this document
 > both say "Phase N" but mean different things. **PLAN.md Phase 3 ("Upload To
@@ -66,9 +70,12 @@ Code:
 - `src/lib/ai/garmentAnalysisTypes.ts` — `GarmentAnalysisGuess`,
   `GarmentAnalysisInput`, and the `GarmentAnalyzer` contract.
 
-**The current implementation does not perform real AI product recognition, brand
-identification, or any vision-model inference.** Everything is a local,
-deterministic mock plus on-device canvas work; no photo leaves the device.
+**By default the implementation performs no real product recognition, brand
+identification, or vision-model inference** — it is a local deterministic mock
+plus on-device canvas work, and no photo leaves the device. The optional vision
+provider (Phase 4, env-gated) is the one exception: when explicitly enabled it
+sends the thumbnail to the backend and the scan copy says so. It still produces a
+non-binding draft the user confirms, and never fabricates a brand.
 
 ## Product / reference matching (Phase 8 — mock/demo only)
 

@@ -26,4 +26,16 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // Vercel serverless functions (Edge runtime): Web-standard globals plus
+    // `process` for env access; the Fast-Refresh component rule does not apply
+    // to a request handler.
+    files: ['api/**/*.{ts,tsx}'],
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.node },
+    },
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 )

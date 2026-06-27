@@ -60,15 +60,23 @@ visual focus.
 - ❌ NO chibi/cartoon avatar. The mannequin is a **tall, faceless** silhouette.
 - ❌ NO backend, auth, accounts, or server in Track A. Storage is local.
   (Track B owns the optional backend: a spike service exists in `backend/`
-  since phase B2 — see §0 and `docs/AVATAR_TRACK.md`. The Track A web app
-  still makes no network calls.)
-- ❌ NO real AI/Vision API calls yet (see `mockGarmentAnalysis.ts`).
+  since phase B2 — see §0 and `docs/AVATAR_TRACK.md`. Track A added an OPTIONAL,
+  off-by-default Vercel serverless layer in `api/` — `product-meta` (Phase 3)
+  and `analyze` (Phase 4) — reached only when `VITE_API_BASE` (and, for vision,
+  `VITE_ANALYZER=vision`) is configured. With env unset, the web app makes no
+  network calls.)
+- ❌ NO real AI/Vision API calls **by default**. The analyzer is the local mock
+  unless the operator explicitly opts into the backend vision provider via env
+  (`VITE_ANALYZER=vision` + `VITE_API_BASE`; see `createAnalyzer.ts` /
+  `api/analyze.ts`). When that path runs, the upload scan copy honestly states
+  the photo is sent to a server, and the guess stays a draft the user confirms.
 - ❌ NO claim — in UI, copy, comments, or docs — that the app performs **real
   3D virtual try-on**. It does not. It is a 2.5D layered composition.
 - ❌ NO heavy dependency bloat. Justify every new dependency.
 
-**Honest wording.** The analyzer is a local deterministic mock; the preview is
-2.5D. User-facing copy MAY say: "demo style scan", "draft metadata suggestion",
+**Honest wording.** The analyzer is a local deterministic mock by default (an
+optional env-gated cloud vision provider exists — Phase 4 — with its own honest
+"sent to a server" scan copy); the preview is 2.5D. User-facing copy MAY say: "demo style scan", "draft metadata suggestion",
 "local preview", "2.5D layered preview", "mirror composition", "manual crop",
 "prepare display asset", "2D garment asset", "future cutout support". It must NOT
 claim real AI recognition, exact product identification, AI cutout, automatic
