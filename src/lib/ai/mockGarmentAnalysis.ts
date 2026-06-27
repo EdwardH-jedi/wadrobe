@@ -1,17 +1,12 @@
-// Mock garment analysis.
+// Mock garment analysis — the DEFAULT analyzer.
 //
 // Returns a deterministic, plausible guess derived from the file name and an
-// optional dominant color. This is a STUB standing in for a real Vision API.
-// It performs no network calls and no canvas work, so it runs anywhere.
-//
-// === Replacing this with a real Vision API (future) ===
-// 1. Implement the `GarmentAnalyzer` contract from `garmentAnalysisTypes.ts`
-//    with a class that POSTs the image bytes to your provider
-//    (e.g. Anthropic Claude vision, Google Cloud Vision, a self-hosted model).
-// 2. Map the provider's response to `GarmentAnalysisGuess`.
-// 3. Swap the analyzer the UI imports (see `runGarmentAnalysis`) behind a
-//    feature flag / environment variable. The UI contract does not change.
-// 4. Keep the "user confirms before save" step — guesses stay non-binding.
+// optional dominant color. It performs no network calls and no canvas work, so
+// it runs anywhere. This is the default; the real-vision seam is wired (Phase 4)
+// in `createAnalyzer.ts` (selected by env) with the provider call in the
+// `api/analyze` Edge handler, and `runGarmentAnalysis` routes through it. When a
+// real provider runs, the "user confirms before save" step still applies —
+// guesses stay non-binding.
 import type { ClothingCategory } from '../../domain/garmentTypes'
 import {
   COLOR_OPTIONS,
@@ -23,6 +18,7 @@ import type {
   GarmentAnalysisGuess,
   GarmentAnalysisInput,
 } from './garmentAnalysisTypes'
+import { createAnalyzer } from './createAnalyzer'
 
 // --- Keyword tables -------------------------------------------------------
 
@@ -244,12 +240,14 @@ export function analyzeGarmentMock(
 }
 
 /**
- * Async entry point the UI calls. The returned promise resolves immediately;
- * the "scanning" animation duration is owned by the UI, not this function.
- * A real provider would do network I/O here.
+ * Async entry point the UI calls. Routes through the analyzer factory
+ * (`createAnalyzer`) instead of binding the mock directly, so the provider seam
+ * is honored: env unset → mock (the default), `VITE_API_BASE` set → the backend
+ * analyzer (a stub until Phase 4). The "scanning" animation duration is owned by
+ * the UI, not this function.
  */
 export function runGarmentAnalysis(
   input: GarmentAnalysisInput,
 ): Promise<GarmentAnalysisGuess> {
-  return Promise.resolve(analyzeGarmentMock(input))
+  return createAnalyzer().analyze(input)
 }
