@@ -2037,6 +2037,11 @@
   font-size: 11px;
   color: var(--text-400);
 }
+.refcard__conf {
+  margin-top: 2px;
+  font-size: 9.5px;
+  color: var(--accent);
+}
 
 .field {
   display: flex;

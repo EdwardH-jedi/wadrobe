@@ -33,7 +33,7 @@ import {
 import { selectAnalyzerKind } from '../../lib/ai/createAnalyzer'
 import { grantVisionConsent, hasVisionConsent } from '../../lib/ai/visionConsent'
 import { createBackendClient } from '../../lib/ai/backendClient'
-import { mockProductMatch } from '../../lib/productMatch/mockProductMatch'
+import { generateCandidates } from '../../lib/candidates/candidateProvider'
 import {
   fetchProductMeta,
   productMetaToPrefill,
@@ -406,9 +406,13 @@ export function UploadGarmentModal({
 
   // Move from metadata to the optional product/reference step. Gated on the
   // name so the reference step can never be reached on a nameless draft.
-  const goToReference = () => {
+  const goToReference = async () => {
     if (!state.draft || isNameMissing(state.draft.name)) return
-    const candidates = mockProductMatch({
+    // Candidates now flow through the C1 provider seam (mock by default; the
+    // live text-search provider lands in C3). The returned shape is the existing
+    // ProductMatchCandidate, so the reference pick/prefill/approve/archive path
+    // downstream is untouched — manual URL entry remains the always-on fallback.
+    const { candidates } = await generateCandidates({
       category: state.draft.category,
       color: state.draft.color,
       styleTags: state.draft.styleTags,
@@ -628,7 +632,7 @@ export function UploadGarmentModal({
             <Button
               variant="primary"
               disabled={nameMissing}
-              onClick={goToReference}
+              onClick={() => void goToReference()}
             >
               Continue
             </Button>
@@ -1032,6 +1036,12 @@ export function UploadGarmentModal({
                       {candidate.productName ?? candidate.brand ?? 'Reference'}
                     </span>
                     <span className="refcard__reason">{candidate.reason}</span>
+                    {candidate.candidateType !== 'manual' && (
+                      <span className="refcard__conf eyebrow">
+                        Demo · {Math.round(candidate.confidence * 100)}% · a guess
+                        you confirm
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
