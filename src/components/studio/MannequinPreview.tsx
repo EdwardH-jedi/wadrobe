@@ -4,7 +4,7 @@
 // dropped cheaply via `mix-blend-mode: multiply` against the light panels.
 import { OUTFIT_SLOT_ORDER } from '../../domain/outfitTypes'
 import { CATEGORY_META } from '../../domain/garmentTaxonomy'
-import { getLayerPreset } from '../../domain/garmentLayout'
+import { getLayerPreset, getLayerZIndex } from '../../domain/garmentLayout'
 import { getGarmentDisplayImage } from '../../domain/garmentAsset'
 import { useArchive } from '../../app/providers/useArchive'
 import { cx } from '../../lib/cx'
@@ -71,22 +71,31 @@ export function MannequinPreview({ compact = false }: MannequinPreviewProps) {
         // on top of the CSS zone geometry. `contain` keeps wide/odd pieces
         // (shoes, accessories) from being aggressively cropped.
         const preset = getLayerPreset(slot)
+        // A transparent cutout floats as a collage element: it takes its natural
+        // stacking order (outerwear above the top) and drops the matte paper
+        // panel + multiply blend that exist only to mask opaque flat-lay
+        // backgrounds (Phase 5). `contain` shows the whole garment shape.
+        const isCutout = garment.asset?.assetMode === 'cutout'
 
         return (
           <div
             key={slot}
-            className={cx('mannequin__zone', zoneClass)}
-            style={{ zIndex: preset.zIndex }}
+            className={cx(
+              'mannequin__zone',
+              zoneClass,
+              isCutout && 'mannequin__zone--cutout',
+            )}
+            style={{ zIndex: getLayerZIndex(slot, isCutout) }}
           >
             <span
               className="mannequin__accent"
               style={{ background: garment.colorHex }}
             />
             <img
-              className="mannequin__img"
+              className={cx('mannequin__img', isCutout && 'mannequin__img--cutout')}
               src={getGarmentDisplayImage(garment)}
               alt={garment.name}
-              style={{ objectFit: preset.fit }}
+              style={{ objectFit: isCutout ? 'contain' : preset.fit }}
             />
             {!compact && <span className="mannequin__tag">{garment.name}</span>}
           </div>

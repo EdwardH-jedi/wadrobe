@@ -95,4 +95,39 @@ describe('MannequinPreview zone mapping', () => {
     const img = (await screen.findByAltText('The Piece')) as HTMLImageElement
     expect(img.getAttribute('src')).toBe('data:DISPLAY')
   })
+
+  it('floats a cutout garment as a transparent collage layer (Phase 5)', async () => {
+    const piece = makeGarment({
+      id: 'g',
+      category: 'outerwear',
+      name: 'The Piece',
+      asset: {
+        originalImageUrl: 'data:RAW',
+        displayImageUrl: 'data:CUT',
+        cutoutImageUrl: 'data:CUT',
+        assetMode: 'cutout',
+      },
+    })
+    localStorage.setItem(STORAGE_KEYS.garments, JSON.stringify([piece]))
+    localStorage.setItem(
+      STORAGE_KEYS.currentOutfit,
+      JSON.stringify({ ...createEmptyOutfit(), outerwear: 'g' }),
+    )
+    render(
+      <ArchiveProvider>
+        <MannequinPreview />
+      </ArchiveProvider>,
+    )
+    const img = await screen.findByAltText('The Piece')
+    // Cutout image drops the multiply blend; its zone drops the matte panel.
+    expect(img.classList.contains('mannequin__img--cutout')).toBe(true)
+    expect(img.closest('.mannequin__zone--cutout')).not.toBeNull()
+  })
+
+  it('keeps a non-cutout garment in its matte panel (no cutout classes)', async () => {
+    await renderSelected('top')
+    const img = screen.getByAltText('The Piece')
+    expect(img.classList.contains('mannequin__img--cutout')).toBe(false)
+    expect(img.closest('.mannequin__zone--cutout')).toBeNull()
+  })
 })

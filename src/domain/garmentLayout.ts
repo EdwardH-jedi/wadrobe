@@ -38,11 +38,11 @@ export interface GarmentLayerPreset {
  *
  * NOTE on `zIndex` — the Phase 9 spec suggests "outerwear should visually layer
  * above top". The verified mannequin geometry has the top's panel entirely
- * INSIDE the outerwear panel, and panels are OPAQUE (no real cutout yet), so
- * stacking outerwear above top would fully occlude a selected top — a broken
- * collage. We therefore keep the eyeball-verified order (outerwear behind, top
- * in front) so both stay visible. True outerwear-above-top is deferred to the
- * cutout era, where transparent garments make the overlap readable.
+ * INSIDE the outerwear panel, and OPAQUE flat-lay panels mean stacking outerwear
+ * above top would fully occlude a selected top — a broken collage. So this base
+ * order keeps the eyeball-verified arrangement (outerwear behind, top in front)
+ * for opaque panels. The natural outerwear-above-top order is activated only for
+ * transparent cutouts, via `getLayerZIndex` (Phase 5), where the overlap reads.
  */
 export const LAYER_PRESETS: Record<ClothingCategory, GarmentLayerPreset> = {
   outerwear: {
@@ -90,4 +90,22 @@ export const LAYER_PRESETS: Record<ClothingCategory, GarmentLayerPreset> = {
 /** Look up the layer preset for a category. */
 export function getLayerPreset(category: ClothingCategory): GarmentLayerPreset {
   return LAYER_PRESETS[category]
+}
+
+/**
+ * Effective stacking order for a garment panel (Phase 5). The base preset order
+ * holds for OPAQUE flat-lay panels. When a garment is shown as a transparent
+ * CUTOUT, the occlusion concern that pins outerwear behind the top disappears,
+ * so outerwear takes its natural place ABOVE the top (still below the
+ * upper-side accessory). All other categories keep their preset order.
+ */
+export function getLayerZIndex(
+  category: ClothingCategory,
+  isCutout: boolean,
+): number {
+  if (isCutout && category === 'outerwear') {
+    // Above the top, below the accessory — the natural "jacket over shirt" drape.
+    return LAYER_PRESETS.top.zIndex + 2
+  }
+  return LAYER_PRESETS[category].zIndex
 }
