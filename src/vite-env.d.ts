@@ -15,6 +15,13 @@ interface ImportMetaEnv {
    * (the default) keeps the local mock analyzer and sends no photo anywhere.
    */
   readonly VITE_ANALYZER?: string
+  /**
+   * OPTIONAL reference-candidate source opt-in (Wardrobe Flow C). Set to
+   * `'search'` to use the live text-search provider (wired in C3); unset (the
+   * default) keeps the deterministic local mock candidates and makes no network
+   * calls.
+   */
+  readonly VITE_CANDIDATES?: string
   readonly MODE: string
   readonly DEV: boolean
   readonly PROD: boolean
