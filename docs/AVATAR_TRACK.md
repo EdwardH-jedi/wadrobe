@@ -1,12 +1,17 @@
 # AVATAR_TRACK.md — Track B: Avatar Lab (additive 3D/GLB track)
 
-> **Status: B2–B3 DONE.** As of 2026-06-10: the **B2 spike** (PNG →
-> proxy-3D GLB, `backend/`, FastAPI, 22 pytest tests; see
-> `backend/README.md`) and the **B3 frontend** (additive "Proxy 3D Lab" view,
+> **Status: B2–B3.9 DONE; B4–B5 backend DONE (frontend wiring pending).**
+> As of 2026-06-27: the **B2 spike** (PNG → proxy-3D GLB, `backend/`, FastAPI)
+> and the **B3–B3.9 frontend** (additive "Proxy 3D Lab" view,
 > `src/components/avatar/`, with `three` lazy-loaded only inside the GLB
-> viewer) are implemented. The five pipeline interfaces, the generic
-> `/api/jobs` API, and any avatar/outfit composition are **NOT built**. Do
-> not imply more than this exists in code, UI copy, comments, or docs.
+> viewer + the closet bridge) are implemented. **B4–B5 backend** now also
+> exists and is pytest-green: the generic async jobs API (`/api/jobs`), all
+> five pipeline interfaces with dummy impls, a procedural `trimesh` mannequin
+> builder, and a bounding-box outfit-GLB fitter (65 backend tests total).
+> What is **NOT built yet:** the frontend job-flow wiring that drives
+> `/api/jobs` from the Avatar Lab view (the UI still only calls
+> `/api/proxy-3d`), and B6. Do not imply real try-on / accurate fit anywhere —
+> the avatar pipeline is an honest proxy (placeholder/procedural mesh).
 
 ---
 
@@ -69,11 +74,18 @@ AvatarWardrobe/
 **Current state (after B2–B3):** the spike subset of this architecture
 exists — `backend/app/main.py` (`/api/proxy-3d` routes), `app/config.py`,
 `app/storage.py`, and `app/proxy3d/` (pipeline + meshbuild), with results
-under `backend/data/proxy_3d/<job_id>/`. `app/jobs.py` and
-`app/pipeline/interfaces.py` are still future. The spike generates
+under `backend/data/proxy_3d/<job_id>/`. The spike generates
 synchronously (sub-second deterministic work; a queue would only add states
 and races) but returns job-shaped records with a `job_id`, so a later async
 backend keeps the same API surface.
+
+As of 2026-06-27 the rest of the backend architecture also exists alongside
+the spike: `app/jobs.py` (async in-memory job store driving `/api/jobs`) and
+`app/pipeline/` (`interfaces.py`, `dummy.py`, `runner.py`, `mannequin.py`,
+`fitter.py`) — the B4–B5 work. These are **additive** and do not touch the
+`/api/proxy-3d` routes or `app/storage.py`. The frontend still drives only
+the proxy-3d flow; wiring the Avatar Lab view to `/api/jobs` is the remaining
+B5 step.
 
 On the frontend, the additive **Proxy 3D Lab** view exists
 (`'lab'` in `src/components/studio/views.ts`, components in
@@ -153,8 +165,9 @@ B4–B5._
 | **B3.7** | Front/back dual-image input + dual-texture GLB: optional `back_file` on `POST /api/proxy-3d`; the dual GLB carries three submeshes (front texture / back texture with mirrored U / neutral edge-colored walls); back image normalized by deterministic bounding-box alignment onto the front silhouette. Frontend: per-side B3.6 cutout-first flow (front required, back optional; back offers cutout / explicit use-as-is / remove), dual vs single generate button, honest verdicts ("Single-sided" / "Dual-sided silhouette proxy 3D preview" / "Flat image card fallback"), rotate-to-inspect hint. Verified in real Chrome: dual GLB visibly renders DIFFERENT front/back textures (blue front / orange striped back; green front / maroon back via per-side cutouts); mismatched input sizes aligned; Track A unaffected. | ✅ Done (2026-06-10) |
 | **B3.9** | Closet item ↔ proxy 3D bridge: garments gain an optional, parser-tolerant `proxy3dPreview` link (job id + honest metadata ONLY — the GLB stays in the local backend's job storage; no blob-store changes, `garmentBlobKeys` untouched). Closet cards get "Create 3D preview" / "View 3D preview" entries + a "3D" badge; the lab preloads the piece's display image as the front (canvas PNG conversion preserving cutout alpha), saves a generation to the piece via an explicit button, reopens saved previews (honest message + Regenerate when the backend is off or the result is gone), and supports Remove-link (unlink only). Standalone lab unchanged. Verified live end-to-end incl. full-page-reload persistence; legacy records load untouched. | ✅ Done (2026-06-10) |
 | **B3.8** | Cutout tuning + back alignment polish: per-side "Cutout tuning" sliders exposing Track A's existing `CutoutOptions` seams (`tolerance`, `uniformityMin`) with Recreate/Reset; manual back alignment via optional `back_scale`/`back_offset_x`/`back_offset_y` form fields (clamped server-side, applied after the bbox fit, reported as `back_alignment` with a `manual` flag); approximate CSS overlay alignment preview + plan note (single vs dual); regenerate-from-ready; verdict variant "Dual-sided silhouette proxy 3D preview · manual alignment" and user-tuned-but-approximate limitations wording. Verified in real Chrome: adjusted scale/offset visibly changed the GLB's back face vs the default; reset restored the bbox default; a gradient background honestly failed at default settings and cut successfully after raising tolerance; Track A unaffected. | ✅ Done (2026-06-10) |
-| **B4** | Generic jobs API (`/api/jobs`) + pipeline interfaces (`IBodyEstimator`, `IAvatarBuilder`, `ITextureProjector`, `IOutfitFitter`, `IExporter`) with dummy impls; procedural avatar via `trimesh`. | Not started |
-| **B5** | Avatar composition end-to-end: bounding-box outfit-GLB merge onto the proxy avatar; per-job composed GLB; job-state UX polish + QA checklist additions. | Not started |
+| **B4a** | Generic async jobs API (`backend/app/jobs.py`, `/api/jobs`: POST 202 → status → result.glb) over an in-memory job store with honest `queued→processing→done\|failed` states; five pipeline `Protocol` interfaces (`IBodyEstimator`, `IAvatarBuilder`, `ITextureProjector`, `IOutfitFitter`, `IExporter`) + dummy impls + runner. Existing `/api/proxy-3d` routes/storage untouched. `test_jobs.py` (12). | ✅ Done (backend, 2026-06-27) |
+| **B4b** | Procedural `trimesh` mannequin builder replacing the placeholder box — tall, faceless, assembled from primitives (`backend/app/pipeline/mannequin.py`). `test_mannequin.py` (7). | ✅ Done (backend, 2026-06-27) |
+| **B5** | Avatar composition (backend): bounding-box outfit-GLB merge onto the proxy avatar via `IOutfitFitter` (`pipeline/fitter.py`) → single composed GLB. `test_fitter.py` (6). **Pending:** frontend job-flow wiring (Avatar Lab view → `/api/jobs`), per-job composed-GLB viewing, job-state UX polish + QA checklist additions. | ⚠️ Backend done; frontend wiring pending |
 | **B6** | Wardrobe bridge (later): optional `GarmentItem` fields (`sizeLabel`, `material`, `status`), outfit-GLB asset refs through the existing blob-store pattern (any new ref field MUST join `garmentBlobKeys`), resale-listing text generation (local, template-based). | Not started |
 
 Each phase ends with: `npm run typecheck`, `npm test`, `npm run build` (and
