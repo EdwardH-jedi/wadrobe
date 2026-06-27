@@ -22,13 +22,23 @@ describe('selectCandidateSource', () => {
 })
 
 describe('createCandidateProvider', () => {
-  it('always resolves to the mock today (search lands in C3 — no network)', () => {
+  it('is the mock unless BOTH the flag and a backend base are set', () => {
     expect(createCandidateProvider({}).source).toBe('mock')
-    // Even with the flag set, the live provider is not built yet, so the seam
-    // stays on the mock rather than silently doing nothing or hitting the network.
+    // Flag alone (no VITE_API_BASE) → still mock, never a network call.
     expect(createCandidateProvider({ VITE_CANDIDATES: 'search' }).source).toBe(
       'mock',
     )
+    // Backend base alone (no opt-in) → mock.
+    expect(
+      createCandidateProvider({ VITE_API_BASE: 'https://meta.test' }).source,
+    ).toBe('mock')
+    // Both → the live search provider (its .source; no generate call here).
+    expect(
+      createCandidateProvider({
+        VITE_CANDIDATES: 'search',
+        VITE_API_BASE: 'https://meta.test',
+      }).source,
+    ).toBe('search')
   })
 })
 

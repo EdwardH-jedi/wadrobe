@@ -12,6 +12,11 @@ import type {
   ProductMatchInput,
 } from '../productMatch/productMatchTypes'
 import { mockProductMatch } from '../productMatch/mockProductMatch'
+import {
+  createBackendClient,
+  type BackendClient,
+  type BackendEnv,
+} from '../ai/backendClient'
 
 export type CandidateSource = 'mock' | 'search'
 
@@ -27,8 +32,12 @@ export interface CandidateProvider {
   generate(input: ProductMatchInput): Promise<ProductMatchCandidate[]>
 }
 
-/** Env slice this seam reads (the opt-in flag for the real search provider). */
-export interface CandidateEnv {
+/**
+ * Env slice this seam reads: the backend base (for the search endpoint) plus the
+ * candidate-source opt-in flag. Both are required for live search — mirrors the
+ * analyzer factory's `VITE_API_BASE` + `VITE_ANALYZER` AND-gate.
+ */
+export interface CandidateEnv extends BackendEnv {
   VITE_CANDIDATES?: string
 }
 
@@ -53,26 +62,46 @@ function createMockCandidateProvider(): CandidateProvider {
 }
 
 /**
- * Build the candidate provider for the current environment. Always the mock
- * today (the live search provider lands in C3); kept as a factory so that swap
- * is a one-line change here and the flow never has to know which source ran.
+ * Live text-search provider (C3): POST the analysis input to the server-only
+ * `api/candidate-search` endpoint (eBay Browse behind a server key) and relay
+ * the mapped candidates. Exported for tests. The eBay specifics + SSRF guard
+ * run server-side in `ebaySearch.ts`; this only carries the request.
+ */
+export function createSearchCandidateProvider(
+  client: BackendClient,
+): CandidateProvider {
+  return {
+    source: 'search',
+    async generate(input) {
+      const res = await client.postJson<{ candidates?: ProductMatchCandidate[] }>(
+        'api/candidate-search',
+        input,
+      )
+      return Array.isArray(res.candidates) ? res.candidates : []
+    },
+  }
+}
+
+/**
+ * Build the candidate provider for the current environment. Live search only
+ * when BOTH the opt-in flag (`VITE_CANDIDATES=search`) and a backend base
+ * (`VITE_API_BASE`) are set; otherwise the deterministic mock (no network).
  */
 export function createCandidateProvider(
   env: CandidateEnv = import.meta.env,
 ): CandidateProvider {
   if (selectCandidateSource(env) === 'search') {
-    // C3: return the live text-search provider here. It is not built yet, so the
-    // seam falls back to the mock — never a no-op and never a network call.
-    return createMockCandidateProvider()
+    const client = createBackendClient(env)
+    if (client.available) return createSearchCandidateProvider(client)
   }
   return createMockCandidateProvider()
 }
 
 /**
  * Entry point the upload flow calls. A null/absent analysis input yields no
- * candidates (an honest "nothing to suggest" → the manual URL fallback, always
- * available downstream). The reported `source` is the provider that actually
- * ran, never the merely-requested one.
+ * candidates (the manual URL fallback, always available downstream). A live
+ * search FAILURE never breaks the flow — it falls back to the mock — so the
+ * reference step always has something (and manual entry is always offered).
  */
 export async function generateCandidates(
   input: ProductMatchInput | null,
@@ -80,5 +109,15 @@ export async function generateCandidates(
 ): Promise<CandidateResult> {
   const provider = createCandidateProvider(env)
   if (!input) return { candidates: [], source: provider.source }
-  return { candidates: await provider.generate(input), source: provider.source }
+  if (provider.source === 'mock') {
+    return { candidates: await provider.generate(input), source: 'mock' }
+  }
+  try {
+    return { candidates: await provider.generate(input), source: 'search' }
+  } catch {
+    return {
+      candidates: await createMockCandidateProvider().generate(input),
+      source: 'mock',
+    }
+  }
 }
