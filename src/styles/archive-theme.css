@@ -2827,3 +2827,15 @@
   margin: 0;
   font-size: 0.78rem;
 }
+
+/* Lookbook (Wardrobe Flow B1): a responsive grid of archive cards. */
+.lookbook {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.lookbook__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}

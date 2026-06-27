@@ -20,6 +20,7 @@ import { StudioScene } from './StudioScene'
 import { StudioFitRail } from './StudioFitRail'
 import { MirrorPreview } from './MirrorPreview'
 import { OutfitWallBoard } from './OutfitWallBoard'
+import { LookbookView } from './LookbookView'
 import { VIEW_META, type StudioView } from './views'
 
 export function ArchiveStudio() {
@@ -104,6 +105,8 @@ export function ArchiveStudio() {
             </Panel>
           </div>
         )
+      case 'lookbook':
+        return <LookbookView garments={garments} onUpload={openUpload} />
       case 'outfits':
         return <OutfitWallBoard onOpenMirror={() => setView('mirror')} />
       case 'lab':

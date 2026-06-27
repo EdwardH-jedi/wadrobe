@@ -3,7 +3,13 @@
 // (Proxy 3D Lab) — see docs/AVATAR_TRACK.md.
 import type { IconName } from '../ui/Icon'
 
-export type StudioView = 'studio' | 'closet' | 'mirror' | 'outfits' | 'lab'
+export type StudioView =
+  | 'studio'
+  | 'closet'
+  | 'lookbook'
+  | 'mirror'
+  | 'outfits'
+  | 'lab'
 
 export interface ViewMeta {
   id: StudioView
@@ -30,6 +36,14 @@ export const VIEW_META: Record<StudioView, ViewMeta> = {
     eyebrow: 'The Closet',
     title: 'Digital Closet',
     sub: 'Browse and curate your archived pieces.',
+  },
+  lookbook: {
+    id: 'lookbook',
+    label: 'Lookbook',
+    icon: 'layers',
+    eyebrow: 'The Lookbook',
+    title: 'Archive Lookbook',
+    sub: 'Your archived pieces as a collection — each photo with its reference details.',
   },
   mirror: {
     id: 'mirror',
@@ -60,6 +74,7 @@ export const VIEW_META: Record<StudioView, ViewMeta> = {
 export const VIEW_ORDER: StudioView[] = [
   'studio',
   'closet',
+  'lookbook',
   'mirror',
   'outfits',
   'lab',
