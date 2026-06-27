@@ -7,6 +7,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useReducer,
   useRef,
   useState,
@@ -25,7 +26,18 @@ import {
   getGarmentDisplayImage,
 } from '../../domain/garmentAsset'
 import { runGarmentAnalysis } from '../../lib/ai/mockGarmentAnalysis'
+import {
+  deriveAnalysisProvenance,
+  type GarmentAnalysisInput,
+} from '../../lib/ai/garmentAnalysisTypes'
+import { selectAnalyzerKind } from '../../lib/ai/createAnalyzer'
+import { grantVisionConsent, hasVisionConsent } from '../../lib/ai/visionConsent'
+import { createBackendClient } from '../../lib/ai/backendClient'
 import { mockProductMatch } from '../../lib/productMatch/mockProductMatch'
+import {
+  fetchProductMeta,
+  productMetaToPrefill,
+} from '../../lib/productMatch/fetchProductMeta'
 import type { ProductMatchCandidate } from '../../lib/productMatch/productMatchTypes'
 import { cx } from '../../lib/cx'
 import {
@@ -58,6 +70,7 @@ import { GarmentFields } from './GarmentEditor'
 import {
   UPLOAD_COPY,
   initialUploadState,
+  scanCopyForKind,
   uploadReducer,
 } from './uploadFlow'
 
@@ -92,9 +105,31 @@ export function UploadGarmentModal({
     'idle',
   )
   const [cutoutResult, setCutoutResult] = useState<CutoutResult | null>(null)
+  // Optional product-page lookup (Phase 3). The backend client is resolved once;
+  // when no VITE_API_BASE is configured it is unavailable and the Fetch control
+  // is hidden, so the reference step stays a pure manual flow by default.
+  const backendClient = useMemo(() => createBackendClient(), [])
+  // Which analyzer will run (mock vs backend vision). Drives honest scan copy:
+  // the local/no-upload wording is only true on the mock path.
+  const analyzerKind = useMemo(() => selectAnalyzerKind(), [])
+  // The "sent to a server" scan copy is honest ONLY once the user has consented
+  // to transmit. Before consent — the brief local-processing window and the
+  // consent gate itself — the on-device copy is what's true, so the cloud claim
+  // is never shown pre-consent. (Re-read each render; a GRANT_CONSENT dispatch
+  // re-renders, flipping this to the cloud copy at the right moment.)
+  const scanCopy = scanCopyForKind(
+    analyzerKind === 'backend' && hasVisionConsent() ? 'backend' : 'mock',
+  )
+  const [metaFetch, setMetaFetch] = useState<{
+    status: 'idle' | 'loading' | 'unavailable' | 'failed' | 'success'
+    message?: string
+  }>({ status: 'idle' })
   const inputRef = useRef<HTMLInputElement>(null)
   const requestIdRef = useRef(0)
   const archivingRef = useRef(false)
+  // Vision consent gate: the analysis input is held here (NOT in reducer state —
+  // it carries the heavy thumbnail) while the user decides whether to transmit.
+  const pendingInputRef = useRef<GarmentAnalysisInput | null>(null)
 
   // Keep the latest callbacks in refs so the archived auto-advance timer is not
   // reset by parent re-renders that hand us new callback identities.
@@ -115,10 +150,12 @@ export function UploadGarmentModal({
   const resetFlow = useCallback(() => {
     requestIdRef.current += 1
     archivingRef.current = false
+    pendingInputRef.current = null
     setDrag(false)
     setSelectedCandidateId(null)
     setCropControls(IDENTITY_CROP_CONTROLS)
     setCropBusy(false)
+    setMetaFetch({ status: 'idle' })
     resetCutout()
     dispatch({ type: 'RESET' })
   }, [resetCutout])
@@ -148,6 +185,42 @@ export function UploadGarmentModal({
     }
   }, [state.status, state.garment])
 
+  // Run the analyzer on a prepared input and turn its non-binding guess into a
+  // draft. Shared by the direct path (mock / already-consented) and the
+  // post-consent resume. The scan beat is held HERE (not before the consent
+  // gate) so the cloud copy is only on screen once transmission is authorized.
+  // The analyzer falls back to the mock on any failure, so this only rejects
+  // when the image itself could not be read.
+  const analyzeAndSuggest = async (
+    input: GarmentAnalysisInput,
+    requestId: number,
+  ) => {
+    try {
+      const [result] = await Promise.all([
+        runGarmentAnalysis(input),
+        delay(SCAN_MIN_MS),
+      ])
+      if (requestIdRef.current !== requestId) return
+      const imageDataUrl = input.imageDataUrl ?? ''
+      const draft: GarmentDraft = {
+        ...emptyGarmentDraft(imageDataUrl),
+        category: result.category,
+        color: result.color,
+        colorHex: result.colorHex,
+        styleTags: [...result.styleTags],
+        asset: buildUploadedAsset(imageDataUrl),
+      }
+      dispatch({ type: 'SUGGESTED', draft, guess: result })
+    } catch {
+      if (requestIdRef.current !== requestId) return
+      dispatch({
+        type: 'SCAN_FAIL',
+        message:
+          'This image could not be read — the file appears to be damaged. Please choose a different clothing photo.',
+      })
+    }
+  }
+
   const handleFile = async (file: File | undefined) => {
     if (!file) return
     if (!isSupportedImage(file)) {
@@ -170,28 +243,19 @@ export function UploadGarmentModal({
     const requestId = requestIdRef.current + 1
     requestIdRef.current = requestId
 
+    // Local-only: downscale + sample a dominant color. Nothing is transmitted
+    // here — only the optional vision provider sends, and only past the gate.
+    let input: GarmentAnalysisInput
     try {
-      // Process the image and run the local mock, but hold the scan briefly.
-      const [processed] = await Promise.all([
-        processImageFile(file),
-        delay(SCAN_MIN_MS),
-      ])
-      const result = await runGarmentAnalysis({
+      const processed = await processImageFile(file)
+      if (requestIdRef.current !== requestId) return
+      input = {
         fileName: file.name,
         fileSizeBytes: file.size,
         dominantColorHex: processed.dominantColorHex,
-      })
-      if (requestIdRef.current !== requestId) return
-
-      const draft: GarmentDraft = {
-        ...emptyGarmentDraft(processed.dataUrl),
-        category: result.category,
-        color: result.color,
-        colorHex: result.colorHex,
-        styleTags: [...result.styleTags],
-        asset: buildUploadedAsset(processed.dataUrl),
+        // The downscaled thumbnail — used only by the optional vision provider.
+        imageDataUrl: processed.dataUrl,
       }
-      dispatch({ type: 'SUGGESTED', draft, guess: result })
     } catch {
       if (requestIdRef.current !== requestId) return
       dispatch({
@@ -199,7 +263,37 @@ export function UploadGarmentModal({
         message:
           'This image could not be read — the file appears to be damaged. Please choose a different clothing photo.',
       })
+      return
     }
+
+    // Consent gate: the backend (vision) path transmits the photo, so it asks
+    // once per session before sending. The mock path and an already-consented
+    // session skip straight to analysis (unchanged behavior).
+    if (analyzerKind === 'backend' && !hasVisionConsent()) {
+      pendingInputRef.current = input
+      dispatch({ type: 'NEED_CONSENT' })
+      return
+    }
+    await analyzeAndSuggest(input, requestId)
+  }
+
+  const onConsentConfirm = () => {
+    if (state.status !== 'consent') return
+    const input = pendingInputRef.current
+    pendingInputRef.current = null
+    grantVisionConsent()
+    dispatch({ type: 'GRANT_CONSENT' })
+    if (!input) return
+    const requestId = requestIdRef.current + 1
+    requestIdRef.current = requestId
+    void analyzeAndSuggest(input, requestId)
+  }
+
+  const onConsentCancel = () => {
+    if (state.status !== 'consent') return
+    pendingInputRef.current = null // discard the held photo data
+    requestIdRef.current += 1 // invalidate any stale resume
+    dispatch({ type: 'DENY_CONSENT' })
   }
 
   const onInputChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -300,7 +394,10 @@ export function UploadGarmentModal({
       const normalized = normalizeDraft(state.draft)
       const store = await getAssetBlobStore()
       const draftToArchive = await blobBackDraftAsset(normalized, store)
-      const garment = addGarment(draftToArchive)
+      // Preserve the demo analyzer's confidence/source + whether the user edited
+      // the guess (Phase 1). Provenance is derived from the normalized draft.
+      const provenance = deriveAnalysisProvenance(normalized, state.guess)
+      const garment = addGarment(draftToArchive, provenance)
       dispatch({ type: 'ARCHIVE_START', garment })
     } finally {
       archivingRef.current = false
@@ -373,6 +470,44 @@ export function UploadGarmentModal({
     dispatch({ type: 'EDIT_DRAFT', patch: { asset: { ...base, ...patch } } })
   }
 
+  // Phase 3: read the pasted product page's declared metadata via the backend
+  // and prefill the reference fields. It NEVER touches the (already confirmed)
+  // garment name, category, or color — the user still confirms everything.
+  const handleFetchMeta = async () => {
+    if (state.status !== 'reference' || !state.draft) return
+    const url = state.draft.asset?.sourceUrl ?? ''
+    setMetaFetch({ status: 'loading' })
+    const result = await fetchProductMeta(url, backendClient)
+    if (result.status !== 'success') {
+      setMetaFetch({ status: result.status, message: result.reason })
+      return
+    }
+    const prefill = productMetaToPrefill(result.meta)
+    const base =
+      state.draft.asset ?? buildUploadedAsset(state.draft.imageDataUrl)
+    dispatch({
+      type: 'EDIT_DRAFT',
+      patch: {
+        ...(prefill.brand !== undefined ? { brand: prefill.brand } : {}),
+        ...(prefill.price !== undefined ? { price: prefill.price } : {}),
+        ...(prefill.currency !== undefined ? { currency: prefill.currency } : {}),
+        asset: {
+          ...base,
+          ...(prefill.sourceLabel !== undefined
+            ? { sourceLabel: prefill.sourceLabel }
+            : {}),
+          ...(prefill.sourceUrl !== undefined
+            ? { sourceUrl: prefill.sourceUrl }
+            : {}),
+          ...(prefill.productReferenceImageUrl !== undefined
+            ? { productReferenceImageUrl: prefill.productReferenceImageUrl }
+            : {}),
+        },
+      },
+    })
+    setMetaFetch({ status: 'success', message: UPLOAD_COPY.referenceFetchDone })
+  }
+
   const pickCandidate = (candidate: ProductMatchCandidate) => {
     if (!state.draft) return
     setSelectedCandidateId(candidate.id)
@@ -429,6 +564,18 @@ export function UploadGarmentModal({
 
   const footer = (() => {
     switch (state.status) {
+      case 'consent':
+        return (
+          <>
+            <Button variant="ghost" onClick={onConsentCancel}>
+              {UPLOAD_COPY.consentCancel}
+            </Button>
+            <Button variant="primary" onClick={onConsentConfirm}>
+              <Icon name="check" size={16} />
+              {UPLOAD_COPY.consentConfirm}
+            </Button>
+          </>
+        )
       case 'crop':
         return (
           <>
@@ -589,21 +736,37 @@ export function UploadGarmentModal({
               {/* The image is still decoding; the scan sweep carries the moment. */}
               <div className="preview__scan" />
               <span className="preview__grade">
-                <Badge variant="accent">{UPLOAD_COPY.scanBadge}</Badge>
+                <Badge variant="accent">{scanCopy.badge}</Badge>
               </span>
             </div>
             <div className="col" style={{ gap: 10, justifyContent: 'center' }}>
-              <div className="eyebrow">{UPLOAD_COPY.scanEyebrow}</div>
+              <div className="eyebrow">{scanCopy.eyebrow}</div>
               <div
                 className="display"
                 style={{ fontSize: 22, color: 'var(--text-100)' }}
               >
-                {UPLOAD_COPY.scanTitle}
+                {scanCopy.title}
               </div>
               <p className="muted" style={{ fontSize: 12.5 }}>
-                {UPLOAD_COPY.scanBody}
+                {scanCopy.body}
               </p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {state.status === 'consent' && (
+        <div className="upload">
+          <div className="col" style={{ gap: 10, justifyContent: 'center' }}>
+            <h3
+              className="display"
+              style={{ fontSize: 20, color: 'var(--text-100)' }}
+            >
+              {UPLOAD_COPY.consentTitle}
+            </h3>
+            <p className="muted" style={{ fontSize: 12.5 }}>
+              {UPLOAD_COPY.consentBody}
+            </p>
           </div>
         </div>
       )}
@@ -805,7 +968,7 @@ export function UploadGarmentModal({
                     {UPLOAD_COPY.suggestionHint}
                   </span>
                 </span>
-                <span className="guess__conf">Demo · {confidencePct}%</span>
+                <span className="guess__conf">Draft · {confidencePct}%</span>
               </div>
             )}
             <GarmentFields
@@ -891,13 +1054,51 @@ export function UploadGarmentModal({
                 <label className="field__label" htmlFor="r-source">
                   Source URL (optional)
                 </label>
-                <input
-                  id="r-source"
-                  className="field__input"
-                  value={state.draft.asset?.sourceUrl ?? ''}
-                  placeholder="https://…"
-                  onChange={(e) => setAsset({ sourceUrl: e.target.value })}
-                />
+                <div
+                  className="taginput"
+                  style={{ gap: 8, alignItems: 'stretch' }}
+                >
+                  <input
+                    id="r-source"
+                    className="field__input"
+                    style={{ flex: 1, minWidth: 120 }}
+                    value={state.draft.asset?.sourceUrl ?? ''}
+                    placeholder="https://…"
+                    onChange={(e) => {
+                      setAsset({ sourceUrl: e.target.value })
+                      if (metaFetch.status !== 'idle') {
+                        setMetaFetch({ status: 'idle' })
+                      }
+                    }}
+                  />
+                  {backendClient.available && (
+                    <Button
+                      variant="ghost"
+                      onClick={handleFetchMeta}
+                      disabled={
+                        metaFetch.status === 'loading' ||
+                        !(state.draft.asset?.sourceUrl ?? '').trim()
+                      }
+                    >
+                      {metaFetch.status === 'loading'
+                        ? UPLOAD_COPY.referenceFetchWorking
+                        : UPLOAD_COPY.referenceFetch}
+                    </Button>
+                  )}
+                </div>
+                {metaFetch.message && (
+                  <p
+                    className="muted"
+                    style={{
+                      fontSize: 11,
+                      ...(metaFetch.status === 'success'
+                        ? {}
+                        : { color: 'var(--danger)' }),
+                    }}
+                  >
+                    {metaFetch.message}
+                  </p>
+                )}
               </div>
             </div>
 
