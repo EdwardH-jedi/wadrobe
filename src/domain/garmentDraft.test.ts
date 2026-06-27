@@ -110,6 +110,69 @@ describe('garmentToDraft', () => {
   })
 })
 
+describe('normalizeDraft — purchase metadata (Phase 1)', () => {
+  it('trims string detail fields and collapses blanks to undefined', () => {
+    const out = normalizeDraft({
+      ...emptyGarmentDraft(),
+      name: 'X',
+      material: '  100% wool ',
+      size: '   ',
+      subtype: ' bomber ',
+      retailer: '',
+      currency: ' usd ',
+    })
+    expect(out.material).toBe('100% wool')
+    expect(out.size).toBeUndefined()
+    expect(out.subtype).toBe('bomber')
+    expect(out.retailer).toBeUndefined()
+    expect(out.currency).toBe('usd')
+  })
+
+  it('keeps a finite non-negative price and drops NaN / negative', () => {
+    expect(normalizeDraft({ ...emptyGarmentDraft(), price: 129 }).price).toBe(129)
+    expect(normalizeDraft({ ...emptyGarmentDraft(), price: 0 }).price).toBe(0)
+    expect(
+      normalizeDraft({ ...emptyGarmentDraft(), price: Number.NaN }).price,
+    ).toBeUndefined()
+    expect(
+      normalizeDraft({ ...emptyGarmentDraft(), price: -5 }).price,
+    ).toBeUndefined()
+  })
+
+  it('keeps a finite purchasedAt and drops a non-finite one', () => {
+    expect(
+      normalizeDraft({ ...emptyGarmentDraft(), purchasedAt: 1_700_000_000_000 })
+        .purchasedAt,
+    ).toBe(1_700_000_000_000)
+    expect(
+      normalizeDraft({ ...emptyGarmentDraft(), purchasedAt: Number.NaN })
+        .purchasedAt,
+    ).toBeUndefined()
+  })
+})
+
+describe('garmentToDraft — purchase metadata (Phase 1)', () => {
+  it('round-trips the new optional fields off a stored garment', () => {
+    const garment = makeGarment({
+      material: 'leather',
+      size: 'L',
+      price: 240,
+      currency: 'EUR',
+      subtype: 'derby',
+      purchasedAt: 1_700_000_000_000,
+      retailer: 'Atelier No.6',
+    })
+    const draft = garmentToDraft(garment)
+    expect(draft.material).toBe('leather')
+    expect(draft.size).toBe('L')
+    expect(draft.price).toBe(240)
+    expect(draft.currency).toBe('EUR')
+    expect(draft.subtype).toBe('derby')
+    expect(draft.purchasedAt).toBe(1_700_000_000_000)
+    expect(draft.retailer).toBe('Atelier No.6')
+  })
+})
+
 describe('normalizeDraft — asset (Phase 8)', () => {
   it('guarantees a display image and trims source fields', () => {
     const out = normalizeDraft({

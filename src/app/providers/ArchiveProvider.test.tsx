@@ -105,6 +105,54 @@ describe('ArchiveProvider — action creators', () => {
     expect(updated?.asset?.displayImageUrl).toBe('data:d')
   })
 
+  it('addGarment carries purchase metadata + provenance, and they survive a reload', async () => {
+    const { result } = await renderArchive()
+    let id = ''
+    act(() => {
+      id = result.current.addGarment(
+        draftOf('outerwear', {
+          name: 'Wool Overcoat',
+          material: '100% wool',
+          size: 'L',
+          price: 320,
+          currency: 'GBP',
+          subtype: 'overcoat',
+        }),
+        { analysisConfidence: 0.82, analysisSource: 'mock', userEdited: true },
+      ).id
+    })
+    const g = result.current.getGarment(id)
+    expect(g?.material).toBe('100% wool')
+    expect(g?.price).toBe(320)
+    expect(g?.currency).toBe('GBP')
+    expect(g?.analysisConfidence).toBe(0.82)
+    expect(g?.analysisSource).toBe('mock')
+    expect(g?.userEdited).toBe(true)
+
+    // Reload over the same backend → fields persisted.
+    const second = await renderArchive()
+    const reloaded = second.result.current.getGarment(id)
+    expect(reloaded?.material).toBe('100% wool')
+    expect(reloaded?.price).toBe(320)
+    expect(reloaded?.analysisSource).toBe('mock')
+  })
+
+  it('updateGarment marks the piece as user-edited', async () => {
+    const { result } = await renderArchive()
+    let id = ''
+    act(() => {
+      id = result.current.addGarment(draftOf('top', { name: 'Tee' })).id
+    })
+    expect(result.current.getGarment(id)?.userEdited).toBeUndefined()
+    act(() => {
+      const g = result.current.getGarment(id)!
+      result.current.updateGarment(id, { ...garmentToDraft(g), size: 'M' })
+    })
+    const updated = result.current.getGarment(id)
+    expect(updated?.size).toBe('M')
+    expect(updated?.userEdited).toBe(true)
+  })
+
   it('selectGarment routes a piece into its category slot for all five categories', async () => {
     const { result } = await renderArchive()
     const cats: ClothingCategory[] = [

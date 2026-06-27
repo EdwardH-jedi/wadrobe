@@ -957,6 +957,24 @@
   /* Drops the white background of flat-lay photos against the light panel. */
   mix-blend-mode: multiply;
 }
+/* Cutout (transparent) garments float as collage elements (Phase 5): drop the
+   matte paper panel, its vignette and the accent bar so an outerwear cutout
+   layered above the top reads through to the layers beneath, and skip the
+   multiply blend (a cutout already has no flat-lay background to mask). */
+.mannequin__zone--cutout {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+.mannequin__zone--cutout::after {
+  display: none;
+}
+.mannequin__zone--cutout .mannequin__accent {
+  display: none;
+}
+.mannequin__img--cutout {
+  mix-blend-mode: normal;
+}
 .mannequin__accent {
   position: absolute;
   top: 0;

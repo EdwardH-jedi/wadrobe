@@ -8,6 +8,7 @@ import type {
   GarmentProxy3dPreview,
 } from '../../domain/garmentTypes'
 import type { ArchiveEvent } from '../../domain/archiveTypes'
+import type { GarmentAnalysisProvenance } from '../../lib/ai/garmentAnalysisTypes'
 import type {
   OutfitSelection,
   OutfitSlot,
@@ -31,7 +32,13 @@ export interface ArchiveContextValue {
   selectedGarments: GarmentItem[]
 
   // --- Actions ---
-  addGarment: (draft: GarmentDraft) => GarmentItem
+  /** Archive a new piece. `provenance` records the demo analyzer's
+   *  confidence/source + whether the user edited the guess (Phase 1); omit it
+   *  for hand-built garments (e.g. the sample archive). */
+  addGarment: (
+    draft: GarmentDraft,
+    provenance?: GarmentAnalysisProvenance,
+  ) => GarmentItem
   updateGarment: (id: string, draft: GarmentDraft) => void
   /** Attach (or, with null, remove) a proxy 3D preview link (Track B bridge,
    *  B3.9). Metadata only — the GLB stays in the local backend's storage. */

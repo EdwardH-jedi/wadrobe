@@ -13,6 +13,14 @@ export type ClothingCategory =
 export type AssetMode = 'uploaded' | 'cropped' | 'cutout' | 'product-reference'
 
 /**
+ * Where a garment's metadata guess came from. Canonical home is the domain so
+ * `GarmentItem` can record provenance without depending on `lib/ai` (which would
+ * be an upward import). `lib/ai/garmentAnalysisTypes.ts` re-exports this. Only
+ * `'mock'` is implemented today; `'vision-api'` is a reserved future slot.
+ */
+export type AnalysisSource = 'mock' | 'vision-api'
+
+/**
  * A reference to image bytes held outside the metadata record (Phase 11). Today
  * only the IndexedDB-blob kind exists; the discriminant keeps it extensible (a
  * future `remote-url` / `data-url` kind could join without breaking callers).
@@ -123,6 +131,28 @@ export interface GarmentItem {
   styleTags: string[]
   notes?: string
   /**
+   * Real-world purchase metadata (Phase 1). All optional so legacy records and
+   * the procedural seed set stay valid; the manual editor is the most accurate
+   * source for these until URL prefill (Phase 3) lands. `price` is a plain
+   * number paired with `currency` (e.g. 129, "USD"); `purchasedAt` is epoch ms.
+   */
+  material?: string
+  size?: string
+  price?: number
+  currency?: string
+  subtype?: string
+  purchasedAt?: number
+  retailer?: string
+  /**
+   * Provenance of the metadata (Phase 1). When a garment is archived from the
+   * upload flow these record the demo analyzer's confidence/source; `userEdited`
+   * becomes true once the user changes a suggested field (or edits the piece
+   * later). Optional — legacy records and sample garments lack them.
+   */
+  analysisConfidence?: number
+  analysisSource?: AnalysisSource
+  userEdited?: boolean
+  /**
    * Downscaled thumbnail data URL. Kept for backward compatibility and as the
    * ultimate display fallback; prefer `asset.displayImageUrl` via
    * `getGarmentDisplayImage`.
@@ -146,7 +176,8 @@ export interface GarmentItem {
   updatedAt: number
 }
 
-/** Fields a user can edit on a garment (everything except identity/timestamps). */
+/** Fields a user can edit on a garment (everything except identity/timestamps
+ *  and system-set analysis provenance). */
 export type GarmentDraft = Pick<
   GarmentItem,
   | 'name'
@@ -156,6 +187,13 @@ export type GarmentDraft = Pick<
   | 'colorHex'
   | 'styleTags'
   | 'notes'
+  | 'material'
+  | 'size'
+  | 'price'
+  | 'currency'
+  | 'subtype'
+  | 'purchasedAt'
+  | 'retailer'
   | 'asset'
 > & {
   imageDataUrl: string

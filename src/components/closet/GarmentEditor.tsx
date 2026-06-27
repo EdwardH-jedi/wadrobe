@@ -163,6 +163,78 @@ export function GarmentFields({
         )}
       </div>
 
+      <div className="field__row">
+        <div className="field">
+          <label className="field__label" htmlFor="g-material">
+            Material (optional)
+          </label>
+          <input
+            id="g-material"
+            className="field__input"
+            value={draft.material ?? ''}
+            placeholder="e.g. 100% wool"
+            onChange={(e) => onChange({ material: e.target.value })}
+          />
+        </div>
+        <div className="field">
+          <label className="field__label" htmlFor="g-size">
+            Size (optional)
+          </label>
+          <input
+            id="g-size"
+            className="field__input"
+            value={draft.size ?? ''}
+            placeholder="e.g. M / 32 / EU 42"
+            onChange={(e) => onChange({ size: e.target.value })}
+          />
+        </div>
+      </div>
+
+      <div className="field__row">
+        <div className="field">
+          <label className="field__label" htmlFor="g-subtype">
+            Subtype (optional)
+          </label>
+          <input
+            id="g-subtype"
+            className="field__input"
+            value={draft.subtype ?? ''}
+            placeholder="e.g. bomber / loafer"
+            onChange={(e) => onChange({ subtype: e.target.value })}
+          />
+        </div>
+        <div className="field">
+          <label className="field__label" htmlFor="g-price">
+            Price (optional)
+          </label>
+          <div className="taginput" style={{ gap: 8 }}>
+            <input
+              id="g-price"
+              className="field__input"
+              style={{ flex: 1, minWidth: 90 }}
+              type="number"
+              min={0}
+              step="0.01"
+              inputMode="decimal"
+              value={draft.price ?? ''}
+              placeholder="e.g. 129"
+              onChange={(e) => {
+                const n = e.target.valueAsNumber
+                onChange({ price: Number.isNaN(n) ? undefined : n })
+              }}
+            />
+            <input
+              className="field__input"
+              style={{ width: 88 }}
+              aria-label="Currency"
+              value={draft.currency ?? ''}
+              placeholder="USD"
+              onChange={(e) => onChange({ currency: e.target.value })}
+            />
+          </div>
+        </div>
+      </div>
+
       <div className="field">
         <label className="field__label" htmlFor="g-notes">
           Notes (optional)

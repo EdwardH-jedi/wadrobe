@@ -114,16 +114,72 @@ function isProxy3dPreview(value: unknown): value is GarmentProxy3dPreview {
   )
 }
 
+const ANALYSIS_SOURCES = new Set(['mock', 'vision-api'])
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value)
+}
+
+/** Drop an optional field from a clone if it is present but the wrong type, so a
+ *  corrupt persisted value can never reach the UI. Allocates a clone lazily so
+ *  the common (clean) path stays allocation-free. */
 function sanitizeGarment(garment: GarmentItem): GarmentItem {
+  let cleaned: GarmentItem | null = null
+  const drop = <K extends keyof GarmentItem>(key: K) => {
+    if (!cleaned) cleaned = { ...garment }
+    delete cleaned[key]
+  }
+
   if (
     garment.proxy3dPreview !== undefined &&
     !isProxy3dPreview(garment.proxy3dPreview)
   ) {
-    const cleaned = { ...garment }
-    delete cleaned.proxy3dPreview
-    return cleaned
+    drop('proxy3dPreview')
   }
-  return garment
+
+  // Phase 1 purchase metadata + analysis provenance: keep only well-typed
+  // values; drop anything malformed (older/hand-edited data) rather than throw.
+  const strFields = [
+    'material',
+    'size',
+    'currency',
+    'subtype',
+    'retailer',
+  ] as const
+  for (const key of strFields) {
+    if (garment[key] !== undefined && typeof garment[key] !== 'string') {
+      drop(key)
+    }
+  }
+  if (garment.price !== undefined && !isFiniteNumber(garment.price)) {
+    drop('price')
+  }
+  if (garment.purchasedAt !== undefined && !isFiniteNumber(garment.purchasedAt)) {
+    drop('purchasedAt')
+  }
+  if (
+    garment.analysisConfidence !== undefined &&
+    !isFiniteNumber(garment.analysisConfidence)
+  ) {
+    drop('analysisConfidence')
+  }
+  if (
+    garment.analysisSource !== undefined &&
+    !(
+      typeof garment.analysisSource === 'string' &&
+      ANALYSIS_SOURCES.has(garment.analysisSource)
+    )
+  ) {
+    drop('analysisSource')
+  }
+  if (
+    garment.userEdited !== undefined &&
+    typeof garment.userEdited !== 'boolean'
+  ) {
+    drop('userEdited')
+  }
+
+  return cleaned ?? garment
 }
 
 export function parseGarments(raw: unknown): GarmentItem[] {

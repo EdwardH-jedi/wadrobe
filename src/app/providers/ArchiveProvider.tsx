@@ -20,6 +20,7 @@ import type {
   GarmentProxy3dPreview,
 } from '../../domain/garmentTypes'
 import type { ArchiveEvent, ArchiveEventType } from '../../domain/archiveTypes'
+import type { GarmentAnalysisProvenance } from '../../lib/ai/garmentAnalysisTypes'
 import {
   OUTFIT_SLOT_ORDER,
   isOutfitEmpty,
@@ -176,10 +177,14 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
         state.garments.filter((g) => g.category === category),
       selectedGarments,
 
-      addGarment: (draft: GarmentDraft): GarmentItem => {
+      addGarment: (
+        draft: GarmentDraft,
+        provenance?: GarmentAnalysisProvenance,
+      ): GarmentItem => {
         const now = Date.now()
         const garment: GarmentItem = {
           ...draft,
+          ...provenance,
           id: createId('grm'),
           createdAt: now,
           updatedAt: now,
@@ -200,6 +205,8 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
         const garment: GarmentItem = {
           ...existing,
           ...draft,
+          // An explicit manual edit always marks the piece as user-curated.
+          userEdited: true,
           updatedAt: Date.now(),
         }
         dispatch({

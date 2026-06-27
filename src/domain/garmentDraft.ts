@@ -26,6 +26,13 @@ export function garmentToDraft(garment: GarmentItem): GarmentDraft {
     colorHex: garment.colorHex,
     styleTags: [...garment.styleTags],
     notes: garment.notes,
+    material: garment.material,
+    size: garment.size,
+    price: garment.price,
+    currency: garment.currency,
+    subtype: garment.subtype,
+    purchasedAt: garment.purchasedAt,
+    retailer: garment.retailer,
     imageDataUrl: garment.imageDataUrl,
     asset: garment.asset,
   }
@@ -48,6 +55,22 @@ export function normalizeDraft(draft: GarmentDraft): GarmentDraft {
     name: draft.name.trim() || 'Untitled Piece',
     brand: draft.brand?.trim() || undefined,
     notes: draft.notes?.trim() || undefined,
+    material: draft.material?.trim() || undefined,
+    size: draft.size?.trim() || undefined,
+    subtype: draft.subtype?.trim() || undefined,
+    retailer: draft.retailer?.trim() || undefined,
+    currency: draft.currency?.trim() || undefined,
+    // Keep only a finite, non-negative price; blank number inputs arrive as NaN.
+    price:
+      typeof draft.price === 'number' &&
+      Number.isFinite(draft.price) &&
+      draft.price >= 0
+        ? draft.price
+        : undefined,
+    purchasedAt:
+      typeof draft.purchasedAt === 'number' && Number.isFinite(draft.purchasedAt)
+        ? draft.purchasedAt
+        : undefined,
     styleTags: Array.from(
       new Set(
         draft.styleTags
