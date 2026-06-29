@@ -1304,10 +1304,12 @@
   font-size: 16px;
   color: var(--text-100);
   line-height: 1.15;
+  letter-spacing: 0.01em;
 }
 .garment-card__brand {
   margin-top: -3px;
   color: var(--text-300);
+  letter-spacing: 0.08em;
 }
 .garment-card__meta {
   display: flex;
@@ -1357,6 +1359,8 @@
   background: linear-gradient(180deg, rgba(19, 19, 22, 0.86), var(--ink-900));
   backdrop-filter: blur(10px);
   padding: 11px 18px;
+  /* Lift the rail off the content scrolling beneath it. */
+  box-shadow: 0 -10px 28px rgba(0, 0, 0, 0.36);
 }
 .filmstrip__inner {
   display: flex;
