@@ -2865,15 +2865,16 @@
   font-size: 0.78rem;
 }
 
-/* Market value (manual estimate) — minimal functional styling; polished later. */
+/* Market value (manual estimate): an inset panel with a chip-style delta. */
 .archive-card__value {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 10px;
+  gap: 8px;
+  padding: 11px 12px;
   border-radius: var(--radius-sm);
-  background: var(--ink-700);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.14));
   border: 1px solid var(--line);
+  box-shadow: var(--inset-hi);
 }
 .archive-card__value-head {
   display: flex;
@@ -2883,61 +2884,81 @@
 }
 .archive-card__value-now {
   font-family: var(--font-display);
-  font-size: 1.1rem;
+  font-size: 1.18rem;
   color: var(--text-100);
+  font-variant-numeric: tabular-nums;
 }
 .archive-card__value-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 7px 10px;
   font-size: 0.8rem;
 }
 .archive-card__spark {
+  display: block;
   color: var(--text-300);
 }
 .archive-card__delta {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-variant-numeric: tabular-nums;
 }
 .archive-card__delta--up {
   color: var(--accent-bright);
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
 }
 .archive-card__delta--down {
   color: var(--danger);
+  background: rgba(194, 96, 63, 0.12);
+  border-color: rgba(194, 96, 63, 0.32);
 }
 .archive-card__delta--flat {
   color: var(--text-400);
+  padding-left: 0;
+}
+.archive-card__value-count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Market-value record panel (in the edit modal) — minimal; polished later. */
+/* Market-value record panel (in the edit modal). */
 .mvpanel {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-top: 14px;
-  padding-top: 14px;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
   border-top: 1px solid var(--line);
 }
 .mvpanel__heading {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 1rem;
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
   color: var(--text-100);
 }
 .mvpanel__help {
   margin: 0;
+  max-width: 54ch;
   font-size: 0.8rem;
+  line-height: 1.45;
 }
 .mvpanel__row {
   display: flex;
   gap: 8px;
   align-items: center;
+  margin-top: 2px;
 }
 .mvpanel__row .field__input {
   flex: 1;
   min-width: 90px;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Lookbook (Wardrobe Flow B1): a responsive grid of archive cards. */
