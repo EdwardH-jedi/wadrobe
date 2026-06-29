@@ -218,6 +218,36 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
         })
       },
 
+      recordMarketValue: (
+        id: string,
+        value: number,
+        currency?: string,
+      ): void => {
+        if (!Number.isFinite(value)) return
+        const existing = state.garments.find((g) => g.id === id)
+        if (!existing) return
+        const entry = {
+          id: createId('mkt'),
+          at: Date.now(),
+          value,
+          currency: currency ?? existing.currency,
+        }
+        const garment: GarmentItem = {
+          ...existing,
+          marketValueHistory: [...(existing.marketValueHistory ?? []), entry],
+          updatedAt: Date.now(),
+        }
+        dispatch({
+          type: 'UPDATE_GARMENT',
+          garment,
+          event: makeEvent(
+            'garment_updated',
+            `Recorded market value: ${garment.name}`,
+            { garmentId: garment.id },
+          ),
+        })
+      },
+
       setGarmentProxy3dPreview: (
         id: string,
         preview: GarmentProxy3dPreview | null,

@@ -281,6 +281,96 @@ describe('ArchiveProvider — action creators', () => {
   })
 })
 
+describe('ArchiveProvider — market value', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  it('records an estimate, inheriting the garment currency, and survives a reload', async () => {
+    const first = await renderArchive()
+    let id = ''
+    act(() => {
+      id = first.result.current.addGarment(
+        draftOf('top', { name: 'Resale Tee', price: 100, currency: 'USD' }),
+      ).id
+    })
+    act(() => first.result.current.recordMarketValue(id, 140))
+
+    const g = first.result.current.getGarment(id)
+    expect(g?.marketValueHistory).toHaveLength(1)
+    expect(g?.marketValueHistory?.[0]).toMatchObject({ value: 140, currency: 'USD' })
+    expect(g?.marketValueHistory?.[0].id).toMatch(/^mkt_/)
+    expect(typeof g?.marketValueHistory?.[0].at).toBe('number')
+    expect(first.result.current.lastEvent?.type).toBe('garment_updated')
+
+    await waitFor(() =>
+      expect(localStorage.getItem(STORAGE_KEYS.garments)).toContain(
+        'marketValueHistory',
+      ),
+    )
+    first.unmount()
+
+    // Reload over the same backend → the history persisted.
+    const second = await renderArchive()
+    const reloaded = second.result.current.getGarment(id)
+    expect(reloaded?.marketValueHistory).toHaveLength(1)
+    expect(reloaded?.marketValueHistory?.[0]).toMatchObject({
+      value: 140,
+      currency: 'USD',
+    })
+  })
+
+  it('appends in order and lets an explicit currency override the inherited one', async () => {
+    const { result } = await renderArchive()
+    let id = ''
+    act(() => {
+      id = result.current.addGarment(
+        draftOf('top', { price: 100, currency: 'USD' }),
+      ).id
+    })
+    // Separate acts: each record is its own user interaction, so a re-render
+    // flushes between them and the second appends to fresh state.
+    act(() => result.current.recordMarketValue(id, 120))
+    act(() => result.current.recordMarketValue(id, 130, 'EUR'))
+    const history = result.current.getGarment(id)?.marketValueHistory
+    expect(history?.map((e) => e.value)).toEqual([120, 130])
+    expect(history?.[0].currency).toBe('USD') // inherited
+    expect(history?.[1].currency).toBe('EUR') // overridden
+  })
+
+  it('ignores a non-finite value and an unknown id', async () => {
+    const { result } = await renderArchive()
+    let id = ''
+    act(() => {
+      id = result.current.addGarment(draftOf('top')).id
+    })
+    act(() => {
+      result.current.recordMarketValue(id, Number.NaN)
+      result.current.recordMarketValue(id, Number.POSITIVE_INFINITY)
+      result.current.recordMarketValue('does-not-exist', 50)
+    })
+    expect(result.current.getGarment(id)?.marketValueHistory).toBeUndefined()
+  })
+
+  it('a metadata edit via updateGarment preserves the recorded history', async () => {
+    // Locks the invariant that marketValueHistory is excluded from GarmentDraft,
+    // so {...existing, ...draft} keeps it.
+    const { result } = await renderArchive()
+    let id = ''
+    act(() => {
+      id = result.current.addGarment(draftOf('top', { name: 'Keepme' })).id
+    })
+    act(() => result.current.recordMarketValue(id, 200))
+    act(() => {
+      const g = result.current.getGarment(id)!
+      result.current.updateGarment(id, { ...garmentToDraft(g), name: 'Renamed' })
+    })
+    const updated = result.current.getGarment(id)
+    expect(updated?.name).toBe('Renamed')
+    expect(updated?.marketValueHistory?.map((e) => e.value)).toEqual([200])
+  })
+})
+
 describe('ArchiveProvider — persistence across a reload', () => {
   beforeEach(() => {
     localStorage.clear()
