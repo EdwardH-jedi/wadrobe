@@ -69,4 +69,53 @@ describe('purchase metadata persistence (Phase 1)', () => {
     const [parsed] = parseGarments([clean])
     expect(parsed).toBe(clean)
   })
+
+  it('round-trips a valid market-value history through the adapter', async () => {
+    const adapter = createLocalStorageAdapter()
+    const history = [
+      { id: 'mkt-1', at: 1_700_000_000_000, value: 120 },
+      { id: 'mkt-2', at: 1_700_000_100_000, value: 140, currency: 'USD' },
+    ]
+    const garment = makeGarment({ price: 100, marketValueHistory: history })
+    await adapter.saveGarments([garment])
+
+    const [loaded] = await adapter.loadGarments()
+    expect(loaded.marketValueHistory).toEqual(history)
+  })
+
+  it('drops a non-array market-value history but keeps the garment', () => {
+    const corrupt = {
+      ...makeGarment({ material: 'silk' }),
+      marketValueHistory: 'nope', // wrong type → dropped
+    }
+    const [parsed] = parseGarments([corrupt])
+    expect(parsed.material).toBe('silk')
+    expect(parsed.marketValueHistory).toBeUndefined()
+  })
+
+  it('filters malformed market-value entries, keeping valid ones', () => {
+    const garment = {
+      ...makeGarment(),
+      marketValueHistory: [
+        { id: 'ok', at: 1_700_000_000_000, value: 120 },
+        { id: 'bad-value', at: 1_700_000_000_001, value: 'lots' }, // dropped
+        { at: 1_700_000_000_002, value: 130 }, // missing id → dropped
+        { id: 'bad-at', at: Number.NaN, value: 130 }, // not finite → dropped
+        { id: 'ok2', at: 1_700_000_000_003, value: 140, currency: 'EUR' },
+      ],
+    }
+    const [parsed] = parseGarments([garment])
+    expect(parsed.marketValueHistory).toEqual([
+      { id: 'ok', at: 1_700_000_000_000, value: 120 },
+      { id: 'ok2', at: 1_700_000_000_003, value: 140, currency: 'EUR' },
+    ])
+  })
+
+  it('leaves a garment with a fully valid history un-cloned', () => {
+    const clean = makeGarment({
+      marketValueHistory: [{ id: 'mkt-1', at: 1_700_000_000_000, value: 99 }],
+    })
+    const [parsed] = parseGarments([clean])
+    expect(parsed).toBe(clean)
+  })
 })

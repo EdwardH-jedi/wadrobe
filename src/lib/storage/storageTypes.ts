@@ -7,6 +7,7 @@
 import type {
   GarmentItem,
   GarmentProxy3dPreview,
+  MarketValueEntry,
 } from '../../domain/garmentTypes'
 import {
   OUTFIT_SLOT_ORDER,
@@ -120,6 +121,17 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
 
+/** A well-formed manual market-value entry (Phase: market-value tracking). */
+function isMarketValueEntry(value: unknown): value is MarketValueEntry {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.id === 'string' &&
+    isFiniteNumber(value.at) &&
+    isFiniteNumber(value.value) &&
+    (value.currency === undefined || typeof value.currency === 'string')
+  )
+}
+
 /** Drop an optional field from a clone if it is present but the wrong type, so a
  *  corrupt persisted value can never reach the UI. Allocates a clone lazily so
  *  the common (clean) path stays allocation-free. */
@@ -177,6 +189,23 @@ function sanitizeGarment(garment: GarmentItem): GarmentItem {
     typeof garment.userEdited !== 'boolean'
   ) {
     drop('userEdited')
+  }
+
+  // Manual market-value history: must be an array of well-formed entries. Drop
+  // a non-array outright; otherwise filter out malformed entries (keeping the
+  // valid ones) so a single bad record can't poison the whole history.
+  if (garment.marketValueHistory !== undefined) {
+    if (!Array.isArray(garment.marketValueHistory)) {
+      drop('marketValueHistory')
+    } else {
+      const history = garment.marketValueHistory
+      const valid = history.filter(isMarketValueEntry)
+      if (valid.length !== history.length) {
+        const target = cleaned ?? { ...garment }
+        target.marketValueHistory = valid
+        cleaned = target
+      }
+    }
   }
 
   return cleaned ?? garment
