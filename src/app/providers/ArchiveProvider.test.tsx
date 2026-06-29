@@ -320,7 +320,7 @@ describe('ArchiveProvider — market value', () => {
     })
   })
 
-  it('appends in order and lets an explicit currency override the inherited one', async () => {
+  it('appends in order, every entry inheriting the garment currency', async () => {
     const { result } = await renderArchive()
     let id = ''
     act(() => {
@@ -331,11 +331,11 @@ describe('ArchiveProvider — market value', () => {
     // Separate acts: each record is its own user interaction, so a re-render
     // flushes between them and the second appends to fresh state.
     act(() => result.current.recordMarketValue(id, 120))
-    act(() => result.current.recordMarketValue(id, 130, 'EUR'))
+    act(() => result.current.recordMarketValue(id, 130))
     const history = result.current.getGarment(id)?.marketValueHistory
     expect(history?.map((e) => e.value)).toEqual([120, 130])
-    expect(history?.[0].currency).toBe('USD') // inherited
-    expect(history?.[1].currency).toBe('EUR') // overridden
+    // Single-currency by design: both inherit the garment's currency.
+    expect(history?.map((e) => e.currency)).toEqual(['USD', 'USD'])
   })
 
   it('ignores a non-finite value and an unknown id', async () => {

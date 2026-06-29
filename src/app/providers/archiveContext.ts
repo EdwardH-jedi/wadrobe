@@ -41,10 +41,11 @@ export interface ArchiveContextValue {
   ) => GarmentItem
   updateGarment: (id: string, draft: GarmentDraft) => void
   /** Append a manual market-value estimate the user typed (NOT live market
-   *  data). The entry inherits the garment's `currency` unless one is given;
-   *  ignores a non-finite `value`. Persists via the existing UPDATE_GARMENT
-   *  path, so it never disturbs the draft fields. */
-  recordMarketValue: (id: string, value: number, currency?: string) => void
+   *  data). The entry always inherits the garment's `currency` (single-currency
+   *  by design, so the card's delta vs `price` is always comparable); ignores a
+   *  non-finite `value`. Persists via the existing UPDATE_GARMENT path, so it
+   *  never disturbs the draft fields. */
+  recordMarketValue: (id: string, value: number) => void
   /** Attach (or, with null, remove) a proxy 3D preview link (Track B bridge,
    *  B3.9). Metadata only — the GLB stays in the local backend's storage. */
   setGarmentProxy3dPreview: (

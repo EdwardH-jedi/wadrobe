@@ -218,19 +218,17 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
         })
       },
 
-      recordMarketValue: (
-        id: string,
-        value: number,
-        currency?: string,
-      ): void => {
+      recordMarketValue: (id: string, value: number): void => {
         if (!Number.isFinite(value)) return
         const existing = state.garments.find((g) => g.id === id)
         if (!existing) return
+        // Single-currency by design: the entry inherits the garment's currency
+        // so the card's delta vs `price` stays comparable.
         const entry = {
           id: createId('mkt'),
           at: Date.now(),
           value,
-          currency: currency ?? existing.currency,
+          currency: existing.currency,
         }
         const garment: GarmentItem = {
           ...existing,
