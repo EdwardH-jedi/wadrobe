@@ -49,4 +49,50 @@ describe('ArchiveCard (A2)', () => {
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
     expect(screen.queryByText(/Demo guess/)).not.toBeInTheDocument()
   })
+
+  it('shows no market-value block when there is no history', () => {
+    render(<ArchiveCard garment={makeGarment({ name: 'Plain Tee' })} />)
+    expect(screen.queryByText(/Market value/)).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('img', { name: /value trend/i }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('shows the latest manual value, the delta vs purchase, and an update count', () => {
+    const garment = makeGarment({
+      name: 'Resale Jacket',
+      price: 100,
+      currency: 'USD',
+      marketValueHistory: [
+        { id: 'mkt-1', at: 1_700_000_000_000, value: 110, currency: 'USD' },
+        { id: 'mkt-2', at: 1_700_000_100_000, value: 140, currency: 'USD' },
+      ],
+    })
+    render(<ArchiveCard garment={garment} />)
+
+    expect(screen.getByText(/Market value · manual estimate/)).toBeInTheDocument()
+    expect(screen.getByText('140 USD')).toBeInTheDocument() // latest, not 110
+    expect(screen.getByText(/\+40 USD/)).toBeInTheDocument() // delta vs price 100
+    expect(screen.getByText(/\+40\.0%/)).toBeInTheDocument()
+    expect(screen.getByText('2 updates')).toBeInTheDocument()
+    expect(
+      screen.getByRole('img', { name: /value trend/i }),
+    ).toBeInTheDocument()
+  })
+
+  it('shows the value but no percent when there is no purchase price', () => {
+    const garment = makeGarment({
+      name: 'No-Price Piece',
+      price: undefined,
+      marketValueHistory: [
+        { id: 'mkt-1', at: 1_700_000_000_000, value: 75, currency: 'USD' },
+      ],
+    })
+    render(<ArchiveCard garment={garment} />)
+
+    expect(screen.getByText('75 USD')).toBeInTheDocument()
+    expect(screen.getByText(/No purchase price to compare/)).toBeInTheDocument()
+    expect(screen.getByText('1 update')).toBeInTheDocument()
+    expect(screen.queryByText(/%/)).not.toBeInTheDocument()
+  })
 })

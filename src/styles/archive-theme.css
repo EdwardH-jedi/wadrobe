@@ -2833,6 +2833,52 @@
   font-size: 0.78rem;
 }
 
+/* Market value (manual estimate) — minimal functional styling; polished later. */
+.archive-card__value {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--ink-700);
+  border: 1px solid var(--line);
+}
+.archive-card__value-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.archive-card__value-now {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  color: var(--text-100);
+}
+.archive-card__value-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+.archive-card__spark {
+  color: var(--text-300);
+}
+.archive-card__delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.archive-card__delta--up {
+  color: var(--accent-bright);
+}
+.archive-card__delta--down {
+  color: var(--danger);
+}
+.archive-card__delta--flat {
+  color: var(--text-400);
+}
+
 /* Lookbook (Wardrobe Flow B1): a responsive grid of archive cards. */
 .lookbook {
   display: flex;

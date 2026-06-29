@@ -12,7 +12,14 @@ import {
   formatConfidence,
 } from '../../domain/archiveProvenance'
 import { getGarmentDisplayImage } from '../../domain/garmentAsset'
+import {
+  formatMarketValue,
+  latestMarketValue,
+  marketValueDelta,
+  sortedMarketValues,
+} from '../../domain/marketValue'
 import { formatDate } from '../../lib/format'
+import { cx } from '../../lib/cx'
 import { Badge } from '../ui/Badge'
 import { Icon } from '../ui/Icon'
 
@@ -42,6 +49,53 @@ function referenceHost(url: string): string {
   }
 }
 
+/** Round to at most two decimals and drop a trailing ".00"-style fraction. */
+function trim(value: number): string {
+  return String(Math.round(value * 100) / 100)
+}
+
+const DIRECTION_ARROW = { up: '▲', down: '▼', flat: '—' } as const
+
+/** A tiny inline sparkline of the recorded values (no deps). Degrades to a
+ *  single dot for one observation; guards against a flat (min==max) series. */
+function ValueSparkline({ values }: { values: number[] }) {
+  const w = 96
+  const h = 24
+  const pad = 3
+  if (values.length === 0) return null
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const span = max - min || 1
+  const stepX = values.length > 1 ? (w - pad * 2) / (values.length - 1) : 0
+  const x = (i: number) => pad + i * stepX
+  const y = (v: number) => h - pad - ((v - min) / span) * (h - pad * 2)
+
+  return (
+    <svg
+      className="archive-card__spark"
+      viewBox={`0 0 ${w} ${h}`}
+      width={w}
+      height={h}
+      role="img"
+      aria-label="Recorded value trend"
+      preserveAspectRatio="none"
+    >
+      {values.length > 1 ? (
+        <polyline
+          points={values.map((v, i) => `${x(i)},${y(v)}`).join(' ')}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.5}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      ) : (
+        <circle cx={w / 2} cy={h / 2} r={2} fill="currentColor" />
+      )}
+    </svg>
+  )
+}
+
 export function ArchiveCard({ garment }: ArchiveCardProps) {
   const provenance = describeArchiveProvenance(garment)
 
@@ -63,6 +117,13 @@ export function ArchiveCard({ garment }: ArchiveCardProps) {
   const confidence = provenance.analysis
     ? formatConfidence(provenance.analysis.confidence)
     : null
+
+  // Manual market-value trend (only when the user has recorded at least one
+  // estimate). The latest entry drives the headline value + currency; the delta
+  // is vs the original purchase price, shown only when there is one to compare.
+  const valueEntry = latestMarketValue(garment)
+  const delta = marketValueDelta(garment)
+  const valueSeries = sortedMarketValues(garment).map((e) => e.value)
 
   return (
     <article className="archive-card">
@@ -101,6 +162,50 @@ export function ArchiveCard({ garment }: ArchiveCardProps) {
               </div>
             ))}
           </dl>
+        )}
+
+        {valueEntry && (
+          <section
+            className="archive-card__value"
+            aria-label="Market value (manual estimate)"
+          >
+            <div className="archive-card__value-head">
+              <span className="archive-card__value-label eyebrow">
+                Market value · manual estimate
+              </span>
+              <span className="archive-card__value-now">
+                {formatMarketValue(valueEntry.value, valueEntry.currency)}
+              </span>
+            </div>
+
+            <div className="archive-card__value-meta">
+              <ValueSparkline values={valueSeries} />
+              {delta && delta.absolute !== null ? (
+                <span
+                  className={cx(
+                    'archive-card__delta',
+                    `archive-card__delta--${delta.direction}`,
+                  )}
+                  title="Change versus the purchase price you entered"
+                >
+                  {DIRECTION_ARROW[delta.direction]}{' '}
+                  {delta.absolute > 0 ? '+' : ''}
+                  {trim(delta.absolute)}
+                  {valueEntry.currency ? ` ${valueEntry.currency}` : ''}
+                  {delta.percent !== null
+                    ? ` (${delta.percent > 0 ? '+' : ''}${delta.percent.toFixed(1)}%)`
+                    : ''}
+                </span>
+              ) : (
+                <span className="archive-card__delta archive-card__delta--flat muted">
+                  No purchase price to compare
+                </span>
+              )}
+              <span className="archive-card__value-count muted">
+                {valueSeries.length} update{valueSeries.length === 1 ? '' : 's'}
+              </span>
+            </div>
+          </section>
         )}
 
         {garment.styleTags.length > 0 && (
