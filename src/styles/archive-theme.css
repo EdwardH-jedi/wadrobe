@@ -2879,6 +2879,35 @@
   color: var(--text-400);
 }
 
+/* Market-value record panel (in the edit modal) — minimal; polished later. */
+.mvpanel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.mvpanel__heading {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  color: var(--text-100);
+}
+.mvpanel__help {
+  margin: 0;
+  font-size: 0.8rem;
+}
+.mvpanel__row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.mvpanel__row .field__input {
+  flex: 1;
+  min-width: 90px;
+}
+
 /* Lookbook (Wardrobe Flow B1): a responsive grid of archive cards. */
 .lookbook {
   display: flex;

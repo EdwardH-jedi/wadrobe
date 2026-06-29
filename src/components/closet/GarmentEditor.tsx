@@ -19,6 +19,7 @@ import { getGarmentDisplayImage } from '../../domain/garmentAsset'
 import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
+import { MarketValuePanel } from './MarketValuePanel'
 
 export interface GarmentFieldsProps {
   draft: GarmentDraft
@@ -312,6 +313,7 @@ export function EditGarmentModal({ garment, onClose }: EditGarmentModalProps) {
                 Name this archive piece before saving.
               </p>
             )}
+            {garment && <MarketValuePanel garment={garment} />}
           </div>
         </div>
       )}

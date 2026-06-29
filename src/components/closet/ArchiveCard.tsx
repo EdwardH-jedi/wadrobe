@@ -20,6 +20,7 @@ import {
 } from '../../domain/marketValue'
 import { formatDate } from '../../lib/format'
 import { cx } from '../../lib/cx'
+import { MARKET_VALUE_COPY } from './marketValueCopy'
 import { Badge } from '../ui/Badge'
 import { Icon } from '../ui/Icon'
 
@@ -171,7 +172,7 @@ export function ArchiveCard({ garment }: ArchiveCardProps) {
           >
             <div className="archive-card__value-head">
               <span className="archive-card__value-label eyebrow">
-                Market value · manual estimate
+                {MARKET_VALUE_COPY.cardLabel}
               </span>
               <span className="archive-card__value-now">
                 {formatMarketValue(valueEntry.value, valueEntry.currency)}
