@@ -109,6 +109,24 @@ export interface GarmentProxy3dPreview {
 }
 
 /**
+ * One manually-recorded market-value observation for a garment. The user types
+ * an estimate of what the piece is worth *now*; the archive keeps a timestamped
+ * history so the trend versus the original `price` can be shown. This is a
+ * **manual estimate the user entered** — NOT live, fetched, or "market data".
+ *
+ * `value` is a plain number paired with `currency` (defaulting to the garment's
+ * own `currency` when omitted), mirroring the `price`/`currency` convention.
+ * `at` is epoch ms (consistent with `createdAt`/`updatedAt`).
+ */
+export interface MarketValueEntry {
+  id: string
+  /** Epoch milliseconds. */
+  at: number
+  value: number
+  currency?: string
+}
+
+/**
  * A single archived garment ("Archive Piece").
  *
  * `imageDataUrl` always holds a *downscaled* thumbnail (see
@@ -152,6 +170,19 @@ export interface GarmentItem {
   analysisConfidence?: number
   analysisSource?: AnalysisSource
   userEdited?: boolean
+  /**
+   * Manual market-value history (append-only). Each entry is an estimate the
+   * user typed of the piece's current worth; helpers in `domain/marketValue.ts`
+   * derive the trend versus `price`. Optional and parser-tolerant — legacy
+   * records and the sample set simply lack it.
+   *
+   * This is plain metadata that owns NO blob bytes, so it is intentionally NOT
+   * part of `garmentBlobKeys` (which tracks only IndexedDB blob refs). It is
+   * also intentionally absent from `GarmentDraft`: it is appended via the
+   * provider's `recordMarketValue`, never edited through the draft form, so a
+   * normal `updateGarment` ({...existing, ...draft}) preserves it.
+   */
+  marketValueHistory?: MarketValueEntry[]
   /**
    * Downscaled thumbnail data URL. Kept for backward compatibility and as the
    * ultimate display fallback; prefer `asset.displayImageUrl` via
