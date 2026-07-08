@@ -1,6 +1,6 @@
 // Shared garment metadata fields (used by both the upload flow and the editor)
 // plus the modal for editing an existing archived piece.
-import { useEffect, useState, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import type { GarmentDraft, GarmentItem } from '../../domain/garmentTypes'
 import {
   CATEGORY_ORDER,
@@ -262,8 +262,17 @@ export function EditGarmentModal({ garment, onClose }: EditGarmentModalProps) {
   const { updateGarment } = useArchive()
   const [draft, setDraft] = useState<GarmentDraft | null>(null)
 
+  // Re-seed the draft only when a DIFFERENT piece is opened (id change), not on
+  // every store update. The garment is now resolved live by id upstream, so its
+  // reference changes when e.g. a market value is recorded from the panel below;
+  // re-seeding on that would wipe in-progress field edits.
+  const seededIdRef = useRef<string | null>(null)
   useEffect(() => {
-    setDraft(garment ? garmentToDraft(garment) : null)
+    const id = garment?.id ?? null
+    if (id !== seededIdRef.current) {
+      seededIdRef.current = id
+      setDraft(garment ? garmentToDraft(garment) : null)
+    }
   }, [garment])
 
   const open = garment !== null && draft !== null

@@ -2934,6 +2934,12 @@
 }
 
 /* Market-value record panel (in the edit modal). */
+.mvpanel__current {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-300);
+  font-variant-numeric: tabular-nums;
+}
 .mvpanel {
   display: flex;
   flex-direction: column;

@@ -28,6 +28,29 @@ describe('MarketValuePanel', () => {
     expect(recordMarketValue).toHaveBeenCalledWith('g1', 140)
   })
 
+  it('shows the latest recorded value as read-only context when history exists', () => {
+    render(
+      <MarketValuePanel
+        garment={makeGarment({
+          id: 'g1',
+          marketValueHistory: [
+            { id: 'm1', at: 1_700_000_000_000, value: 90, currency: 'USD' },
+            { id: 'm2', at: 1_700_000_100_000, value: 120, currency: 'USD' },
+          ],
+        })}
+      />,
+    )
+    // Latest entry (120, not 90) and the update count give the user context on
+    // what they have already recorded, before typing a new estimate.
+    expect(screen.getByText(/120 USD/)).toBeInTheDocument()
+    expect(screen.getByText(/2 updates/)).toBeInTheDocument()
+  })
+
+  it('shows no latest-value context for a piece with no history', () => {
+    render(<MarketValuePanel garment={makeGarment({ id: 'g1' })} />)
+    expect(screen.queryByText(/updates?/)).not.toBeInTheDocument()
+  })
+
   it('does not record empty or invalid input', async () => {
     const user = userEvent.setup()
     render(<MarketValuePanel garment={makeGarment({ id: 'g1' })} />)

@@ -35,7 +35,12 @@ export function ArchiveStudio() {
 
   const [view, setView] = useState<StudioView>('studio')
   const [uploadOpen, setUploadOpen] = useState(false)
-  const [editGarment, setEditGarment] = useState<GarmentItem | null>(null)
+  // Resolved live by id so the open editor (and its market-value panel) always
+  // reflects the current stored garment, not a stale snapshot from open time.
+  const [editGarmentId, setEditGarmentId] = useState<string | null>(null)
+  const editGarment = editGarmentId
+    ? (garments.find((g) => g.id === editGarmentId) ?? null)
+    : null
   const [enteredId, setEnteredId] = useState<string | null>(null)
   // Track B bridge (B3.9): the closet piece the Proxy 3D Lab is linked to.
   // Stored as an id and resolved live so the lab always sees current data.
@@ -88,7 +93,7 @@ export function ArchiveStudio() {
         return (
           <ClosetPanel
             onUpload={openUpload}
-            onEdit={setEditGarment}
+            onEdit={(g) => setEditGarmentId(g.id)}
             onProxy3d={openProxy3d}
             onDetails={(g) => setDetailGarmentId(g.id)}
           />
@@ -177,7 +182,7 @@ export function ArchiveStudio() {
       />
       <EditGarmentModal
         garment={editGarment}
-        onClose={() => setEditGarment(null)}
+        onClose={() => setEditGarmentId(null)}
       />
       <Modal
         open={detailGarment !== null}

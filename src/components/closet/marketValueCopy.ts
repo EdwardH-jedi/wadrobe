@@ -12,6 +12,7 @@ export const MARKET_VALUE_COPY = {
   inputLabel: 'Current estimated value',
   button: 'Record value',
   cardLabel: 'Market value · manual estimate',
+  latestLabel: 'Latest recorded',
   emptyHint:
     'No market value recorded yet — add a manual estimate when you edit this piece.',
 } as const
