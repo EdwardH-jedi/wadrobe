@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { makeGarment } from '../../test/factories'
+import { formatDate } from '../../lib/format'
 import { ArchiveCard } from './ArchiveCard'
 
 describe('ArchiveCard (A2)', () => {
@@ -82,6 +83,10 @@ describe('ArchiveCard (A2)', () => {
     expect(screen.getByText(/\+40 USD/)).toBeInTheDocument() // delta vs price 100
     expect(screen.getByText(/\+40\.0%/)).toBeInTheDocument()
     expect(screen.getByText('2 updates')).toBeInTheDocument()
+    // The latest entry's recorded date gives temporal context.
+    expect(
+      screen.getByText(`as of ${formatDate(1_700_000_100_000)}`),
+    ).toBeInTheDocument()
     expect(
       screen.getByRole('img', { name: /value trend/i }),
     ).toBeInTheDocument()

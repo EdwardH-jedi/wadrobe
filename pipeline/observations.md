@@ -11,6 +11,7 @@ lives in `pipeline/cycles/cycle_N_report.md`.
 |---|------|---------|---------------|----------|---------|---------|
 | 1 | Empty market-value hint (backlog #1) | GREEN | 0/0/0 | — | — | committed |
 | 2 | Latest-value context in record panel | **RED→GREEN** (TDD) | major×1 → 0/0/0 | 1 of 2 | GREEN | committed |
+| 3 | "as of <date>" on archive card | GREEN | 0/0/0 | — | — | committed |
 
 ## Running notes
 - **Gate authority held** in every cycle so far — the gate runs before the

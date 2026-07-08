@@ -202,6 +202,9 @@ export function ArchiveCard({ garment }: ArchiveCardProps) {
                   No purchase price to compare
                 </span>
               )}
+              <span className="archive-card__value-asof muted">
+                as of {formatDate(valueEntry.at)}
+              </span>
               <span className="archive-card__value-count muted">
                 {valueSeries.length} update{valueSeries.length === 1 ? '' : 's'}
               </span>

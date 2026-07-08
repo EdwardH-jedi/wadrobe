@@ -2922,6 +2922,9 @@
   color: var(--text-400);
   padding-left: 0;
 }
+.archive-card__value-asof {
+  font-variant-numeric: tabular-nums;
+}
 .archive-card__value-count {
   margin-left: auto;
   font-variant-numeric: tabular-nums;
