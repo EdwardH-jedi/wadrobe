@@ -16,9 +16,10 @@ and the reviewer never edits code.
 1. **Implement** the task (implementer).
 2. **Gate #1** — `run-gate.sh`. Red ⇒ fix and re-run; never proceed on red.
 3. **Review** — `codex-review.sh` over the cycle diff.
-4. **Fix pass** — address `[blocker]`/`[major]` only. `[minor]` is recorded, not
+4. **Fix pass** — address `[blocker]`/`[major]`. `[minor]` is recorded, not
    fixed. Disagreement with a finding is recorded as an explicit **rebuttal**,
-   not silently dropped.
+   not silently dropped. **Max 2 fix passes** per cycle; only a surviving
+   `[blocker]` re-triggers another iteration (see `pipeline/POLICY.md`).
 5. **Gate #2** — `run-gate.sh` again after any fix.
 6. **Commit** iff Gate #2 is green — one commit per cycle — and write
    `cycles/cycle_N_report.md`.

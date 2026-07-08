@@ -50,11 +50,14 @@ how to revert.
 
 ## D5 — Review-loop policy (Scope 1.3) — PROVISIONAL, pre user approval
 > Adopted provisionally so the loop is well-defined; **awaiting user approval.**
-- Max **2** fix passes per cycle.
-- Only **[blocker]** findings trigger a re-fix in the loop; **[major]** are fixed
-  in the same cycle when cheap and safe, else logged; **[minor]** logged only.
+> Full text + rationale in `pipeline/POLICY.md`; encoded in
+> `pipeline/harness/CYCLE.md`; hard-enforced by `run-gate.sh`.
+- Max **2** fix passes per cycle; exceeding is a hard stop (`STOPPED.md`).
+- **Re-fix loop re-trigger: `[blocker]` only.** Within a fix pass, both
+  `[blocker]` and `[major]` are addressed (a major is a real user-hittable bug,
+  see cycle 2); `[minor]` is **logged only**.
 - On implementer/reviewer conflict: **if the gate is green, keep the
-  implementation and record a rebuttal.**
+  implementation and record an explicit rebuttal** in the cycle report.
 - The objective gate always wins over any model opinion.
-- **Revert:** Change the thresholds here and in `pipeline/harness/CYCLE.md`.
+- **Revert:** Change the thresholds in `pipeline/POLICY.md`, `CYCLE.md`, and here.
   (Provisional until the user ratifies — see Scope 1.3.)
