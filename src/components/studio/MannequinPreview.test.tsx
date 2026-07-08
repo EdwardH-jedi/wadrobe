@@ -124,6 +124,36 @@ describe('MannequinPreview zone mapping', () => {
     expect(img.closest('.mannequin__zone--cutout')).not.toBeNull()
   })
 
+  it('uses a prepared mannequin cutout while the archive display stays original (1a)', async () => {
+    // Decoupled: displayImageUrl is the ORIGINAL (archive card unaffected), but
+    // the mannequin renders the background-removed mannequinCutoutUrl.
+    const piece = makeGarment({
+      id: 'g',
+      category: 'shoes',
+      name: 'The Shoe',
+      asset: {
+        originalImageUrl: 'data:ORIG',
+        displayImageUrl: 'data:ORIG',
+        mannequinCutoutUrl: 'data:MCUT',
+        assetMode: 'uploaded',
+      },
+    })
+    localStorage.setItem(STORAGE_KEYS.garments, JSON.stringify([piece]))
+    localStorage.setItem(
+      STORAGE_KEYS.currentOutfit,
+      JSON.stringify({ ...createEmptyOutfit(), shoes: 'g' }),
+    )
+    render(
+      <ArchiveProvider>
+        <MannequinPreview />
+      </ArchiveProvider>,
+    )
+    const img = (await screen.findByAltText('The Shoe')) as HTMLImageElement
+    expect(img.getAttribute('src')).toBe('data:MCUT')
+    expect(img.classList.contains('mannequin__img--cutout')).toBe(true)
+    expect(img.closest('.mannequin__zone--cutout')).not.toBeNull()
+  })
+
   it('keeps a non-cutout garment in its matte panel (no cutout classes)', async () => {
     await renderSelected('top')
     const img = screen.getByAltText('The Piece')

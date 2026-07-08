@@ -5,7 +5,10 @@
 import { OUTFIT_SLOT_ORDER } from '../../domain/outfitTypes'
 import { CATEGORY_META } from '../../domain/garmentTaxonomy'
 import { getLayerPreset, getLayerZIndex } from '../../domain/garmentLayout'
-import { getGarmentDisplayImage } from '../../domain/garmentAsset'
+import {
+  getGarmentMannequinImage,
+  mannequinShowsCutout,
+} from '../../domain/garmentAsset'
 import { useArchive } from '../../app/providers/useArchive'
 import { cx } from '../../lib/cx'
 
@@ -75,7 +78,7 @@ export function MannequinPreview({ compact = false }: MannequinPreviewProps) {
         // stacking order (outerwear above the top) and drops the matte paper
         // panel + multiply blend that exist only to mask opaque flat-lay
         // backgrounds (Phase 5). `contain` shows the whole garment shape.
-        const isCutout = garment.asset?.assetMode === 'cutout'
+        const isCutout = mannequinShowsCutout(garment)
 
         return (
           <div
@@ -93,7 +96,7 @@ export function MannequinPreview({ compact = false }: MannequinPreviewProps) {
             />
             <img
               className={cx('mannequin__img', isCutout && 'mannequin__img--cutout')}
-              src={getGarmentDisplayImage(garment)}
+              src={getGarmentMannequinImage(garment)}
               alt={garment.name}
               style={{ objectFit: isCutout ? 'contain' : preset.fit }}
             />

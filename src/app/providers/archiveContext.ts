@@ -52,6 +52,15 @@ export interface ArchiveContextValue {
     id: string,
     preview: GarmentProxy3dPreview | null,
   ) => void
+  /** Prepare an on-device, mannequin-only background cutout for a garment
+   *  (Avatar Visual 1a). Reuses the local flood fill; on success stores an
+   *  additive `asset.mannequinCutoutUrl` so the mannequin/mirror/rack drop the
+   *  background WITHOUT changing the archive-card image. Resolves 'skipped' (no
+   *  garment / already cutout), 'unavailable'/'failed' (kept the original photo),
+   *  or 'prepared'. Never throws; never claims a guaranteed clean cutout. */
+  prepareMannequinCutout: (
+    id: string,
+  ) => Promise<'prepared' | 'skipped' | 'unavailable' | 'failed'>
   removeGarment: (id: string) => void
   /** Select a garment into its category slot (replaces any current pick). */
   selectGarment: (garmentId: string) => void

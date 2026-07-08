@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { buildUploadedAsset, getGarmentDisplayImage } from './garmentAsset'
+import {
+  buildUploadedAsset,
+  getGarmentDisplayImage,
+  getGarmentMannequinImage,
+  mannequinShowsCutout,
+} from './garmentAsset'
 import type { GarmentAsset } from './garmentTypes'
 
 describe('getGarmentDisplayImage', () => {
@@ -151,6 +156,95 @@ describe('getGarmentDisplayImage', () => {
       } as GarmentAsset,
     }
     expect(getGarmentDisplayImage(corrupt)).toBe('orig')
+  })
+})
+
+describe('getGarmentMannequinImage (Avatar Visual 1a)', () => {
+  it('prefers the mannequin cutout over the normal display image', () => {
+    // The decoupled case: the archive display stays the ORIGINAL photo while the
+    // mannequin uses the background-removed cutout.
+    expect(
+      getGarmentMannequinImage({
+        imageDataUrl: 'fallback',
+        asset: {
+          originalImageUrl: 'orig',
+          displayImageUrl: 'orig',
+          mannequinCutoutUrl: 'mcut',
+          assetMode: 'uploaded',
+        },
+      }),
+    ).toBe('mcut')
+  })
+
+  it('falls back to the display image when there is no mannequin cutout (legacy safe)', () => {
+    expect(
+      getGarmentMannequinImage({
+        imageDataUrl: 'fallback',
+        asset: {
+          originalImageUrl: 'orig',
+          displayImageUrl: 'display',
+          assetMode: 'product-reference',
+        },
+      }),
+    ).toBe('display')
+  })
+
+  it('falls back to imageDataUrl for a legacy garment with no asset', () => {
+    expect(getGarmentMannequinImage({ imageDataUrl: 'fallback' })).toBe('fallback')
+  })
+
+  it('ignores a non-string mannequin cutout and falls through', () => {
+    expect(
+      getGarmentMannequinImage({
+        imageDataUrl: 'fallback',
+        asset: {
+          originalImageUrl: 'orig',
+          displayImageUrl: 'display',
+          mannequinCutoutUrl: 7 as unknown as string,
+          assetMode: 'uploaded',
+        },
+      }),
+    ).toBe('display')
+  })
+})
+
+describe('mannequinShowsCutout', () => {
+  it('is true when a mannequin cutout is present (even if not the global display)', () => {
+    expect(
+      mannequinShowsCutout({
+        asset: {
+          originalImageUrl: 'orig',
+          displayImageUrl: 'orig',
+          mannequinCutoutUrl: 'mcut',
+          assetMode: 'uploaded',
+        },
+      }),
+    ).toBe(true)
+  })
+
+  it('is true for an accepted global cutout (assetMode cutout)', () => {
+    expect(
+      mannequinShowsCutout({
+        asset: {
+          originalImageUrl: 'orig',
+          displayImageUrl: 'cut',
+          assetMode: 'cutout',
+        },
+      }),
+    ).toBe(true)
+  })
+
+  it('is false for a plain uploaded garment and for a legacy no-asset garment', () => {
+    expect(
+      mannequinShowsCutout({
+        asset: {
+          originalImageUrl: 'orig',
+          displayImageUrl: 'orig',
+          assetMode: 'uploaded',
+        },
+      }),
+    ).toBe(false)
+    expect(mannequinShowsCutout({})).toBe(false)
   })
 })
 

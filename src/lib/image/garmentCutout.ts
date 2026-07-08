@@ -210,6 +210,21 @@ function createCanvas(width: number, height: number): HTMLCanvasElement | null {
   return canvas
 }
 
+/**
+ * Cheap capability probe: can the local cutout actually run here (a real 2D
+ * canvas)? In SSR / jsdom there is no canvas AND image decode never resolves, so
+ * callers should check this and skip the attempt — otherwise `rasterize` would
+ * hang on `loadImageElement`. Returns false on any error rather than throwing.
+ */
+export function isLocalCutoutSupported(): boolean {
+  if (typeof document === 'undefined') return false
+  try {
+    return !!document.createElement('canvas').getContext('2d')
+  } catch {
+    return false
+  }
+}
+
 export const defaultCutoutDeps: CutoutDeps = {
   async rasterize(imageUrl, maxEdge) {
     const img = await loadImageElement(imageUrl) // rejects on decode failure

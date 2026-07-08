@@ -519,3 +519,60 @@ describe('ArchiveProvider — persistence across a reload', () => {
     setItem.mockRestore()
   })
 })
+
+describe('ArchiveProvider — prepareMannequinCutout (Avatar Visual 1a)', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  it('is a no-op (skipped) for a missing garment', async () => {
+    const { result } = await renderArchive()
+    let status = ''
+    await act(async () => {
+      status = await result.current.prepareMannequinCutout('nope')
+    })
+    expect(status).toBe('skipped')
+  })
+
+  it('skips a garment that already renders a cutout, leaving it untouched', async () => {
+    const { result } = await renderArchive()
+    let id = ''
+    act(() => {
+      id = result.current.addGarment({
+        ...draftOf('shoes'),
+        asset: {
+          originalImageUrl: 'data:o',
+          displayImageUrl: 'data:cut',
+          cutoutImageUrl: 'data:cut',
+          assetMode: 'cutout',
+        },
+      }).id
+    })
+    let status = ''
+    await act(async () => {
+      status = await result.current.prepareMannequinCutout(id)
+    })
+    expect(status).toBe('skipped')
+    expect(
+      result.current.garments[0]?.asset?.mannequinCutoutUrl,
+    ).toBeUndefined()
+  })
+
+  it('keeps the original photo when the local cutout cannot run (honest fallback)', async () => {
+    const { result } = await renderArchive()
+    let id = ''
+    act(() => {
+      id = result.current.addGarment(draftOf('shoes')).id
+    })
+    let status = ''
+    await act(async () => {
+      status = await result.current.prepareMannequinCutout(id)
+    })
+    // jsdom has no canvas, so the flood fill reports unavailable — we must NOT
+    // fabricate a cutout, and the garment stays untouched.
+    expect(status).not.toBe('prepared')
+    expect(
+      result.current.garments[0]?.asset?.mannequinCutoutUrl,
+    ).toBeUndefined()
+  })
+})

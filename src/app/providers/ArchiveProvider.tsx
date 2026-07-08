@@ -29,6 +29,14 @@ import {
 } from '../../domain/outfitTypes'
 import { createId } from '../../lib/id'
 import {
+  attemptGarmentCutout,
+  isLocalCutoutSupported,
+} from '../../lib/image/garmentCutout'
+import {
+  buildUploadedAsset,
+  getGarmentDisplayImage,
+} from '../../domain/garmentAsset'
+import {
   getArchiveStorage,
   type ArchiveStorageAdapter,
 } from '../../lib/storage/archiveStorage'
@@ -268,6 +276,52 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
             { garmentId: garment.id },
           ),
         })
+      },
+
+      prepareMannequinCutout: async (
+        id: string,
+      ): Promise<'prepared' | 'skipped' | 'unavailable' | 'failed'> => {
+        const existing = state.garments.find((g) => g.id === id)
+        if (!existing) return 'skipped'
+        // Already transparent (accepted global cutout) or already prepared —
+        // nothing to do; the mannequin already drops the background.
+        if (
+          existing.asset?.assetMode === 'cutout' ||
+          (typeof existing.asset?.mannequinCutoutUrl === 'string' &&
+            existing.asset.mannequinCutoutUrl)
+        ) {
+          return 'skipped'
+        }
+        // No real canvas (SSR/jsdom) → the decode would hang; skip honestly.
+        if (!isLocalCutoutSupported()) return 'unavailable'
+        // The SAME on-device flood fill Track A already ships (lib/image/
+        // garmentCutout.ts). Non-blocking by contract: canvas/decoder problems
+        // resolve to unavailable/failed and we leave the original photo in place
+        // (honest fallback, no dispatch, no claim of a clean cutout).
+        const result = await attemptGarmentCutout(getGarmentDisplayImage(existing))
+        if (result.status !== 'success') return result.status
+        // Re-read the LATEST garment: a user edit (or a delete) may have landed
+        // during the async cutout. Merge the cutout onto current state via the
+        // live ref so we never overwrite that concurrent edit with a stale base.
+        const latest = garmentsRef.current.find((g) => g.id === id)
+        if (!latest) return 'skipped'
+        const baseAsset =
+          latest.asset ?? buildUploadedAsset(latest.imageDataUrl)
+        const garment: GarmentItem = {
+          ...latest,
+          asset: { ...baseAsset, mannequinCutoutUrl: result.cutoutImageUrl },
+          updatedAt: Date.now(),
+        }
+        dispatch({
+          type: 'UPDATE_GARMENT',
+          garment,
+          event: makeEvent(
+            'garment_updated',
+            `Prepared mannequin cutout: ${garment.name}`,
+            { garmentId: garment.id },
+          ),
+        })
+        return 'prepared'
       },
 
       removeGarment: (id: string): void => {

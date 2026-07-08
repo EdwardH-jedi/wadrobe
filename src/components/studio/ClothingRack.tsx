@@ -1,5 +1,5 @@
 import type { GarmentItem } from '../../domain/garmentTypes'
-import { getGarmentDisplayImage } from '../../domain/garmentAsset'
+import { getGarmentMannequinImage } from '../../domain/garmentAsset'
 
 export interface ClothingRackProps {
   garments: GarmentItem[]
@@ -23,7 +23,7 @@ export function ClothingRack({ garments }: ClothingRackProps) {
           >
             <span className="rack__hook" />
             <div className="rack__garment">
-              <img src={getGarmentDisplayImage(garment)} alt={garment.name} />
+              <img src={getGarmentMannequinImage(garment)} alt={garment.name} />
             </div>
           </div>
         ))}

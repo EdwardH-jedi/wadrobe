@@ -74,6 +74,16 @@ export interface GarmentAsset {
    * becomes `'cutout'`. Experimental — quality varies with the photo background.
    */
   cutoutImageUrl?: string
+  /**
+   * Mannequin/studio-only cutout (Avatar Visual step 1a). A transparent WebP from
+   * the SAME on-device flood fill (`lib/image/garmentCutout.ts`), produced on
+   * demand so the mannequin/mirror/rack can drop a flat-lay background WITHOUT
+   * changing what the archive card/lookbook show. Additive + optional: legacy
+   * items lack it and fall back to the normal display image (see
+   * `getGarmentMannequinImage`). Experimental heuristic — quality varies with the
+   * photo background; never a guarantee of a clean cutout.
+   */
+  mannequinCutoutUrl?: string
   /** A user-provided reference image URL (e.g. an image from a product page). */
   productReferenceImageUrl?: string
   /** A user-provided source link for the reference. */

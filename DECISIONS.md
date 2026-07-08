@@ -1,8 +1,56 @@
-# DECISIONS — pipeline-run-1
+# DECISIONS — pipeline-run-1 / avatar-visual-1
 
 Conservative defaults adopted at 🚩/🔶 roadmap decision points so the unattended
 run can continue. **Every entry is reversible by the user.** Format: what / why /
 how to revert.
+
+---
+
+## AVATAR-VISUAL run (branch `avatar-visual-1`, off `pipeline-run-1`)
+
+### AV0 — User pre-approved 1b; backend unfrozen for 1b scope only
+- **What:** The user waived the 1a quality-judgement gate and pre-approved through
+  step 1b. `backend/` is therefore unfrozen **only for the background-removal
+  endpoint** (1b). No other backend file may change.
+- **Why:** Explicit user instruction. Keeps the freeze everywhere except the one
+  sanctioned endpoint.
+- **Revert:** Re-freeze `backend/`; drop the `/api/cutout` endpoint + its deps.
+
+### AV1 — Quality judgement replaced by side-by-side evidence
+- **What:** The 🚩 1a quality gate becomes "collect comparison evidence": the same
+  input run through the 1a heuristic and the 1b ML path, saved side by side under
+  `evidence/`, for the user to judge after the fact.
+- **Why:** Unattended run cannot make the taste call. Evidence preserves it.
+- **Revert:** Delete `evidence/`; make the call manually in dev.
+
+### AV2 — 1a generation is item-level (studio affordance), not upload-only
+- **What:** The plan allows "upload OR item-level" cutout generation. This run
+  uses an **item-level** path: an additive `asset.mannequinCutoutUrl` field + a
+  provider action `prepareMannequinCutout(id)` + a small honest studio control,
+  reusing the existing on-device flood-fill (`lib/image/garmentCutout.ts`), so the
+  EXISTING closet benefits immediately (better demo/evidence).
+- **Why:** Item-level lets current items show a cutout without re-uploading; avoids
+  churning the heavily-tested upload flow. Additive field survives persist/load
+  with no storage change (parser preserves `asset`).
+- **Revert:** Drop the field + action + control; render surfaces fall back to the
+  original automatically (helper degrades to `getGarmentDisplayImage`).
+
+### AV3 — `mannequinCutoutUrl` stored inline (data URL), not blob-backed (1a)
+- **What:** The mannequin cutout is a ≤640px WebP data URL kept inline on the
+  asset (like the `imageDataUrl` thumbnail), NOT moved into the IDB blob store /
+  `garmentBlobKeys` / orphan sweep.
+- **Why:** Comparable in size to the thumbnail already stored inline; blob-backing
+  it would touch the orphan-sweep invariant surface — out of proportion for 1a.
+- **Revert:** Add a `mannequinCutoutRef` + register it in `garmentBlobKeys` and the
+  dehydrate/hydrate paths (documented follow-up).
+
+### AV4 — Existing items backfill on demand only (no auto-migration)
+- **What:** Pre-feature items get a mannequin cutout only when the user triggers
+  the studio control; there is no bulk auto-generation on load.
+- **Why:** Auto-processing the whole closet (canvas work, silent writes) is
+  surprising and heavier than 1a warrants. On-demand is honest and bounded.
+- **Revert:** Add a background migration effect that prepares cutouts for styled
+  items lacking one.
 
 ---
 
