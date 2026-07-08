@@ -14,11 +14,11 @@ import time
 import uuid
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 from typing import Literal
 
-from app import jobs, storage
+from app import config, jobs, storage
 from app.pipeline.interfaces import AvatarInputs
 from app.proxy3d import pipeline
 
@@ -216,3 +216,47 @@ async def get_job_result(job_id: str) -> FileResponse:
     if path is None:
         raise JobError(409, "Job result is not ready yet.")
     return FileResponse(path, media_type="model/gltf-binary", filename="result.glb")
+
+
+# --- ML background removal (Avatar Visual 1b) --------------------------------
+# Optional, on-demand cutout upgrade. `rembg` is LAZY-imported inside the handler
+# so the rest of the backend — and its test suite — never require the heavy ML
+# dependency: when it is absent the endpoint answers 503 and the FRONTEND falls
+# back to its local heuristic (then the original photo). This is a background
+# REMOVER only — NOT recognition, try-on, sizing, or 3D.
+
+
+class CutoutError(Exception):
+    def __init__(self, status_code: int, detail: str) -> None:
+        self.status_code = status_code
+        self.detail = detail
+
+
+@app.exception_handler(CutoutError)
+async def cutout_error_handler(_request, exc: CutoutError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+
+@app.post("/api/cutout")
+async def create_cutout(file: UploadFile = File(...)) -> Response:
+    """Remove a photo's background with rembg (U2Net) and return a transparent
+    PNG. Honest failures (empty/oversized upload, ML unavailable, unusable image)
+    are typed errors the client can fall back on — never a 500 crash."""
+    data = await file.read()
+    if not data:
+        raise CutoutError(422, "Empty upload — no image to process.")
+    if len(data) > config.MAX_UPLOAD_BYTES:
+        raise CutoutError(413, "Image is too large for background removal.")
+    try:
+        from rembg import remove
+    except ImportError as exc:  # heavy ML dep not installed on this server
+        raise CutoutError(
+            503, "ML background removal is not available on this server."
+        ) from exc
+    try:
+        output = remove(data)
+    except Exception as exc:  # noqa: BLE001 — honest failure, never crash
+        raise CutoutError(
+            422, "Could not remove the background for this image."
+        ) from exc
+    return Response(content=output, media_type="image/png")

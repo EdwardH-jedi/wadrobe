@@ -32,6 +32,7 @@ import {
   attemptGarmentCutout,
   isLocalCutoutSupported,
 } from '../../lib/image/garmentCutout'
+import { attemptMlCutout } from '../../lib/image/mlCutout'
 import {
   buildUploadedAsset,
   getGarmentDisplayImage,
@@ -292,13 +293,18 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
         ) {
           return 'skipped'
         }
-        // No real canvas (SSR/jsdom) → the decode would hang; skip honestly.
-        if (!isLocalCutoutSupported()) return 'unavailable'
-        // The SAME on-device flood fill Track A already ships (lib/image/
-        // garmentCutout.ts). Non-blocking by contract: canvas/decoder problems
-        // resolve to unavailable/failed and we leave the original photo in place
-        // (honest fallback, no dispatch, no claim of a clean cutout).
-        const result = await attemptGarmentCutout(getGarmentDisplayImage(existing))
+        const source = getGarmentDisplayImage(existing)
+        // Fallback chain (Avatar Visual 1b): ML remover → local heuristic →
+        // original. `attemptMlCutout` makes NO network call unless the env gate
+        // (VITE_CUTOUT=ml + VITE_API_BASE) is on, so the default build only tries
+        // the on-device flood fill. The heuristic needs a real canvas (SSR/jsdom
+        // has none, and the decode would hang there), so it is gated on support.
+        let result = await attemptMlCutout(source)
+        if (result.status !== 'success' && isLocalCutoutSupported()) {
+          result = await attemptGarmentCutout(source)
+        }
+        // Non-blocking by contract: on unavailable/failed we leave the original
+        // photo in place (no dispatch, no claim of a clean cutout).
         if (result.status !== 'success') return result.status
         // Re-read the LATEST garment: a user edit (or a delete) may have landed
         // during the async cutout. Merge the cutout onto current state via the

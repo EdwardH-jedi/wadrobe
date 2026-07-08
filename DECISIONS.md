@@ -44,6 +44,19 @@ how to revert.
 - **Revert:** Add a `mannequinCutoutRef` + register it in `garmentBlobKeys` and the
   dehydrate/hydrate paths (documented follow-up).
 
+### AV5 — Codex 1b blockers rebutted under user authorization (kept)
+- **What:** Codex's 1b review raised two `[blocker]`s that are correct *against
+  static CLAUDE.md* but overridden by the user: (a) the `/api/cutout` backend
+  endpoint exists under `backend/`; (b) the ML endpoint downloads U2Net weights at
+  runtime. Both are **kept**, with rebuttals recorded (see
+  `pipeline/cycles/avatar_1b_report.md`).
+- **Why:** AV0 explicitly unfroze `backend/` for the cutout endpoint, and the plan
+  explicitly anticipates the weight download (only its failure is a hard stop).
+  CLAUDE.md itself says user instructions take precedence. The objective gate is
+  green and the FRONTEND default stays zero-network (proven by test).
+- **Revert:** If the user disagrees, delete `/api/cutout` + `requirements-ml.txt`
+  and drop `mlCutout.ts`; the frontend falls back to the 1a heuristic automatically.
+
 ### AV4 — Existing items backfill on demand only (no auto-migration)
 - **What:** Pre-feature items get a mannequin cutout only when the user triggers
   the studio control; there is no bulk auto-generation on load.

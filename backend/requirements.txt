@@ -8,3 +8,10 @@ pygltflib>=1.16
 python-multipart>=0.0.9
 pytest>=8.2
 httpx>=0.27
+
+# ML background removal (Avatar Visual 1b) is OPTIONAL and kept OUT of this base
+# file so a normal install stays lean (no onnxruntime). To enable the /api/cutout
+# endpoint, additionally install the pinned ML deps:
+#     pip install -r requirements-ml.txt
+# The endpoint lazy-imports rembg and its test uses importorskip, so the base
+# backend installs and tests green without them.

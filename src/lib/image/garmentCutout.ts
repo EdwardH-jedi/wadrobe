@@ -13,8 +13,9 @@
 // dynamic import) without touching the UI or this result contract.
 import { loadImageElement } from './imageFileUtils'
 
-/** How a successful cutout was produced. */
-export type CutoutSource = 'local-flood-fill'
+/** How a successful cutout was produced. `ml-backend` is the optional, env-gated
+ *  server remover (Avatar Visual 1b); `local-flood-fill` is the on-device default. */
+export type CutoutSource = 'local-flood-fill' | 'ml-backend'
 
 /** The result of attempting to produce a garment cutout. Never `success` unless
  *  a real transparent image was actually generated. */

@@ -1,0 +1,8 @@
+# Optional ML background removal (Avatar Visual step 1b). Pinned; kept separate
+# from requirements.txt so a normal backend install stays lean (these pull
+# onnxruntime + friends). Install ON TOP of the base:
+#     pip install -r requirements.txt -r requirements-ml.txt
+# First /api/cutout call downloads the U2Net weights (~176MB) to ~/.u2net.
+# Python 3.12 recommended (onnxruntime has no 3.14 wheels yet).
+rembg==2.0.59
+onnxruntime==1.20.1
