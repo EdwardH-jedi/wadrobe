@@ -50,12 +50,19 @@ describe('ArchiveCard (A2)', () => {
     expect(screen.queryByText(/Demo guess/)).not.toBeInTheDocument()
   })
 
-  it('shows no market-value block when there is no history', () => {
+  it('shows an empty-state hint (not the trend block) when there is no history', () => {
     render(<ArchiveCard garment={makeGarment({ name: 'Plain Tee' })} />)
-    expect(screen.queryByText(/Market value/)).not.toBeInTheDocument()
+    // The populated trend block (headline value + sparkline) stays absent...
+    expect(
+      screen.queryByText(/Market value · manual estimate/),
+    ).not.toBeInTheDocument()
     expect(
       screen.queryByRole('img', { name: /value trend/i }),
     ).not.toBeInTheDocument()
+    // ...but a discoverability hint points to the manual tracker.
+    expect(
+      screen.getByText(/No market value recorded yet/),
+    ).toBeInTheDocument()
   })
 
   it('shows the latest manual value, the delta vs purchase, and an update count', () => {

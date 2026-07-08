@@ -2926,6 +2926,12 @@
   margin-left: auto;
   font-variant-numeric: tabular-nums;
 }
+.archive-card__value-empty {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: var(--text-400);
+}
 
 /* Market-value record panel (in the edit modal). */
 .mvpanel {

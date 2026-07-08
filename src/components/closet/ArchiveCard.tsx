@@ -209,6 +209,14 @@ export function ArchiveCard({ garment }: ArchiveCardProps) {
           </section>
         )}
 
+        {/* Empty-state guidance: surface the manual tracker for pieces with no
+            recorded value yet, so the feature is discoverable from the archive. */}
+        {!valueEntry && (
+          <p className="archive-card__value-empty muted">
+            {MARKET_VALUE_COPY.emptyHint}
+          </p>
+        )}
+
         {garment.styleTags.length > 0 && (
           <div className="archive-card__tags">
             {garment.styleTags.map((tag) => (
