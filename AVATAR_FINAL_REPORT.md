@@ -69,6 +69,27 @@ evidence · **AV2** item-level generation (additive field + studio control) ·
 (already a lib); `pip install` + the 176MB U2Net download succeeded; no gate
 failed twice; backend pytest stayed green.
 
+## How to SEE the silhouette (e2e path) — after the render-link fix
+The ML cutout was not reaching render because the client called an absolute
+cross-origin URL (no CORS) instead of the same-origin dev proxy; fixed to a
+relative `/api/cutout`, gated on `VITE_CUTOUT=ml` alone. To see it:
+
+1. **Start the backend** (needs the ML venv — see step 1b):
+   `cd backend && .venv/bin/python -m uvicorn app.main:app --app-dir . --port 8000`
+2. **Enable ML** — `.env.local` already contains `VITE_CUTOUT=ml` (gitignored). The
+   dev Vite server proxies `/api` → the backend, so NO `VITE_API_BASE`/CORS needed.
+3. **Start the frontend** (restart if it was already running, to load `.env.local`):
+   `npm run dev`
+4. In the app: **Studio → The Mirror**, select a shoe into the outfit, then click
+   **"Remove photo backgrounds"** in the mirror caption.
+5. The shoe on the mannequin/mirror/rack renders **background-free** (or keeps the
+   original photo + an honest note if the backend/ML is unavailable — the fallback
+   chain ML → heuristic → original is intact).
+
+Verified live: `POST /api/cutout` with the shoe returns a 200 transparent PNG
+(== `evidence/1b-ml.png`); the store + render links are covered by unit tests.
+With `VITE_CUTOUT` unset (default), zero network calls are made (tested).
+
 ## For the user to decide next
 1. Judge cutout quality from `evidence/1a-heuristic.png` vs `evidence/1b-ml.png`;
    confirm whether to keep 1b (ML) or ship 1a-only.
