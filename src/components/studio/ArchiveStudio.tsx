@@ -16,6 +16,7 @@ import { OutfitInspector } from '../outfit/OutfitInspector'
 import { OutfitBuilder } from '../outfit/OutfitBuilder'
 import { Proxy3DLab } from '../avatar/Proxy3DLab'
 import { SidebarNav } from './SidebarNav'
+import { WardrobeWorkspace } from './WardrobeWorkspace'
 import { StudioScene } from './StudioScene'
 import { StudioFitRail } from './StudioFitRail'
 import { MirrorPreview } from './MirrorPreview'
@@ -33,7 +34,7 @@ export function ArchiveStudio() {
     setGarmentProxy3dPreview,
   } = useArchive()
 
-  const [view, setView] = useState<StudioView>('studio')
+  const [view, setView] = useState<StudioView>('wardrobe')
   const [uploadOpen, setUploadOpen] = useState(false)
   // Resolved live by id so the open editor (and its market-value panel) always
   // reflects the current stored garment, not a stale snapshot from open time.
@@ -132,48 +133,77 @@ export function ArchiveStudio() {
     }
   }
 
-  return (
-    <div className="app">
-      <SidebarNav
-        view={view}
-        onView={setView}
-        onUpload={openUpload}
-        garmentCount={garments.length}
-        outfitCount={savedOutfits.length}
-        storageBackend={storageBackend}
-        uploadDisabled={!hydrated}
-      />
-
-      <main className="main">
-        <header className="topbar">
-          <div className="topbar__titles">
-            <div className="eyebrow topbar__eyebrow">{meta.eyebrow}</div>
-            <h1 className="topbar__title">{meta.title}</h1>
-            <p className="topbar__sub">{meta.sub}</p>
-          </div>
-          <div className="topbar__actions">
-            {hydrated && garments.length === 0 && view !== 'studio' && (
-              <Button variant="ghost" onClick={loadSampleArchive}>
-                Load sample
-              </Button>
-            )}
-            <Button variant="primary" disabled={!hydrated} onClick={openUpload}>
-              <Icon name="upload" size={16} />
-              Upload
-            </Button>
-          </div>
-        </header>
-
-        <div className={view === 'studio' ? 'view view--flush' : 'view'}>
-          {renderView()}
+  // The Wardrobe workspace (1a redesign) is its own full-screen shell — it drops
+  // the sidebar/topbar/filmstrip chrome in favor of a slim rail + fit panel. The
+  // legacy views keep the original shell and are reachable from the rail.
+  const shell =
+    view === 'wardrobe' ? (
+      hydrated ? (
+        <div className="app app--wardrobe">
+          <WardrobeWorkspace
+            onUpload={openUpload}
+            onEdit={(g) => setEditGarmentId(g.id)}
+            onDetails={(g) => setDetailGarmentId(g.id)}
+            onProxy3d={openProxy3d}
+            onOpenView={setView}
+          />
         </div>
-      </main>
+      ) : (
+        <div className="app app--wardrobe">
+          <div className="empty" style={{ borderStyle: 'solid', margin: 'auto' }}>
+            <Icon name="refresh" size={34} className="empty__icon" />
+            <div className="empty__title display">Opening the archive…</div>
+          </div>
+        </div>
+      )
+    ) : (
+      <div className="app">
+        <SidebarNav
+          view={view}
+          onView={setView}
+          onUpload={openUpload}
+          garmentCount={garments.length}
+          outfitCount={savedOutfits.length}
+          storageBackend={storageBackend}
+          uploadDisabled={!hydrated}
+        />
 
-      <GarmentFilmstrip
-        onUpload={openUpload}
-        uploadDisabled={!hydrated}
-        highlightId={enteredId}
-      />
+        <main className="main">
+          <header className="topbar">
+            <div className="topbar__titles">
+              <div className="eyebrow topbar__eyebrow">{meta.eyebrow}</div>
+              <h1 className="topbar__title">{meta.title}</h1>
+              <p className="topbar__sub">{meta.sub}</p>
+            </div>
+            <div className="topbar__actions">
+              {hydrated && garments.length === 0 && view !== 'studio' && (
+                <Button variant="ghost" onClick={loadSampleArchive}>
+                  Load sample
+                </Button>
+              )}
+              <Button variant="primary" disabled={!hydrated} onClick={openUpload}>
+                <Icon name="upload" size={16} />
+                Upload
+              </Button>
+            </div>
+          </header>
+
+          <div className={view === 'studio' ? 'view view--flush' : 'view'}>
+            {renderView()}
+          </div>
+        </main>
+
+        <GarmentFilmstrip
+          onUpload={openUpload}
+          uploadDisabled={!hydrated}
+          highlightId={enteredId}
+        />
+      </div>
+    )
+
+  return (
+    <>
+      {shell}
 
       <UploadGarmentModal
         open={uploadOpen}
@@ -193,6 +223,6 @@ export function ArchiveStudio() {
       >
         {detailGarment && <ArchiveCard garment={detailGarment} />}
       </Modal>
-    </div>
+    </>
   )
 }

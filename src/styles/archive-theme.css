@@ -2996,3 +2996,430 @@
   gap: 18px;
   align-items: start;
 }
+
+/* =========================================================================
+   WARDROBE WORKSPACE — Refined Editorial (1a) redesign
+   One screen: icon rail + filterable grid + live "Today's fit" panel.
+   Fully tokenized; keeps the dark charcoal / brass / Bodoni brand.
+   ========================================================================= */
+.wk {
+  display: flex;
+  height: 100vh;
+  min-height: 0;
+  background: var(--ink-900);
+  color: var(--text-100);
+  font-family: var(--font-sans);
+  overflow: hidden;
+}
+
+/* --- icon rail --- */
+.wk__rail {
+  width: 64px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 0;
+  border-right: 1px solid var(--line);
+  background: var(--ink-900);
+}
+.wk__mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #5b5b62, #c2c2c8 45%, #8a8a92);
+  display: grid;
+  place-items: center;
+  color: #141414;
+  font-family: var(--font-display);
+  font-size: 20px;
+  margin-bottom: 14px;
+}
+.wk__railbtn {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: var(--text-400);
+  transition: background 0.16s, color 0.16s;
+}
+.wk__railbtn:hover {
+  background: var(--ink-750);
+  color: var(--text-100);
+}
+.wk__railbtn--active {
+  background: var(--accent-soft);
+  color: var(--accent-bright);
+  border: 1px solid var(--accent-line);
+}
+.wk__railbtn--add {
+  margin-top: auto;
+  background: linear-gradient(180deg, var(--accent-bright), var(--accent));
+  color: #20180a;
+}
+.wk__railbtn--add:hover {
+  background: linear-gradient(180deg, var(--accent-bright), var(--accent));
+  filter: brightness(1.05);
+  color: #20180a;
+}
+
+/* --- main column --- */
+.wk__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.wk__head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 22px 28px 16px;
+}
+.wk__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+.wk__count {
+  font-size: 12px;
+  color: var(--text-400);
+  align-self: flex-end;
+  padding-bottom: 6px;
+}
+.wk__headtools {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.wk__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: var(--ink-800);
+  color: var(--text-400);
+  width: 220px;
+}
+.wk__search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  color: var(--text-100);
+  font: inherit;
+  font-size: 12.5px;
+  outline: none;
+}
+.wk__search input::placeholder {
+  color: var(--text-400);
+}
+
+/* --- filters --- */
+.wk__filters {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 0 28px 16px;
+}
+.wk__pill {
+  padding: 7px 14px;
+  border-radius: 999px;
+  color: var(--text-300);
+  font-size: 12px;
+  transition: background 0.16s, color 0.16s;
+}
+.wk__pill:hover {
+  background: var(--ink-750);
+  color: var(--text-100);
+}
+.wk__pill--on {
+  background: var(--text-100);
+  color: #141414;
+  font-weight: 600;
+}
+.wk__pill--on:hover {
+  background: var(--text-100);
+  color: #141414;
+}
+.wk__divider {
+  width: 1px;
+  height: 18px;
+  background: var(--line-strong);
+  margin: 0 6px;
+}
+.wk__tag {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  color: var(--text-300);
+  font-size: 11.5px;
+  transition: color 0.16s, border-color 0.16s;
+}
+.wk__tag:hover {
+  color: var(--text-100);
+}
+.wk__tag--on {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent-bright);
+}
+
+/* --- grid --- */
+.wk__gridwrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 28px 28px;
+}
+.wk__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+@media (max-width: 1100px) {
+  .wk__grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (max-width: 820px) {
+  .wk__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+.wk__card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.18s;
+}
+.wk__card:hover {
+  transform: translateY(-3px);
+}
+.wk__cardmedia {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  background: var(--paper);
+  overflow: hidden;
+  border-radius: 10px;
+  width: 100%;
+  display: block;
+}
+.wk__cardmedia img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  mix-blend-mode: multiply;
+}
+.wk__card--on .wk__cardmedia {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.wk__check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #20180a;
+  display: grid;
+  place-items: center;
+}
+.wk__cardtools {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.16s, transform 0.16s;
+}
+.wk__card:hover .wk__cardtools,
+.wk__cardtools:focus-within {
+  opacity: 1;
+  transform: none;
+}
+.wk__cardtools button {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  background: rgba(13, 13, 15, 0.82);
+  color: var(--text-200);
+  border: 1px solid var(--line-strong);
+}
+.wk__cardtools button:hover {
+  color: var(--text-100);
+  background: var(--ink-800);
+}
+.wk__cardname {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-100);
+  line-height: 1.2;
+  margin-top: 10px;
+}
+.wk__cardbrand {
+  font-size: 11px;
+  color: var(--text-400);
+  margin-top: 2px;
+}
+
+/* --- fit panel --- */
+.wk__fit {
+  width: 300px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--line);
+  background: var(--ink-850);
+}
+.wk__fithead {
+  padding: 20px 20px 12px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.wk__fittitle {
+  font-family: var(--font-display);
+  font-size: 19px;
+}
+.wk__fitmeta {
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: 0.06em;
+}
+.wk__progress {
+  margin: 0 20px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--ink-700);
+  overflow: hidden;
+}
+.wk__progress span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-bright));
+  transition: width 0.3s ease;
+}
+.wk__fitlist {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.wk__fitempty {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-400);
+}
+.wk__fititem {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 8px;
+  border-radius: 11px;
+  background: var(--ink-800);
+  border: 1px solid var(--line);
+  text-align: left;
+  width: 100%;
+  transition: border-color 0.16s;
+}
+.wk__fititem:hover {
+  border-color: var(--accent-line);
+}
+.wk__fitthumb {
+  width: 40px;
+  height: 50px;
+  border-radius: 7px;
+  background: var(--paper);
+  overflow: hidden;
+  flex: none;
+}
+.wk__fitthumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  mix-blend-mode: multiply;
+}
+.wk__fitinfo {
+  flex: 1;
+  min-width: 0;
+}
+.wk__fitcat {
+  display: block;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-400);
+}
+.wk__fitname {
+  display: block;
+  font-size: 12.5px;
+  color: var(--text-100);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wk__fitdot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  flex: none;
+}
+.wk__fitfoot {
+  padding: 0 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.wk__fitfoot .btn {
+  width: 100%;
+  justify-content: center;
+}
+.wk__nameinput {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: var(--ink-800);
+  color: var(--text-100);
+  font: inherit;
+  font-size: 12.5px;
+  outline: none;
+}
+.wk__nameinput::placeholder {
+  color: var(--text-400);
+}
+.wk__nameinput:focus {
+  border-color: var(--accent-line);
+}
+.wk__saved {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--accent-bright);
+}
+
+/* Wardrobe is its own full-bleed shell — drop the sidebar grid. */
+.app--wardrobe {
+  display: block;
+  grid-template-columns: none;
+  background: var(--ink-900);
+}

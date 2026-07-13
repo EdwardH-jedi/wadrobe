@@ -4,6 +4,7 @@
 import type { IconName } from '../ui/Icon'
 
 export type StudioView =
+  | 'wardrobe'
   | 'studio'
   | 'closet'
   | 'lookbook'
@@ -21,6 +22,14 @@ export interface ViewMeta {
 }
 
 export const VIEW_META: Record<StudioView, ViewMeta> = {
+  wardrobe: {
+    id: 'wardrobe',
+    label: 'Wardrobe',
+    icon: 'hanger',
+    eyebrow: 'The Wardrobe',
+    title: 'Wardrobe',
+    sub: 'Browse your archive and build a fit — one workspace.',
+  },
   studio: {
     id: 'studio',
     label: 'Studio',
@@ -72,6 +81,7 @@ export const VIEW_META: Record<StudioView, ViewMeta> = {
 }
 
 export const VIEW_ORDER: StudioView[] = [
+  'wardrobe',
   'studio',
   'closet',
   'lookbook',

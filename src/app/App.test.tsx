@@ -4,83 +4,93 @@ import userEvent from '@testing-library/user-event'
 import { App } from './App'
 
 // Integration smoke test: mounts the entire app in jsdom (no canvas/IndexedDB,
-// so it exercises the localStorage fallback path) and verifies the shell
-// renders, hydrates, and navigates.
+// so it exercises the localStorage fallback path) and verifies the redesigned
+// Wardrobe workspace (1a) — the default landing — renders, hydrates, and works.
 describe('<App />', () => {
   beforeEach(() => {
     localStorage.clear()
   })
 
-  it('renders the studio shell and hydrates the room', async () => {
+  it('lands on the Wardrobe workspace and hydrates', async () => {
     render(<App />)
 
-    expect(screen.getByText('The Archive')).toBeInTheDocument()
-    expect(screen.getByText('Archive Studio')).toBeInTheDocument()
-
-    // The scene only renders once the store has hydrated.
-    expect(await screen.findByText('Clothing Rack')).toBeInTheDocument()
-    expect(screen.getByText('Rail is empty')).toBeInTheDocument()
-
-    // A compact "Current Fit" rail is persistently visible on the Studio view
-    // (distinct from the Mirror view's full "Current fit" inspector).
-    expect(screen.getByText('Current Fit')).toBeInTheDocument()
+    // The workspace only renders once the store has hydrated.
+    expect(await screen.findByRole('heading', { name: 'Wardrobe' })).toBeInTheDocument()
+    // The live fit panel is always present alongside the grid.
+    expect(screen.getByText("Today's fit")).toBeInTheDocument()
+    expect(screen.getByText(/Select pieces from the grid/)).toBeInTheDocument()
   })
 
-  it('shows an in-scene prompt when the studio archive is empty', async () => {
+  it('shows the empty-archive state in the grid', async () => {
     render(<App />)
-    // The empty studio overlays an invitation to upload or load the sample set,
-    // while keeping the room (and its zones) mounted underneath.
-    expect(await screen.findByText('Your studio is empty')).toBeInTheDocument()
-    expect(screen.getByText('Clothing Rack')).toBeInTheDocument()
+    expect(await screen.findByText('Your archive is empty')).toBeInTheDocument()
   })
 
-  it('loads the sample archive from the in-scene prompt and dismisses it', async () => {
+  it('loads the sample archive from the empty state and fills the grid', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await screen.findByText('Your studio is empty')
+    await screen.findByText('Your archive is empty')
 
-    // On the studio view the overlay owns the only "Load sample" CTA (the topbar
-    // one is suppressed there to avoid a duplicate).
-    await user.click(screen.getByRole('button', { name: /Load sample/ }))
+    await user.click(
+      screen.getByRole('button', { name: /Load sample archive/ }),
+    )
 
     await waitFor(() =>
-      expect(screen.queryByText('Your studio is empty')).not.toBeInTheDocument(),
+      expect(screen.queryByText('Your archive is empty')).not.toBeInTheDocument(),
     )
-    // The rail now reports archived pieces instead of being empty.
-    expect(screen.queryByText('Rail is empty')).not.toBeInTheDocument()
+    // Category filter pills only appear once the archive has pieces.
+    expect(screen.getByRole('button', { name: 'All' })).toBeInTheDocument()
   })
 
-  it('navigates to the closet and shows the empty state', async () => {
+  it('styles a piece into the fit from the grid', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await screen.findByText('Clothing Rack')
+    await screen.findByText('Your archive is empty')
+    await user.click(
+      screen.getByRole('button', { name: /Load sample archive/ }),
+    )
+    await waitFor(() =>
+      expect(screen.queryByText('Your archive is empty')).not.toBeInTheDocument(),
+    )
 
-    await user.click(screen.getByRole('button', { name: /Closet/ }))
+    // Clicking a piece's media button adds it to Today's fit (fit count rises).
+    const style = await screen.findAllByRole('button', { name: /^Style / })
+    await user.click(style[0])
+    await waitFor(() =>
+      expect(screen.queryByText(/Select pieces from the grid/)).not.toBeInTheDocument(),
+    )
+  })
+
+  it('navigates to a legacy view (Mirror) from the rail', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByRole('heading', { name: 'Wardrobe' })
+
+    await user.click(screen.getByRole('button', { name: 'Mirror' }))
 
     expect(
-      await screen.findByText('Your archive is empty'),
+      await screen.findByText('2.5D layered styling preview'),
     ).toBeInTheDocument()
   })
 
-  it('opens the upload modal from the sidebar', async () => {
+  it('opens the upload modal from the Add piece action', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await screen.findByText('Clothing Rack')
+    await screen.findByRole('heading', { name: 'Wardrobe' })
 
-    // "Upload" appears on the sidebar, topbar and rail — any of them opens it.
-    await user.click(screen.getAllByRole('button', { name: /Upload/ })[0])
+    // "Add piece" is in the header and on the rail — either opens the modal.
+    await user.click(screen.getAllByRole('button', { name: /Add piece/ })[0])
 
     expect(await screen.findByText('Drop a clothing photo')).toBeInTheDocument()
   })
 
   it('rejects a non-image file and keeps the user on the dropzone', async () => {
     // The only upload-flow path that does not need canvas (REJECT fires before
-    // image processing), so it can be exercised in jsdom — locks the
-    // handleFile → dispatch → render wiring.
+    // image processing), so it can be exercised in jsdom.
     const user = userEvent.setup()
     render(<App />)
-    await screen.findByText('Clothing Rack')
-    await user.click(screen.getAllByRole('button', { name: /Upload/ })[0])
+    await screen.findByRole('heading', { name: 'Wardrobe' })
+    await user.click(screen.getAllByRole('button', { name: /Add piece/ })[0])
     await screen.findByText('Drop a clothing photo')
 
     const input = document.querySelector(
@@ -90,7 +100,6 @@ describe('<App />', () => {
     fireEvent.change(input, { target: { files: [file] } })
 
     expect(await screen.findByText(/not an image/i)).toBeInTheDocument()
-    // Still on the dropzone — no scan started.
     expect(screen.getByText('Drop a clothing photo')).toBeInTheDocument()
   })
 })
