@@ -145,8 +145,13 @@ export function WardrobeWorkspace({
       {/* main column */}
       <div className="wk__main">
         <div className="wk__head">
-          <h1 className="wk__title">Wardrobe</h1>
-          <span className="wk__count">{garments.length} pieces</span>
+          <div className="wk__masthead">
+            <h1 className="wk__title">Wardrobe</h1>
+            <span className="wk__index">
+              Personal index · {garments.length}{' '}
+              {garments.length === 1 ? 'piece' : 'pieces'}
+            </span>
+          </div>
           <div className="wk__headtools">
             <label className="wk__search">
               <Icon name="closet" size={14} />
@@ -253,11 +258,7 @@ export function WardrobeWorkspace({
                         alt={g.name}
                         loading="lazy"
                       />
-                      {inFit && (
-                        <span className="wk__check" aria-hidden="true">
-                          <Icon name="check" size={13} />
-                        </span>
-                      )}
+                      {inFit && <span className="wk__tick" aria-hidden="true" />}
                     </button>
                     <div className="wk__cardtools" role="group" aria-label="Piece actions">
                       <button title="Details" aria-label={`Details for ${g.name}`} onClick={() => onDetails(g)}>
@@ -273,8 +274,14 @@ export function WardrobeWorkspace({
                         <Icon name="trash" size={14} />
                       </button>
                     </div>
-                    <div className="wk__cardname">{g.name}</div>
-                    {g.brand && <div className="wk__cardbrand">{g.brand}</div>}
+                    <div className="wk__cardcap">
+                      <div className="wk__cardname">{g.name}</div>
+                      <div className="wk__cardtag">
+                        {[g.brand, CATEGORY_META[g.category].label]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </div>
+                    </div>
                   </article>
                 )
               })}
@@ -283,23 +290,67 @@ export function WardrobeWorkspace({
         </div>
       </div>
 
-      {/* fit panel */}
+      {/* fit panel — a stylist's manifest */}
       <aside className="wk__fit" aria-label="Today's fit">
         <div className="wk__fithead">
-          <span className="wk__fittitle">Today&apos;s fit</span>
-          <span className="wk__fitmeta">
-            {fit.filledSlots}/{fit.totalSlots} · {fit.rating}
+          <div className="wk__fitheadl">
+            <span className="wk__fittitle">Today&apos;s fit</span>
+            <span className="wk__fitslots">
+              {fit.filledSlots} of {fit.totalSlots} slots
+            </span>
+          </div>
+          <span
+            className={cx(
+              'wk__stamp',
+              `wk__stamp--${fit.rating === 'Empty' ? 'empty' : 'on'}`,
+            )}
+          >
+            {fit.rating}
           </span>
         </div>
         <div
-          className="wk__progress"
+          className="wk__ticks"
           role="progressbar"
           aria-valuenow={fit.filledSlots}
           aria-valuemin={0}
           aria-valuemax={fit.totalSlots}
+          aria-label="Fit completeness"
         >
-          <span style={{ width: `${Math.round(fit.completeness * 100)}%` }} />
+          {Array.from({ length: fit.totalSlots }).map((_, i) => (
+            <span
+              key={i}
+              className={cx('wk__ticka', i < fit.filledSlots && 'wk__ticka--on')}
+            />
+          ))}
         </div>
+
+        {selectedGarments.length > 0 && (
+          <div className="wk__manifest">
+            <div className="wk__spec">
+              <span className="wk__speclabel">Palette</span>
+              <div className="wk__swatches">
+                {fit.palette.map((hex, i) => (
+                  <span key={hex + i} className="wk__swatch" title={fit.paletteNames[i]}>
+                    <span
+                      className="wk__swatchchip"
+                      style={{ background: hex }}
+                      aria-hidden="true"
+                    />
+                    <span className="wk__swatchname">{fit.paletteNames[i]}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="wk__specrow">
+              <span className="wk__speclabel">Tone</span>
+              <span className="wk__specval">{fit.toneLabel}</span>
+            </div>
+            <div className="wk__specrow">
+              <span className="wk__speclabel">Style</span>
+              <span className="wk__specval">{fit.styleLabel}</span>
+            </div>
+          </div>
+        )}
 
         <div className="wk__fitlist">
           {selectedGarments.length === 0 ? (

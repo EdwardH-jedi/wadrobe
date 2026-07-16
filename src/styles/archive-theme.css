@@ -52,6 +52,8 @@
     Arial, sans-serif;
   --font-display: 'Bodoni Moda', 'Didot', 'Bodoni MT', Georgia, 'Times New Roman',
     serif;
+  /* Utility / archival face — the care-label + spec-sheet vernacular. */
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
   --radius: 14px;
   --radius-sm: 9px;
@@ -2998,9 +3000,11 @@
 }
 
 /* =========================================================================
-   WARDROBE WORKSPACE — Refined Editorial (1a) redesign
-   One screen: icon rail + filterable grid + live "Today's fit" panel.
-   Fully tokenized; keeps the dark charcoal / brass / Bodoni brand.
+   WARDROBE WORKSPACE — "The Atelier Index"
+   The wardrobe as a couturier's working archive. Keeps the dark charcoal +
+   brass + Bodoni brand, adds a monospace care-label layer, and makes the fit
+   panel a MANIFEST whose signature is the fabric-swatch palette board.
+   Fully tokenized; sharp 2px corners for an archival, letterpress feel.
    ========================================================================= */
 .wk {
   display: flex;
@@ -3012,57 +3016,66 @@
   overflow: hidden;
 }
 
-/* --- icon rail --- */
+/* --- rail: a hairline spine --- */
 .wk__rail {
-  width: 64px;
+  width: 60px;
   flex: none;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 18px 0;
+  gap: 6px;
+  padding: 16px 0;
   border-right: 1px solid var(--line);
   background: var(--ink-900);
 }
 .wk__mark {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 34px;
+  height: 34px;
+  border-radius: 2px;
   background: linear-gradient(135deg, #5b5b62, #c2c2c8 45%, #8a8a92);
   display: grid;
   place-items: center;
   color: #141414;
   font-family: var(--font-display);
-  font-size: 20px;
-  margin-bottom: 14px;
+  font-size: 19px;
+  margin-bottom: 16px;
+  box-shadow: var(--inset-hi);
 }
 .wk__railbtn {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
   display: grid;
   place-items: center;
   color: var(--text-400);
   transition: background 0.16s, color 0.16s;
 }
 .wk__railbtn:hover {
-  background: var(--ink-750);
+  background: var(--ink-800);
   color: var(--text-100);
 }
 .wk__railbtn--active {
-  background: var(--accent-soft);
   color: var(--accent-bright);
-  border: 1px solid var(--accent-line);
+}
+.wk__railbtn--active::before {
+  content: '';
+  position: absolute;
+  left: -16px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 1px;
 }
 .wk__railbtn--add {
   margin-top: auto;
-  background: linear-gradient(180deg, var(--accent-bright), var(--accent));
-  color: #20180a;
+  color: var(--accent);
+  border: 1px solid var(--accent-line);
 }
 .wk__railbtn--add:hover {
-  background: linear-gradient(180deg, var(--accent-bright), var(--accent));
-  filter: brightness(1.05);
-  color: #20180a;
+  background: var(--accent-soft);
+  color: var(--accent-bright);
 }
 
 /* --- main column --- */
@@ -3074,22 +3087,30 @@
 }
 .wk__head {
   display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 22px 28px 16px;
+  align-items: flex-end;
+  gap: 20px;
+  padding: 26px 30px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.wk__masthead {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 .wk__title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 28px;
+  font-size: 36px;
   font-weight: 400;
-  letter-spacing: 0.01em;
+  line-height: 0.95;
+  letter-spacing: -0.015em;
 }
-.wk__count {
-  font-size: 12px;
+.wk__index {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: var(--text-400);
-  align-self: flex-end;
-  padding-bottom: 6px;
 }
 .wk__headtools {
   margin-left: auto;
@@ -3101,12 +3122,12 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  border-radius: 10px;
+  padding: 9px 12px;
   border: 1px solid var(--line-strong);
-  background: var(--ink-800);
+  background: var(--ink-850);
   color: var(--text-400);
-  width: 220px;
+  width: 230px;
+  border-radius: 2px;
 }
 .wk__search input {
   flex: 1;
@@ -3122,68 +3143,66 @@
   color: var(--text-400);
 }
 
-/* --- filters --- */
+/* --- filters: a mono index bar --- */
 .wk__filters {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 14px;
   flex-wrap: wrap;
-  padding: 0 28px 16px;
+  padding: 14px 30px;
+  font-family: var(--font-mono);
 }
 .wk__pill {
-  padding: 7px 14px;
-  border-radius: 999px;
-  color: var(--text-300);
-  font-size: 12px;
-  transition: background 0.16s, color 0.16s;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-400);
+  padding-bottom: 3px;
+  border-bottom: 1px solid transparent;
+  transition: color 0.16s, border-color 0.16s;
 }
 .wk__pill:hover {
-  background: var(--ink-750);
   color: var(--text-100);
 }
 .wk__pill--on {
-  background: var(--text-100);
-  color: #141414;
-  font-weight: 600;
-}
-.wk__pill--on:hover {
-  background: var(--text-100);
-  color: #141414;
+  color: var(--text-100);
+  border-bottom-color: var(--accent);
 }
 .wk__divider {
   width: 1px;
-  height: 18px;
+  height: 14px;
   background: var(--line-strong);
-  margin: 0 6px;
 }
 .wk__tag {
-  padding: 6px 12px;
-  border-radius: 999px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-400);
+  padding: 3px 9px;
   border: 1px solid var(--line-strong);
-  color: var(--text-300);
-  font-size: 11.5px;
+  border-radius: 999px;
   transition: color 0.16s, border-color 0.16s;
 }
 .wk__tag:hover {
   color: var(--text-100);
 }
 .wk__tag--on {
+  color: var(--accent-bright);
   border-color: var(--accent-line);
   background: var(--accent-soft);
-  color: var(--accent-bright);
 }
 
-/* --- grid --- */
+/* --- grid of flat-lay plates --- */
 .wk__gridwrap {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 4px 28px 28px;
+  padding: 22px 30px 30px;
 }
 .wk__grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  gap: 26px 18px;
 }
 @media (max-width: 1100px) {
   .wk__grid {
@@ -3199,19 +3218,21 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  transition: transform 0.18s;
-}
-.wk__card:hover {
-  transform: translateY(-3px);
 }
 .wk__cardmedia {
   position: relative;
   aspect-ratio: 4 / 5;
   background: var(--paper);
   overflow: hidden;
-  border-radius: 10px;
   width: 100%;
   display: block;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  transition: border-color 0.18s, transform 0.18s;
+}
+.wk__card:hover .wk__cardmedia {
+  transform: translateY(-3px);
+  border-color: var(--text-400);
 }
 .wk__cardmedia img {
   width: 100%;
@@ -3220,20 +3241,19 @@
   mix-blend-mode: multiply;
 }
 .wk__card--on .wk__cardmedia {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  border-color: var(--accent);
 }
-.wk__check {
+/* corner fold — a "pulled for the fit" mark */
+.wk__tick {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: #20180a;
-  display: grid;
-  place-items: center;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 22px 22px 0;
+  border-color: transparent var(--accent) transparent transparent;
+  filter: drop-shadow(-1px 1px 1px rgba(0, 0, 0, 0.3));
 }
 .wk__cardtools {
   position: absolute;
@@ -3253,10 +3273,10 @@
 .wk__cardtools button {
   width: 26px;
   height: 26px;
-  border-radius: 7px;
+  border-radius: 3px;
   display: grid;
   place-items: center;
-  background: rgba(13, 13, 15, 0.82);
+  background: rgba(13, 13, 15, 0.85);
   color: var(--text-200);
   border: 1px solid var(--line-strong);
 }
@@ -3264,22 +3284,30 @@
   color: var(--text-100);
   background: var(--ink-800);
 }
-.wk__cardname {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-100);
-  line-height: 1.2;
-  margin-top: 10px;
+.wk__cardcap {
+  padding-top: 11px;
 }
-.wk__cardbrand {
-  font-size: 11px;
+.wk__cardname {
+  font-family: var(--font-display);
+  font-size: 15px;
+  line-height: 1.15;
+  color: var(--text-100);
+}
+.wk__cardtag {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--text-400);
-  margin-top: 2px;
+  margin-top: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* --- fit panel --- */
+/* --- fit MANIFEST --- */
 .wk__fit {
-  width: 300px;
+  width: 312px;
   flex: none;
   display: flex;
   flex-direction: column;
@@ -3287,70 +3315,174 @@
   background: var(--ink-850);
 }
 .wk__fithead {
-  padding: 20px 20px 12px;
+  padding: 22px 22px 14px;
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 12px;
+}
+.wk__fitheadl {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 .wk__fittitle {
   font-family: var(--font-display);
-  font-size: 19px;
+  font-size: 23px;
+  line-height: 1;
 }
-.wk__fitmeta {
-  font-size: 11px;
-  color: var(--accent);
-  letter-spacing: 0.06em;
+.wk__fitslots {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-400);
 }
-.wk__progress {
-  margin: 0 20px;
-  height: 4px;
+/* rating as a letterpress stamp */
+.wk__stamp {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 5px 9px;
+  border: 1px solid;
   border-radius: 2px;
+  transform: rotate(-3deg);
+  white-space: nowrap;
+  max-width: 116px;
+  text-align: center;
+}
+.wk__stamp--on {
+  color: var(--accent-bright);
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px rgba(200, 168, 106, 0.18);
+}
+.wk__stamp--empty {
+  color: var(--text-400);
+  border-color: var(--line-strong);
+}
+/* tick meter */
+.wk__ticks {
+  display: flex;
+  gap: 4px;
+  padding: 0 22px 4px;
+}
+.wk__ticka {
+  flex: 1;
+  height: 3px;
+  border-radius: 1px;
   background: var(--ink-700);
-  overflow: hidden;
 }
-.wk__progress span {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, var(--accent), var(--accent-bright));
-  transition: width 0.3s ease;
+.wk__ticka--on {
+  background: var(--accent);
 }
+
+/* SIGNATURE — a fabric swatch board */
+.wk__manifest {
+  margin-top: 14px;
+  padding: 16px 22px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+.wk__spec {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.wk__speclabel {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-400);
+}
+.wk__swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+.wk__swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  width: 46px;
+}
+.wk__swatchchip {
+  width: 42px;
+  height: 54px;
+  border-radius: 1px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 3px 7px rgba(0, 0, 0, 0.4);
+}
+.wk__swatchname {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-400);
+  text-align: center;
+  line-height: 1.25;
+}
+.wk__specrow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.wk__specval {
+  font-family: var(--font-display);
+  font-size: 14px;
+  color: var(--text-100);
+  text-align: right;
+}
+
+/* fit list */
 .wk__fitlist {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 16px 20px;
+  padding: 14px 22px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 .wk__fitempty {
   margin: 0;
-  font-size: 12px;
-  line-height: 1.5;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 1.8;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--text-400);
 }
 .wk__fititem {
   display: flex;
   align-items: center;
   gap: 11px;
-  padding: 8px;
-  border-radius: 11px;
-  background: var(--ink-800);
+  padding: 7px;
   border: 1px solid var(--line);
+  background: var(--ink-800);
   text-align: left;
   width: 100%;
+  border-radius: 2px;
   transition: border-color 0.16s;
 }
 .wk__fititem:hover {
   border-color: var(--accent-line);
 }
 .wk__fitthumb {
-  width: 40px;
-  height: 50px;
-  border-radius: 7px;
+  width: 38px;
+  height: 48px;
   background: var(--paper);
   overflow: hidden;
   flex: none;
+  border-radius: 1px;
 }
 .wk__fitthumb img {
   width: 100%;
@@ -3364,7 +3496,8 @@
 }
 .wk__fitcat {
   display: block;
-  font-size: 9.5px;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-400);
@@ -3376,19 +3509,23 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  margin-top: 1px;
 }
 .wk__fitdot {
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   border: 1px solid var(--line-strong);
   flex: none;
 }
+
+/* footer */
 .wk__fitfoot {
-  padding: 0 20px 20px;
+  padding: 14px 22px 22px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  border-top: 1px solid var(--line);
 }
 .wk__fitfoot .btn {
   width: 100%;
@@ -3396,14 +3533,15 @@
 }
 .wk__nameinput {
   width: 100%;
-  padding: 9px 12px;
-  border-radius: 10px;
+  padding: 10px 12px;
   border: 1px solid var(--line-strong);
   background: var(--ink-800);
   color: var(--text-100);
-  font: inherit;
-  font-size: 12.5px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
   outline: none;
+  border-radius: 2px;
 }
 .wk__nameinput::placeholder {
   color: var(--text-400);
@@ -3413,8 +3551,27 @@
 }
 .wk__saved {
   margin: 0;
-  font-size: 11.5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--accent-bright);
+}
+
+/* keyboard focus — visible on every interactive surface */
+.wk__railbtn:focus-visible,
+.wk__pill:focus-visible,
+.wk__tag:focus-visible,
+.wk__cardmedia:focus-visible,
+.wk__fititem:focus-visible,
+.wk__cardtools button:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wk__card:hover .wk__cardmedia {
+    transform: none;
+  }
 }
 
 /* Wardrobe is its own full-bleed shell — drop the sidebar grid. */
