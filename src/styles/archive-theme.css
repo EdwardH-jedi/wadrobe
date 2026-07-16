@@ -55,16 +55,21 @@
   /* Utility / archival face — the care-label + spec-sheet vernacular. */
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
-  --radius: 14px;
-  --radius-sm: 9px;
-  --radius-lg: 20px;
+  /* Sharpened toward the atelier "plate" language — crisp, letterpress, not
+     pill-soft. Used app-wide by cards, panels, buttons, chips, modals. */
+  --radius: 4px;
+  --radius-sm: 2px;
+  --radius-lg: 6px;
 }
 
 /* --- Typographic helpers --- */
+/* The app-wide care-label layer: uppercase monospace, like the type printed on
+   a garment's sewn-in tag. Used by topbar eyebrows, card brands, panel labels. */
 .eyebrow {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.22em;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--text-400);
 }
@@ -107,7 +112,7 @@
 .sidebar__mark {
   width: 34px;
   height: 34px;
-  border-radius: 9px;
+  border-radius: 2px;
   background: var(--chrome);
   display: grid;
   place-items: center;
@@ -124,14 +129,15 @@
 }
 .sidebar__wordmark b {
   font-family: var(--font-display);
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 500;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   color: var(--text-100);
 }
 .sidebar__wordmark span {
-  font-size: 9px;
-  letter-spacing: 0.32em;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.3em;
   text-transform: uppercase;
   color: var(--text-400);
 }
@@ -144,22 +150,21 @@
   display: flex;
   align-items: center;
   gap: 13px;
-  padding: 11px 13px;
-  border-radius: 10px;
+  padding: 10px 12px;
+  border-radius: 3px;
   color: var(--text-300);
   border: 1px solid transparent;
   transition: background 0.18s, color 0.18s, border-color 0.18s;
   position: relative;
 }
 .navbtn:hover {
-  background: var(--ink-750);
+  background: var(--ink-800);
   color: var(--text-100);
 }
 .navbtn--active {
-  background: linear-gradient(180deg, var(--ink-750), var(--ink-700));
+  background: var(--ink-800);
   color: var(--text-100);
-  border-color: var(--line-strong);
-  box-shadow: var(--inset-hi);
+  border-color: var(--line);
 }
 .navbtn--active::before {
   content: '';
@@ -167,11 +172,9 @@
   left: -16px;
   top: 50%;
   transform: translateY(-50%);
-  width: 3px;
-  height: 22px;
-  border-radius: 0 3px 3px 0;
+  width: 2px;
+  height: 20px;
   background: var(--accent);
-  box-shadow: 0 0 12px var(--accent-line);
 }
 .navbtn__icon {
   width: 19px;
@@ -180,12 +183,14 @@
   color: currentColor;
 }
 .navbtn__label {
-  font-size: 13.5px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
   font-weight: 500;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
 }
 .navbtn__badge {
   margin-left: auto;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-400);
   font-variant-numeric: tabular-nums;
@@ -211,20 +216,20 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 10.5px;
-  letter-spacing: 0.04em;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
   color: var(--text-400);
   padding: 9px 11px;
   border: 1px solid var(--line);
-  border-radius: 9px;
+  border-radius: 2px;
   background: var(--ink-850);
 }
 .storage-badge__dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 8px var(--accent-line);
 }
 .storage-badge__dot--memory {
   background: var(--danger);
@@ -251,11 +256,11 @@
 }
 .topbar__title {
   font-family: var(--font-display);
-  font-size: 25px;
+  font-size: 28px;
   font-weight: 400;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.005em;
   color: var(--text-100);
-  line-height: 1.05;
+  line-height: 1.02;
 }
 .topbar__sub {
   margin-top: 7px;
