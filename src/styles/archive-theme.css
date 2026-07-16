@@ -256,9 +256,10 @@
 }
 .topbar__title {
   font-family: var(--font-display);
-  font-size: 28px;
+  font-style: italic;
+  font-size: 29px;
   font-weight: 400;
-  letter-spacing: -0.005em;
+  letter-spacing: -0.01em;
   color: var(--text-100);
   line-height: 1.02;
 }
@@ -1674,9 +1675,10 @@
   gap: 4px;
 }
 .savedcard__vibe {
-  font-size: 9.5px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--accent);
 }
@@ -1687,7 +1689,9 @@
   letter-spacing: 0.01em;
 }
 .savedcard__meta {
-  font-size: 11px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
   color: var(--text-400);
 }
 .savedcard__actions {
@@ -2763,14 +2767,10 @@
   flex: 0 0 200px;
   max-width: 200px;
   aspect-ratio: 4 / 5;
-  border-radius: var(--radius-sm);
+  border-radius: 2px;
   overflow: hidden;
-  background:
-    radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.06), transparent 70%),
-    var(--paper);
-  box-shadow:
-    inset 0 0 0 1px rgba(0, 0, 0, 0.06),
-    var(--shadow-sm);
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
 }
 .archive-card__photo img {
   width: 100%;
@@ -3104,10 +3104,11 @@
 .wk__title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 36px;
+  font-style: italic;
+  font-size: 44px;
   font-weight: 400;
-  line-height: 0.95;
-  letter-spacing: -0.015em;
+  line-height: 0.92;
+  letter-spacing: -0.02em;
 }
 .wk__index {
   font-family: var(--font-mono);
@@ -3345,23 +3346,26 @@
 /* rating as a letterpress stamp */
 .wk__stamp {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  padding: 5px 9px;
+  padding: 6px 10px;
   border: 1px solid;
   border-radius: 2px;
-  transform: rotate(-3deg);
+  transform: rotate(-4deg);
   white-space: nowrap;
-  max-width: 116px;
+  max-width: 120px;
   text-align: center;
 }
+/* a double-ruled letterpress stamp */
 .wk__stamp--on {
   color: var(--accent-bright);
-  border-color: var(--accent-line);
+  border-color: var(--accent);
   background: var(--accent-soft);
-  box-shadow: inset 0 0 0 1px rgba(200, 168, 106, 0.18);
+  box-shadow:
+    inset 0 0 0 1px rgba(200, 168, 106, 0.3),
+    inset 0 0 0 3px rgba(200, 168, 106, 0.08);
 }
 .wk__stamp--empty {
   color: var(--text-400);
