@@ -1301,20 +1301,19 @@
   left: 10px;
   z-index: 2;
 }
+/* Selected marker: a brass corner fold — the same "pulled for the fit" mark the
+   Wardrobe plates use, so the closet reads as one system. */
 .garment-card__check {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 2;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: var(--accent);
-  color: #20180a;
-  box-shadow: var(--shadow-sm);
-  animation: popIn 0.22s ease;
+  top: 0;
+  right: 0;
+  z-index: 3;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 24px 24px 0;
+  border-color: transparent var(--accent) transparent transparent;
+  filter: drop-shadow(-1px 1px 1px rgba(0, 0, 0, 0.3));
 }
 .garment-card__body {
   padding: 13px 14px 14px;

@@ -57,11 +57,7 @@ export function GarmentCard({
             3D
           </span>
         )}
-        {selected && (
-          <span className="garment-card__check" aria-hidden="true">
-            <Icon name="check" size={15} />
-          </span>
-        )}
+        {selected && <span className="garment-card__check" aria-hidden="true" />}
         <img
           className="garment-card__img"
           src={getGarmentDisplayImage(garment)}
