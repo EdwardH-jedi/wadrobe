@@ -76,6 +76,16 @@ export interface ArchiveExportDeps {
   now?: number
   /** Blob → data URL conversion (injectable for tests). */
   blobToDataUrl?: (blob: Blob) => Promise<string>
+  /**
+   * Called after each garment is written, with the number finished and the
+   * total. A few hundred blob-backed pieces take long enough that the UI needs
+   * something better than a spinner. Never called for an empty archive.
+   *
+   * AWAITED: a reporter may return a promise to yield the main thread, which is
+   * the only way a caller can let the browser actually paint a progress bar
+   * from inside this loop. Keep any such yield cheap.
+   */
+  onProgress?: (done: number, total: number) => void | Promise<void>
 }
 
 // --- base64 ----------------------------------------------------------------
@@ -243,6 +253,7 @@ export async function writeArchiveExport(
     // Serialized and dropped here, so only one inlined garment is ever live.
     write(i === 0 ? JSON.stringify(inlined) : `,${JSON.stringify(inlined)}`)
     stats.garmentCount += 1
+    await deps.onProgress?.(stats.garmentCount, input.garments.length)
   }
   write(
     `],"savedOutfits":${JSON.stringify(input.savedOutfits)},` +

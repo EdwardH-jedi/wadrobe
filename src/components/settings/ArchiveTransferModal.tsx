@@ -32,9 +32,12 @@ export interface ArchiveTransferModalProps {
 
 type ExportState =
   | { status: 'idle' }
-  | { status: 'working' }
+  | { status: 'working'; done: number; total: number }
   | { status: 'done'; stats: ArchiveExportStats; fileName: string; bytes: number }
   | { status: 'error'; message: string }
+
+/** Yield to the event loop this often so the progress bar can actually paint. */
+const EXPORT_PAINT_INTERVAL = 25
 
 const MODES: { id: ArchiveImportMode; label: string; hint: string }[] = [
   {
@@ -86,9 +89,16 @@ export function ArchiveTransferModal({ open, onClose }: ArchiveTransferModalProp
   }
 
   const handleExport = async () => {
-    setExportState({ status: 'working' })
+    setExportState({ status: 'working', done: 0, total: garments.length })
     try {
-      const { blob, stats } = await exportArchive()
+      const { blob, stats } = await exportArchive(async (done, total) => {
+        setExportState({ status: 'working', done, total })
+        // The export loop holds the main thread; without a macrotask yield the
+        // bar would jump straight from 0 to done.
+        if (done % EXPORT_PAINT_INTERVAL === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 0))
+        }
+      })
       const name = suggestArchiveExportFileName()
       if (!downloadBlob(blob, name)) {
         setExportState({
@@ -137,6 +147,12 @@ export function ArchiveTransferModal({ open, onClose }: ArchiveTransferModalProp
   const preview = review
     ? summarizeArchiveImport(review, { garments, savedOutfits }, mode)
     : null
+  // A long report scrolls, so lead with the counts — that is what tells a user
+  // whether anything needs acting on before they read the individual lines.
+  const dropped =
+    review?.issues.filter((i) => i.severity === 'dropped').length ?? 0
+  const warnings =
+    review?.issues.filter((i) => i.severity === 'warning').length ?? 0
 
   return (
     <Modal
@@ -170,6 +186,30 @@ export function ArchiveTransferModal({ open, onClose }: ArchiveTransferModalProp
               {plural(savedOutfits.length, 'look', 'looks')}
             </span>
           </div>
+          {exportState.status === 'working' && exportState.total > 0 && (
+            <div className="transfer__progress">
+              <div
+                className="transfer__progress-track"
+                role="progressbar"
+                aria-label="Export progress"
+                aria-valuemin={0}
+                aria-valuemax={exportState.total}
+                aria-valuenow={exportState.done}
+              >
+                <div
+                  className="transfer__progress-fill"
+                  style={{
+                    width: `${Math.round(
+                      (exportState.done / exportState.total) * 100,
+                    )}%`,
+                  }}
+                />
+              </div>
+              <span className="transfer__stat">
+                Inlining images — {exportState.done} of {exportState.total} pieces
+              </span>
+            </div>
+          )}
           {exportState.status === 'done' && (
             <div className="transfer__report">
               <div className="transfer__report-head">
@@ -242,6 +282,16 @@ export function ArchiveTransferModal({ open, onClose }: ArchiveTransferModalProp
                   {plural(review.garments.length, 'piece', 'pieces')} and{' '}
                   {plural(review.savedOutfits.length, 'look', 'looks')}.
                 </div>
+                {review.issues.length > 0 && (
+                  <div className="transfer__issue-count">
+                    {dropped > 0 &&
+                      `${plural(dropped, 'entry', 'entries')} skipped`}
+                    {dropped > 0 && warnings > 0 && ' · '}
+                    {warnings > 0 &&
+                      `${plural(warnings, 'entry', 'entries')} kept with a warning`}
+                    . Each one is listed below.
+                  </div>
+                )}
                 {review.issues.length > 0 && (
                   <div className="transfer__issues">
                     {review.issues.map((issue, index) => (

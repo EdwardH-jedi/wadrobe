@@ -297,6 +297,48 @@ describe('a several-hundred-garment archive', () => {
   })
 })
 
+describe('export progress reporting', () => {
+  it('reports every garment in order with a stable total', async () => {
+    const seen: [number, number][] = []
+    await collect(emptyInput([makeGarment(), makeGarment(), makeGarment()]), {
+      onProgress: (done, total) => {
+        seen.push([done, total])
+      },
+    })
+
+    expect(seen).toEqual([
+      [1, 3],
+      [2, 3],
+      [3, 3],
+    ])
+  })
+
+  it('is never called for an empty archive', async () => {
+    const seen: number[] = []
+    await collect(emptyInput(), {
+      onProgress: (done) => {
+        seen.push(done)
+      },
+    })
+
+    expect(seen).toEqual([])
+  })
+
+  it('awaits an async reporter, so a caller can yield to paint', async () => {
+    const order: string[] = []
+    await collect(emptyInput([makeGarment(), makeGarment()]), {
+      onProgress: async (done) => {
+        order.push(`start-${done}`)
+        await new Promise((resolve) => setTimeout(resolve, 0))
+        order.push(`end-${done}`)
+      },
+    })
+
+    // end-1 before start-2: the writer waited rather than racing ahead.
+    expect(order).toEqual(['start-1', 'end-1', 'start-2', 'end-2'])
+  })
+})
+
 describe('blobToDataUrl', () => {
   it('round-trips with dataUrlToBlob', async () => {
     const blob = dataUrlToBlob(CUTOUT_DATA_URL)!

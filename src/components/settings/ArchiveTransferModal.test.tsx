@@ -111,6 +111,35 @@ describe('<ArchiveTransferModal /> — export', () => {
     expect(created).toHaveLength(1)
     expect(downloaded).toEqual([expect.stringMatching(/^the-archive-.*\.json$/)])
   })
+
+  it('shows a labelled progress bar while a large archive is being written', async () => {
+    localStorage.setItem(
+      STORAGE_KEYS.garments,
+      JSON.stringify(
+        Array.from({ length: 60 }, (_, i) =>
+          makeGarment({ id: `grm-${i}`, name: `Piece ${i}` }),
+        ),
+      ),
+    )
+    const user = userEvent.setup()
+    renderModal()
+
+    await user.click(screen.getByRole('button', { name: /Export JSON/ }))
+
+    // The export yields to the event loop periodically, so the bar is
+    // observable mid-flight rather than only after the fact.
+    const bar = await screen.findByRole('progressbar', { name: 'Export progress' })
+    expect(bar).toHaveAttribute('aria-valuemax', '60')
+    expect(Number(bar.getAttribute('aria-valuenow'))).toBeLessThanOrEqual(60)
+
+    // ...and it is replaced by the receipt once the file is handed over.
+    expect(
+      await screen.findByText(/60 pieces.*0 looks.*0 images inlined/),
+    ).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.queryByRole('progressbar')).not.toBeInTheDocument(),
+    )
+  })
 })
 
 describe('<ArchiveTransferModal /> — import', () => {
@@ -135,6 +164,38 @@ describe('<ArchiveTransferModal /> — import', () => {
     ).toBeInTheDocument()
     // Nothing written yet — the archive is untouched until Import is pressed.
     expect(localStorage.getItem(STORAGE_KEYS.garments)).toBe('[]')
+  })
+
+  it('leads the report with counts so a long list is still actionable', async () => {
+    const user = userEvent.setup()
+    renderModal()
+
+    await pickFile(
+      user,
+      jsonFile(
+        'backup.json',
+        exportDocument([
+          makeGarment({ id: 'grm-ok', name: 'Boxy Tee' }),
+          { name: 'Half A Piece' },
+          { name: 'Another Half' },
+          // Kept, but altered — counted as a warning, not a drop.
+          {
+            ...makeGarment({ id: 'grm-warn', name: 'Foreign Blob' }),
+            asset: {
+              originalImageUrl: 'data:image/png,x',
+              displayImageUrl: 'data:image/png,x',
+              assetMode: 'cutout',
+              cutoutImageRef: { kind: 'indexeddb-blob', key: 'asset_1_elsewhere' },
+            },
+          },
+        ]),
+      ),
+    )
+
+    expect(
+      await screen.findByText(/2 entries skipped · 1 entry kept with a warning/),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/This file holds 2 pieces/)).toBeInTheDocument()
   })
 
   it('refuses an unrelated JSON file with a plain explanation', async () => {

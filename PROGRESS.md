@@ -148,3 +148,37 @@ fields are blanked rather than deleted so the display chain skips them. Spec
 §5.3, §8.2, §8.3 and the §12 checklist updated to match.
 
 **Suite: 579 passed / 60 files** (+88). typecheck, lint, build clean.
+
+---
+
+## Phase 5 — UI ✅
+
+`ArchiveTransferModal` already existed from `e0fdaae` and already sat in the
+right place (sidebar footer → "Backup & transfer"), already used the existing
+`Modal`/`Button`/`Icon`/`chip` components and theme tokens, and already showed
+the import drop report before committing. Two things the brief asked for were
+missing.
+
+**Export progress.** The button only flipped to a static "Building…". Added an
+`onProgress(done, total)` dep to `writeArchiveExport`, threaded through
+`exportArchive` in the context/provider, and rendered a labelled
+`role="progressbar"` with a brass-accent fill and an "Inlining images — N of M
+pieces" line.
+
+The subtlety: the export loop holds the main thread, so a naive bar would jump
+0 → 100 with nothing in between. `onProgress` is therefore **awaited**, letting
+the modal `await` a macrotask every 25 pieces so the browser can actually paint.
+A test asserts the writer waits for an async reporter rather than racing ahead
+(`start-1, end-1, start-2, end-2`), and a component test observes the bar
+mid-flight and then sees it replaced by the receipt.
+
+**Actionable drop report.** The issue list already scrolled at `max-height:
+190px`, but a long list buried the headline. Added a count line above it —
+"2 entries skipped · 1 entry kept with a warning" — so the drop/warning split is
+readable without scrolling. Warnings and drops were already visually
+distinguished (`--danger` bullet for drops).
+
+New CSS uses only existing tokens (`--accent`, `--line-strong`, `--text-200`)
+and honours `prefers-reduced-motion`.
+
+**Suite: 584 passed / 60 files** (+5). typecheck, lint, build clean.

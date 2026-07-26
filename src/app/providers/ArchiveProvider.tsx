@@ -382,7 +382,9 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
         void blobStoreRef.current?.clear()
       },
 
-      exportArchive: async (): Promise<{
+      exportArchive: async (
+        onProgress?: (done: number, total: number) => void,
+      ): Promise<{
         blob: Blob
         stats: ArchiveExportStats
       }> =>
@@ -392,7 +394,7 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
             savedOutfits: state.savedOutfits,
             currentOutfit: state.currentOutfit,
           },
-          { blobStore: blobStoreRef.current, now: Date.now() },
+          { blobStore: blobStoreRef.current, now: Date.now(), onProgress },
         ),
 
       importArchive: async (

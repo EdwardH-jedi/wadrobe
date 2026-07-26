@@ -3065,6 +3065,35 @@
   color: var(--text-100);
   font-weight: 500;
 }
+/* Export progress for a large archive. The fill is the brass spotlight accent,
+   used sparingly and only while work is actually in flight. */
+.transfer__progress {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.transfer__progress-track {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--line-strong);
+  overflow: hidden;
+}
+.transfer__progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 160ms linear;
+}
+@media (prefers-reduced-motion: reduce) {
+  .transfer__progress-fill {
+    transition: none;
+  }
+}
+.transfer__issue-count {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-200);
+  font-variant-numeric: tabular-nums;
+}
 .transfer__issues {
   display: flex;
   flex-direction: column;

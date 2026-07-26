@@ -73,8 +73,11 @@ export interface ArchiveContextValue {
    * Build one self-contained JSON document holding every piece, every saved
    * look and the current outfit, with blob-backed images resolved and inlined
    * as base64. Local only — the file is handed to the browser, never uploaded.
+   * `onProgress` is called per piece so a large archive can show real progress.
    */
-  exportArchive: () => Promise<{ blob: Blob; stats: ArchiveExportStats }>
+  exportArchive: (
+    onProgress?: (done: number, total: number) => void,
+  ) => Promise<{ blob: Blob; stats: ArchiveExportStats }>
   /**
    * Apply a review produced by `reviewArchiveImport`. `merge` is additive and
    * keeps every existing record on an id clash; `replace` swaps the archive for
