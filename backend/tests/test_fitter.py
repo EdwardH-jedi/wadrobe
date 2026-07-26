@@ -11,6 +11,7 @@ from app.pipeline.fitter import BboxOutfitFitter
 from app.pipeline.interfaces import AvatarInputs, BodyProportions
 from app.pipeline.mannequin import ProceduralMannequinBuilder
 from app.pipeline.runner import default_pipeline
+from tests.conftest import make_transparent_garment_png
 
 _GLB_MAGIC = b"glTF"
 
@@ -44,7 +45,11 @@ def test_fit_adds_outfit_geometry_to_scene():
 
 
 def test_pipeline_with_outfit_exports_one_glb():
-    inputs = AvatarInputs(body_image=b"x", outfit_glb=_outfit_glb())
+    # B5b: the default projector decodes the body image, so the full pipeline
+    # needs a real one here (the fitter unit tests below stay on stub bytes).
+    inputs = AvatarInputs(
+        body_image=make_transparent_garment_png(), outfit_glb=_outfit_glb()
+    )
     glb, notes = default_pipeline().run(inputs)
     assert glb.startswith(_GLB_MAGIC)
     assert any("outfit-fit" in note for note in notes)
@@ -101,7 +106,12 @@ def test_invalid_outfit_raises():
 def test_invalid_outfit_marks_job_failed_with_no_result(client):
     job = jobs.store.create()
     jobs.store.process(
-        job.id, AvatarInputs(body_image=b"x", outfit_glb=b"not a glb")
+        job.id,
+        AvatarInputs(
+            # A decodable body image, so the failure is unambiguously the outfit.
+            body_image=make_transparent_garment_png(),
+            outfit_glb=b"not a glb",
+        ),
     )
     settled = jobs.store.get(job.id)
     assert settled is not None

@@ -108,9 +108,11 @@ class JobStore:
                         "proxy": True,
                         "limitations": (
                             "Procedural mannequin proxy assembled from "
-                            "primitives; any outfit is bounding-box aligned, "
-                            "not cloth-simulated (B5a). Not a real avatar, body "
-                            "scan, accurate fit, or real garment fit."
+                            "primitives; the garment photo is planar-projected "
+                            "onto those primitives (B5b); any outfit is "
+                            "bounding-box aligned, not cloth-simulated (B5a). "
+                            "Not a real avatar, body scan, accurate fit, real "
+                            "garment fit, or garment reconstruction."
                         ),
                     },
                     indent=2,

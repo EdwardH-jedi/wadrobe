@@ -36,21 +36,19 @@ class AvatarPipeline:
 
 
 def default_pipeline() -> AvatarPipeline:
-    # B4b: procedural mannequin builder. B5a: bbox outfit fitter. The remaining
-    # stages are still the honest dummies; DummyAvatarBuilder / DummyOutfitFitter
+    # B4b: procedural mannequin builder. B5a: bbox outfit fitter. B5b: planar
+    # garment texture projector. The remaining stages are still the honest
+    # dummies; DummyAvatarBuilder / DummyTextureProjector / DummyOutfitFitter
     # stay available as cheap stubs for unit tests.
-    from app.pipeline.dummy import (
-        DummyBodyEstimator,
-        DummyExporter,
-        DummyTextureProjector,
-    )
+    from app.pipeline.dummy import DummyBodyEstimator, DummyExporter
     from app.pipeline.fitter import BboxOutfitFitter
     from app.pipeline.mannequin import ProceduralMannequinBuilder
+    from app.pipeline.projector import PlanarGarmentTextureProjector
 
     return AvatarPipeline(
         estimator=DummyBodyEstimator(),
         builder=ProceduralMannequinBuilder(),
-        projector=DummyTextureProjector(),
+        projector=PlanarGarmentTextureProjector(),
         fitter=BboxOutfitFitter(),
         exporter=DummyExporter(),
     )

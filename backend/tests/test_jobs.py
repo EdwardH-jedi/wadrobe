@@ -117,7 +117,11 @@ def test_dummy_exporter_emits_glb_magic():
 
 
 def test_default_pipeline_run_returns_glb_and_mannequin_notes():
-    glb, notes = default_pipeline().run(AvatarInputs(body_image=b"x"))
+    # B5b: the default projector really decodes the image, so the full pipeline
+    # needs a real one (junk bytes raise — see test_projector.py).
+    glb, notes = default_pipeline().run(
+        AvatarInputs(body_image=make_transparent_garment_png())
+    )
     assert glb.startswith(_GLB_MAGIC)
     # B4b: the default builder is the procedural mannequin, not the B4a box.
     assert any("mannequin" in note for note in notes)
@@ -135,7 +139,9 @@ def test_pipeline_notes_record_face_passthrough_and_outfit_fit():
     # B5a: the default fitter is real, so a VALID outfit GLB is needed for it to
     # merge (an invalid one would raise — see test_fitter.py).
     inputs = AvatarInputs(
-        body_image=b"x", face_image=b"y", outfit_glb=_valid_outfit_glb()
+        body_image=make_transparent_garment_png(),
+        face_image=b"y",
+        outfit_glb=_valid_outfit_glb(),
     )
     _glb, notes = default_pipeline().run(inputs)
     assert any("face-texture" in note for note in notes)
