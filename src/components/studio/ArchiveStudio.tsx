@@ -15,6 +15,7 @@ import { Modal } from '../ui/Modal'
 import { OutfitInspector } from '../outfit/OutfitInspector'
 import { OutfitBuilder } from '../outfit/OutfitBuilder'
 import { Proxy3DLab } from '../avatar/Proxy3DLab'
+import { ArchiveTransferModal } from '../settings/ArchiveTransferModal'
 import { SidebarNav } from './SidebarNav'
 import { StudioScene } from './StudioScene'
 import { StudioFitRail } from './StudioFitRail'
@@ -35,6 +36,7 @@ export function ArchiveStudio() {
 
   const [view, setView] = useState<StudioView>('studio')
   const [uploadOpen, setUploadOpen] = useState(false)
+  const [transferOpen, setTransferOpen] = useState(false)
   const [editGarment, setEditGarment] = useState<GarmentItem | null>(null)
   const [enteredId, setEnteredId] = useState<string | null>(null)
   // Track B bridge (B3.9): the closet piece the Proxy 3D Lab is linked to.
@@ -133,6 +135,7 @@ export function ArchiveStudio() {
         view={view}
         onView={setView}
         onUpload={openUpload}
+        onTransfer={() => setTransferOpen(true)}
         garmentCount={garments.length}
         outfitCount={savedOutfits.length}
         storageBackend={storageBackend}
@@ -178,6 +181,10 @@ export function ArchiveStudio() {
       <EditGarmentModal
         garment={editGarment}
         onClose={() => setEditGarment(null)}
+      />
+      <ArchiveTransferModal
+        open={transferOpen}
+        onClose={() => setTransferOpen(false)}
       />
       <Modal
         open={detailGarment !== null}

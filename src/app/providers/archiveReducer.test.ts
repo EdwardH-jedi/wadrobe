@@ -248,3 +248,99 @@ describe('archiveReducer — purity', () => {
     expect(next.currentOutfit.top).toBe('a')
   })
 })
+
+describe('archiveReducer — IMPORT_ARCHIVE', () => {
+  const look = (id: string, name: string): SavedOutfit => ({
+    id,
+    name,
+    selection: createEmptyOutfit(),
+    createdAt: 1_699_000_000_000,
+    coverHex: '#2b2b30',
+  })
+
+  const seeded = (): ArchiveState => ({
+    ...initialArchiveState,
+    hydrated: true,
+    garments: [
+      makeGarment({ id: 'local-1', category: 'top', name: 'Local Tee' }),
+      makeGarment({ id: 'shared', category: 'pants', name: 'Local Copy' }),
+    ],
+    savedOutfits: [look('look-local', 'Local Look')],
+    currentOutfit: { ...createEmptyOutfit(), top: 'local-1' },
+  })
+
+  it('merge adds what is new and keeps the existing record on an id clash', () => {
+    const next = archiveReducer(seeded(), {
+      type: 'IMPORT_ARCHIVE',
+      mode: 'merge',
+      garments: [
+        makeGarment({ id: 'shared', category: 'pants', name: 'File Copy' }),
+        makeGarment({ id: 'file-1', category: 'shoes', name: 'File Runner' }),
+      ],
+      savedOutfits: [look('look-local', 'File Look'), look('look-file', 'New')],
+      currentOutfit: { ...createEmptyOutfit(), shoes: 'file-1' },
+    })
+
+    expect(next.garments.map((g) => g.id)).toEqual([
+      'file-1',
+      'local-1',
+      'shared',
+    ])
+    // The clashing id kept the archive's own version — a merge never overwrites.
+    expect(next.garments.find((g) => g.id === 'shared')?.name).toBe('Local Copy')
+    expect(next.savedOutfits.map((o) => o.id)).toEqual([
+      'look-file',
+      'look-local',
+    ])
+    expect(next.savedOutfits.find((o) => o.id === 'look-local')?.name).toBe(
+      'Local Look',
+    )
+    // Merge never disturbs what the user is currently styling.
+    expect(next.currentOutfit).toEqual({ ...createEmptyOutfit(), top: 'local-1' })
+  })
+
+  it('replace swaps the archive for the file and adopts its current outfit', () => {
+    const next = archiveReducer(seeded(), {
+      type: 'IMPORT_ARCHIVE',
+      mode: 'replace',
+      garments: [makeGarment({ id: 'file-1', category: 'shoes' })],
+      savedOutfits: [look('look-file', 'New')],
+      currentOutfit: { ...createEmptyOutfit(), shoes: 'file-1' },
+    })
+
+    expect(next.garments.map((g) => g.id)).toEqual(['file-1'])
+    expect(next.savedOutfits.map((o) => o.id)).toEqual(['look-file'])
+    expect(next.currentOutfit.shoes).toBe('file-1')
+    expect(next.currentOutfit.top).toBeNull()
+  })
+
+  it('drops imported outfit slots that point at pieces the import did not bring', () => {
+    const next = archiveReducer(seeded(), {
+      type: 'IMPORT_ARCHIVE',
+      mode: 'replace',
+      garments: [makeGarment({ id: 'file-1', category: 'shoes' })],
+      savedOutfits: [],
+      currentOutfit: { ...createEmptyOutfit(), shoes: 'file-1', top: 'gone' },
+    })
+    expect(next.currentOutfit.shoes).toBe('file-1')
+    expect(next.currentOutfit.top).toBeNull()
+  })
+
+  it('records the import event and leaves hydration alone', () => {
+    const next = archiveReducer(seeded(), {
+      type: 'IMPORT_ARCHIVE',
+      mode: 'merge',
+      garments: [],
+      savedOutfits: [],
+      currentOutfit: createEmptyOutfit(),
+      event: {
+        id: 'evt-1',
+        type: 'archive_imported',
+        at: 1_700_000_000_000,
+        label: 'Imported from a file: 0 pieces',
+      },
+    })
+    expect(next.lastEvent?.type).toBe('archive_imported')
+    expect(next.hydrated).toBe(true)
+  })
+})

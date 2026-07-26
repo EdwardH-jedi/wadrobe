@@ -182,9 +182,46 @@ Phase 2: 분류기 provider seam을 실제로 배선한다. (선택한 백엔드
 
 ---
 
+## Phase 6 — 아카이브 JSON 백업 / 이전 (export ⇄ import)  ✅ 완료
+
+브라우저 프로파일 하나에 갇혀 있던 아카이브를 **파일 하나로** 꺼내고 되돌리는
+경로. iOS 앱 이전의 밑작업이자, 그 자체로 백업 수단.
+
+**손댈 파일 (전부 신규 / 순수 추가)**
+- `src/lib/storage/archiveExport.ts` — 문서 포맷 + 청크 라이터
+- `src/lib/storage/archiveImport.ts` — 검증/리뷰 + merge/replace 요약
+- `src/components/settings/ArchiveTransferModal.tsx` — 사이드바 푸터 진입점
+- `src/lib/download.ts`, `Icon`(download), reducer `IMPORT_ARCHIVE`, provider
+  `exportArchive`/`importArchive`
+
+**작업**
+- [x] 문서 = `{kind, schemaVersion, assetEncoding, exportedAt, garments,
+      savedOutfits, currentOutfit}`. `kind`로 무관한 JSON 거부, 상위 버전은
+      반쯤 읽지 않고 거부.
+- [x] blob ref(`croppedImageRef`/`cutoutImageRef`)를 **resolve해서 base64로
+      인라인하고 ref는 제거** — 남의 프로파일 키는 받는 쪽에서 의미 없음.
+      `blob:` object URL은 절대 파일에 쓰지 않음(`assetMode` 기준 재유도).
+      읽기 실패한 blob은 숨기지 않고 카운트, 조각은 썸네일로 export.
+- [x] 메모리: `write(chunk)` 싱크로 garment 한 개씩 직렬화 후 해제 —
+      전체 객체 그래프 + 전체 JSON 문자열을 동시에 들지 않음.
+- [x] import는 **기존 `storageTypes.ts` 파서**를 항목 단위로 통과시켜
+      드롭 사유를 `ArchiveImportIssue`로 보고(조용한 실패 금지), 커밋 전 표시.
+- [x] 기본 `merge`는 id 충돌 시 **기존 레코드 유지**(덮어쓰기 없음),
+      `replace`는 별도의 명시적 선택. 들어온 인라인 이미지는 blob store로
+      되돌려 저장(대량 import가 메타데이터 한 방에 수 MB로 앉지 않게).
+- [x] 추가 전용: 기존 도메인 타입 shape 변경/필수화 없음.
+
+**완료조건**
+- export → 파일 → import 라운드트립이 garment/look/current outfit 동일 복원
+- 손상 항목은 드롭 사유와 함께 보고, 사용자가 merge/replace 선택 전엔 무변경
+- typecheck/lint/test/build green (433 → 479 tests)
+
+---
+
 ## 진행 체크리스트
 - [x] Phase 1 — 데이터 모델 + 분석 출처 보존
 - [x] Phase 2 — 백엔드 결정(2A) + seam 배선
 - [x] Phase 3 — URL prefill
 - [x] Phase 4 — 실 비전 분류기
 - [x] Phase 5 — cutout 레이어링
+- [x] Phase 6 — 아카이브 JSON 백업 / 이전

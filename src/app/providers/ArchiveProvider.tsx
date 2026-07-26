@@ -38,11 +38,22 @@ import {
 } from '../../lib/storage/assetBlobStore'
 import {
   archiveBlobKeys,
+  blobBackAsset,
   cleanupOrphanBlobs,
   dehydrateGarmentForStorage,
   garmentBlobKeys,
   hydrateGarmentForRuntime,
 } from '../../lib/storage/garmentAssetStorage'
+import {
+  buildArchiveExportBlob,
+  type ArchiveExportStats,
+} from '../../lib/storage/archiveExport'
+import {
+  summarizeArchiveImport,
+  type ArchiveImportMode,
+  type ArchiveImportReview,
+  type ArchiveImportSummary,
+} from '../../lib/storage/archiveImport'
 import type { StorageBackend } from '../../lib/storage/storageTypes'
 import { buildSeedGarments } from '../../data/seedGarments'
 import {
@@ -369,6 +380,72 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'RESET' })
         void adapterRef.current?.clearAll()
         void blobStoreRef.current?.clear()
+      },
+
+      exportArchive: async (): Promise<{
+        blob: Blob
+        stats: ArchiveExportStats
+      }> =>
+        buildArchiveExportBlob(
+          {
+            garments: state.garments,
+            savedOutfits: state.savedOutfits,
+            currentOutfit: state.currentOutfit,
+          },
+          { blobStore: blobStoreRef.current, now: Date.now() },
+        ),
+
+      importArchive: async (
+        review: ArchiveImportReview,
+        mode: ArchiveImportMode,
+      ): Promise<ArchiveImportSummary> => {
+        const summary = summarizeArchiveImport(
+          review,
+          { garments: state.garments, savedOutfits: state.savedOutfits },
+          mode,
+        )
+        if (!review.ok) return summary
+
+        // Move the imported inline images into the blob store, exactly as a new
+        // upload does, so a large archive does not land as megabytes of data
+        // URLs in one metadata write. Sequential on purpose: one garment's bytes
+        // in flight at a time. A non-durable store is a no-op (data URLs stay).
+        const store = blobStoreRef.current
+        const garments: GarmentItem[] = []
+        for (const garment of review.garments) {
+          garments.push(store ? await blobBackAsset(garment, store) : garment)
+        }
+
+        // A replace drops pieces the file does not carry; reclaim their bytes
+        // rather than waiting for the next load's orphan sweep.
+        const staleKeys =
+          mode === 'replace'
+            ? (() => {
+                const kept = archiveBlobKeys(garments)
+                return [...archiveBlobKeys(state.garments)].filter(
+                  (key) => !kept.has(key),
+                )
+              })()
+            : []
+
+        dispatch({
+          type: 'IMPORT_ARCHIVE',
+          mode,
+          garments,
+          savedOutfits: review.savedOutfits,
+          currentOutfit: review.currentOutfit,
+          event: makeEvent(
+            'archive_imported',
+            mode === 'replace'
+              ? `Replaced the archive from a file: ${summary.garmentsAdded} pieces`
+              : `Imported from a file: ${summary.garmentsAdded} pieces`,
+          ),
+        })
+
+        if (store) {
+          for (const key of staleKeys) void store.delete(key)
+        }
+        return summary
       },
     }
   }, [state, storageBackend])

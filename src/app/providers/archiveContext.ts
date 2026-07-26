@@ -15,6 +15,12 @@ import type {
   SavedOutfit,
 } from '../../domain/outfitTypes'
 import type { StorageBackend } from '../../lib/storage/storageTypes'
+import type { ArchiveExportStats } from '../../lib/storage/archiveExport'
+import type {
+  ArchiveImportMode,
+  ArchiveImportReview,
+  ArchiveImportSummary,
+} from '../../lib/storage/archiveImport'
 
 export interface ArchiveContextValue {
   // --- State ---
@@ -63,6 +69,22 @@ export interface ArchiveContextValue {
   restoreOutfit: (id: string) => void
   loadSampleArchive: () => void
   resetArchive: () => void
+  /**
+   * Build one self-contained JSON document holding every piece, every saved
+   * look and the current outfit, with blob-backed images resolved and inlined
+   * as base64. Local only — the file is handed to the browser, never uploaded.
+   */
+  exportArchive: () => Promise<{ blob: Blob; stats: ArchiveExportStats }>
+  /**
+   * Apply a review produced by `reviewArchiveImport`. `merge` is additive and
+   * keeps every existing record on an id clash; `replace` swaps the archive for
+   * the file's contents and is only ever called on an explicit user choice.
+   * Returns what actually happened.
+   */
+  importArchive: (
+    review: ArchiveImportReview,
+    mode: ArchiveImportMode,
+  ) => Promise<ArchiveImportSummary>
 }
 
 export const ArchiveContext = createContext<ArchiveContextValue | null>(null)

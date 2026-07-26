@@ -7,6 +7,8 @@ export interface SidebarNavProps {
   view: StudioView
   onView: (view: StudioView) => void
   onUpload: () => void
+  /** Opens the backup & transfer panel (archive JSON export/import). */
+  onTransfer: () => void
   garmentCount: number
   outfitCount: number
   storageBackend: StorageBackend | 'pending'
@@ -24,6 +26,7 @@ export function SidebarNav({
   view,
   onView,
   onUpload,
+  onTransfer,
   garmentCount,
   outfitCount,
   storageBackend,
@@ -74,6 +77,11 @@ export function SidebarNav({
       </div>
 
       <div className="sidebar__foot">
+        {/* Sits with the storage badge: both are about where the archive lives. */}
+        <button className="sidebar__action" onClick={onTransfer}>
+          <Icon name="download" size={15} />
+          <span>Backup &amp; transfer</span>
+        </button>
         <div className="storage-badge">
           <span
             className={cx(

@@ -3,6 +3,7 @@
 // via the action payload. This keeps the reducer fully unit-testable.
 import type { GarmentItem } from '../../domain/garmentTypes'
 import type { ArchiveEvent } from '../../domain/archiveTypes'
+import type { ArchiveImportMode } from '../../lib/storage/archiveImport'
 import {
   OUTFIT_SLOT_ORDER,
   createEmptyOutfit,
@@ -40,6 +41,15 @@ export type ArchiveAction =
   | { type: 'SAVE_OUTFIT'; outfit: SavedOutfit; event?: ArchiveEvent }
   | { type: 'REMOVE_OUTFIT'; id: string; event?: ArchiveEvent }
   | { type: 'RESTORE_OUTFIT'; selection: OutfitSelection; event?: ArchiveEvent }
+  | {
+      /** Apply a validated JSON export (see `lib/storage/archiveImport.ts`). */
+      type: 'IMPORT_ARCHIVE'
+      mode: ArchiveImportMode
+      garments: GarmentItem[]
+      savedOutfits: SavedOutfit[]
+      currentOutfit: OutfitSelection
+      event?: ArchiveEvent
+    }
   | { type: 'RESET' }
 
 export const initialArchiveState: ArchiveState = {
@@ -182,6 +192,41 @@ export function archiveReducer(
       return {
         ...state,
         currentOutfit: sanitizeOutfit(action.selection, state.garments),
+        ...applyEvent(state, action.event),
+      }
+    }
+
+    case 'IMPORT_ARCHIVE': {
+      if (action.mode === 'replace') {
+        // The file becomes the archive — only ever reached on an explicit,
+        // confirmed user choice in the transfer panel.
+        const garments = action.garments
+        return {
+          ...state,
+          garments,
+          savedOutfits: action.savedOutfits,
+          currentOutfit: sanitizeOutfit(action.currentOutfit, garments),
+          ...applyEvent(state, action.event),
+        }
+      }
+      // Merge: additive and non-destructive. An id already in the archive keeps
+      // its EXISTING record, so re-importing an older backup can never overwrite
+      // edits made since. The current outfit is left exactly as the user has it.
+      const existingGarmentIds = new Set(state.garments.map((g) => g.id))
+      const garments = [
+        ...action.garments.filter((g) => !existingGarmentIds.has(g.id)),
+        ...state.garments,
+      ]
+      const existingOutfitIds = new Set(state.savedOutfits.map((o) => o.id))
+      const savedOutfits = [
+        ...action.savedOutfits.filter((o) => !existingOutfitIds.has(o.id)),
+        ...state.savedOutfits,
+      ]
+      return {
+        ...state,
+        garments,
+        savedOutfits,
+        currentOutfit: sanitizeOutfit(state.currentOutfit, garments),
         ...applyEvent(state, action.event),
       }
     }

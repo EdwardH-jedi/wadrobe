@@ -126,10 +126,51 @@ suggestions. Editor, mock AI, seed data, cards, and the mannequin all read it.
   object URL, keyed off `assetMode`; missing blob → inline asset → thumbnail
   fallback). Both are **ref-conditional**: a garment with no blob ref is passed
   through untouched, so legacy/Phase 8–10 garments are unaffected.
-  `blobBackDraftAsset` stores a new upload's cropped/cutout images as blobs
-  (durable backend only). `garmentBlobKeys` (the **single** owned-keys source used
-  by delete-cleanup AND the sweep), `archiveBlobKeys`, and `cleanupOrphanBlobs`
-  (Phase 12) implement the conservative orphan sweep.
+  `blobBackAsset` stores a record's cropped/cutout images as blobs (durable
+  backend only) — used for a new upload's draft (`blobBackDraftAsset`) and for an
+  imported garment's inline base64. `garmentBlobKeys` (the **single** owned-keys
+  source used by delete-cleanup AND the sweep), `archiveBlobKeys`, and
+  `cleanupOrphanBlobs` (Phase 12) implement the conservative orphan sweep.
+- **`archiveExport.ts` / `archiveImport.ts`** — the JSON transfer format (see
+  below). Additive: nothing above changes shape.
+
+## Backup & transfer (archive JSON)
+
+`src/lib/storage/archiveExport.ts`, `archiveImport.ts`,
+`src/components/settings/ArchiveTransferModal.tsx`
+
+An archive otherwise lives and dies inside one browser profile. The transfer
+layer produces **one self-contained JSON document** and reads it back.
+
+```
+export:  state ──▶ writeArchiveExport(input, write) ──▶ Blob ──▶ downloadBlob
+                     │  per garment: resolve blob refs → base64 → serialize → release
+import:  File ──▶ readArchiveFileText ──▶ reviewArchiveImport ──▶ (report shown)
+                     │  per entry: parseGarments/parseSavedOutfits/parseCurrentOutfit
+                     └─▶ user picks merge|replace ──▶ importArchive ──▶ IMPORT_ARCHIVE
+```
+
+- **Document** — `{ kind, schemaVersion, assetEncoding, exportedAt, garments,
+  savedOutfits, currentOutfit }`. `kind` rejects unrelated JSON; a *newer*
+  `schemaVersion` is refused rather than half-read.
+- **Assets are inlined.** `croppedImageRef`/`cutoutImageRef` are resolved out of
+  the blob store, written as base64 data URLs, and the refs are **dropped** — a
+  blob key is only resolvable in the profile that minted it. `displayImageUrl` is
+  re-derived from `assetMode` (mirroring `hydrateGarmentForRuntime`) whenever the
+  stored one is blank or an object URL, so `blob:` handles never reach the file.
+  An unreadable blob is **counted, not hidden**; the piece still exports with its
+  thumbnail.
+- **Memory** — the writer emits chunks through a `write(chunk)` sink, one garment
+  at a time, so the archive's base64 is never held as a full object graph *and* a
+  full JSON string at once.
+- **Import validates through the existing parsers**, one entry at a time, so an
+  imported record is exactly as trustworthy as a persisted one. Each drop becomes
+  an `ArchiveImportIssue` (`invalid-shape`, `duplicate-id`, `foreign-blob-ref`,
+  `unknown-garment-reference`, …) shown **before** anything is committed.
+- **Nothing is clobbered by default.** `merge` (the default) adds only what is
+  new and keeps the existing record on an id clash; `replace` is a separate,
+  explicit choice. Imported inline images are blob-backed on the way in, so a
+  large import does not land as megabytes of data URLs in one metadata write.
 
 ## Upload flow
 

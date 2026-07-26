@@ -206,20 +206,24 @@ export function dataUrlToBlob(dataUrl: string): Blob | null {
 }
 
 /**
- * Store a new upload's heavy OWNED images (cropped, cutout) as blobs and attach
- * refs to the draft — only when the blob store is durable (IndexedDB). The data
- * URL strings are kept on the draft so display works immediately (they are
- * dropped from metadata later by `dehydrateGarmentForStorage`). Any failure
- * (no store, decode/put error) silently leaves the field as a data URL — the
- * upload always succeeds. The uploaded thumbnail and product-reference URLs are
- * intentionally never blob-backed.
+ * Store a record's heavy OWNED images (cropped, cutout) as blobs and attach refs
+ * to it — only when the blob store is durable (IndexedDB). The data URL strings
+ * are kept on the record so display works immediately (they are dropped from
+ * metadata later by `dehydrateGarmentForStorage`). Any failure (no store,
+ * decode/put error) silently leaves the field as a data URL — the caller always
+ * succeeds. The uploaded thumbnail and product-reference URLs are intentionally
+ * never blob-backed.
+ *
+ * Generic over anything carrying a `GarmentAsset`, so both a new upload's
+ * `GarmentDraft` and an imported `GarmentItem` (whose images arrive inline as
+ * base64) take the same path into the blob store.
  */
-export async function blobBackDraftAsset(
-  draft: GarmentDraft,
+export async function blobBackAsset<T extends { asset?: GarmentAsset }>(
+  record: T,
   store: AssetBlobStore,
-): Promise<GarmentDraft> {
-  if (!store.durable || !draft.asset) return draft
-  const asset = { ...draft.asset }
+): Promise<T> {
+  if (!store.durable || !record.asset) return record
+  const asset = { ...record.asset }
 
   const back = async (
     existing: AssetImageRef | undefined,
@@ -241,5 +245,13 @@ export async function blobBackDraftAsset(
   ])
   if (croppedRef) asset.croppedImageRef = croppedRef
   if (cutoutRef) asset.cutoutImageRef = cutoutRef
-  return { ...draft, asset }
+  return { ...record, asset }
+}
+
+/** `blobBackAsset` for a new upload's draft (the original Phase 11 caller). */
+export function blobBackDraftAsset(
+  draft: GarmentDraft,
+  store: AssetBlobStore,
+): Promise<GarmentDraft> {
+  return blobBackAsset(draft, store)
 }

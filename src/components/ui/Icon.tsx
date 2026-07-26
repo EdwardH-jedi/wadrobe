@@ -8,6 +8,7 @@ export type IconName =
   | 'mirror'
   | 'outfits'
   | 'upload'
+  | 'download'
   | 'plus'
   | 'close'
   | 'trash'
@@ -55,6 +56,13 @@ const PATHS: Record<IconName, JSX.Element> = {
     <>
       <path d="M12 16V4" />
       <path d="m7 9 5-5 5 5" />
+      <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+    </>
+  ),
+  download: (
+    <>
+      <path d="M12 4v12" />
+      <path d="m7 11 5 5 5-5" />
       <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
     </>
   ),

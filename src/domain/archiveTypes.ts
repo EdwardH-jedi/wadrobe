@@ -13,6 +13,7 @@ export type ArchiveEventType =
   | 'outfit_removed'
   | 'outfit_restored'
   | 'outfit_cleared'
+  | 'archive_imported'
 
 export interface ArchiveEvent {
   id: string

@@ -131,6 +131,17 @@ unit test.)
   the thumbnail, so orphan cleanup is disk hygiene, not data-loss prevention.
   Persistence is fire-and-forget app-wide (a failed save is silent; orphans
   reclaimed on a later readable load once they age out).
+- **Backup & transfer (archive JSON)**: `archiveExport.ts` writes ONE
+  self-contained document (`kind` + `schemaVersion` + garments + saved outfits +
+  current outfit) through a chunked `write(chunk)` sink, one garment at a time
+  (never a full object graph *and* a full JSON string at once). Blob refs are
+  **resolved and inlined as base64, and the refs are dropped** — a blob key means
+  nothing outside the profile that minted it — and `blob:` object URLs never
+  reach the file. `archiveImport.ts` validates every entry through the EXISTING
+  `storageTypes.ts` parsers, one at a time, and reports each drop as an
+  `ArchiveImportIssue` before anything is committed; `merge` (default) never
+  overwrites an existing id, `replace` is a separate explicit choice. Additive
+  only: no existing type changed shape. See `docs/ARCHITECTURE.md`.
 - Keep the reducer pure; do I/O in effects/action creators.
 - Comments and identifiers: **English only**.
 
@@ -220,6 +231,8 @@ src/
     outfit/       OutfitInspector, OutfitBuilder, SavedOutfitCard, FitCheck
     avatar/       Proxy3DLab, GlbViewer, proxy3dFlow, proxy3dApi (Track B3;
                   three.js via dynamic import only)
+    settings/     ArchiveTransferModal (backup & transfer: archive JSON
+                  export/import, opened from the sidebar footer)
     studio/       ArchiveStudio, StudioScene, SidebarNav, RoomZone,
                   ClothingRack, MirrorPreview, MannequinPreview, OutfitWallBoard
   domain/         garmentTypes, outfitTypes, archiveTypes, garmentTaxonomy,
