@@ -1,0 +1,23 @@
+{
+  "kind": "fit-archive.archive",
+  "schemaVersion": 99,
+  "assetEncoding": "inline-data-url",
+  "exportedAt": 1753577000000,
+  "garments": [
+    {
+      "id": "grm-future-1",
+      "name": "Written By A Newer Build",
+      "category": "top",
+      "color": "Bone",
+      "colorHex": "#e8e1d5",
+      "styleTags": [],
+      "imageDataUrl": "data:image/webp;base64,dGh1bWJuYWlsLWJ5dGVz",
+      "createdAt": 1750000000000,
+      "updatedAt": 1750000000000
+    }
+  ],
+  "savedOutfits": [],
+  "currentOutfit": {
+    "outerwear": null, "top": null, "pants": null, "shoes": null, "accessory": null
+  }
+}

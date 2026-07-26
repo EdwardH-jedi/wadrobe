@@ -106,3 +106,45 @@ re-imports with zero drops; and with every blob missing, all 400 pieces still
 export against their thumbnails with an honest `unresolvedImageCount`.
 
 **Suite: 491 passed / 59 files** (+12). typecheck, lint clean.
+
+---
+
+## Phase 4 — Golden fixtures ✅
+
+**`src/lib/storage/__fixtures__/archive-export/`** — 16 committed JSON files
+plus a `README.md`, and `archiveFixtures.conformance.test.ts` (88 assertions)
+reading them off disk as raw text.
+
+Valid: `minimal-valid` (only required fields, optional envelope keys absent),
+`empty-archive`, `full-featured` (every optional field at once), `legacy-records`
+(pre-asset-pipeline, percent-encoded SVG), `blob-backed-inlined` (conforming
+blob-backed export incl. a piece whose blob was lost).
+Non-conforming but recoverable: `blob-ref-leaked`, `unrecognized-enums`.
+Malformed at document level: six files, one per rejection condition.
+Malformed at record level: `malformed-garment-entries` (12 distinct breakages),
+`malformed-outfits`, `malformed-saved-outfits-not-a-list`.
+
+Notes:
+
+- **No generator, by design.** A generator drifts with the code it is written
+  against, which defeats the purpose — a fixture is only a contract if it can
+  disagree with the implementation. The README states this and marks the
+  directory append-only.
+- Read as **raw text, never `import`ed**: `malformed-not-json.json` is
+  deliberately unparseable. `import.meta.url` does not work here — Vite rewrites
+  it to a root-relative browser path `fs` cannot open — so the loader resolves
+  from `process.cwd()`.
+- All 88 assertions passed on their first real run, i.e. the hand-computed
+  expectations and the implementation already agreed. The fixtures document
+  existing behaviour rather than having been fitted to it.
+
+**Gap closed while building `blob-ref-leaked`.** The importer stripped foreign
+blob *refs* but not process-local `blob:` object URLs, so a hand-edited or
+non-conforming file could import a `displayImageUrl` pointing at another
+session's object URL — a permanently broken image. `stripForeignBlobRefs` became
+`sanitizeImportedAsset`, which also drops `blob:` urls from all six asset url
+fields and warns with a new stable code, `process-local-url`. Required-by-type
+fields are blanked rather than deleted so the display chain skips them. Spec
+§5.3, §8.2, §8.3 and the §12 checklist updated to match.
+
+**Suite: 579 passed / 60 files** (+88). typecheck, lint, build clean.

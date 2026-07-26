@@ -1,0 +1,128 @@
+{
+  "kind": "fit-archive.archive",
+  "schemaVersion": 1,
+  "assetEncoding": "inline-data-url",
+  "exportedAt": 1753577000000,
+  "garments": [
+    {
+      "id": "grm-ok-1",
+      "name": "Survivor One",
+      "category": "top",
+      "color": "Bone",
+      "colorHex": "#e8e1d5",
+      "styleTags": ["minimal"],
+      "imageDataUrl": "data:image/webp;base64,dGh1bWJuYWlsLWJ5dGVz",
+      "createdAt": 1750000000000,
+      "updatedAt": 1750000000000
+    },
+    null,
+    42,
+    "not an object at all",
+    [],
+    {
+      "id": "grm-bad-missing-name",
+      "category": "top",
+      "color": "Bone",
+      "colorHex": "#e8e1d5",
+      "styleTags": [],
+      "imageDataUrl": "data:image/webp;base64,dGh1bWJuYWlsLWJ5dGVz",
+      "createdAt": 1750000000000,
+      "updatedAt": 1750000000000
+    },
+    {
+      "id": "grm-bad-styletag-element",
+      "name": "Non-String Style Tag",
+      "category": "top",
+      "color": "Bone",
+      "colorHex": "#e8e1d5",
+      "styleTags": ["ok", 7],
+      "imageDataUrl": "data:image/webp;base64,dGh1bWJuYWlsLWJ5dGVz",
+      "createdAt": 1750000000000,
+      "updatedAt": 1750000000000
+    },
+    {
+      "id": "grm-bad-styletags-not-array",
+      "name": "Style Tags Not A List",
+      "category": "top",
+      "color": "Bone",
+      "colorHex": "#e8e1d5",
+      "styleTags": "minimal",
+      "imageDataUrl": "data:image/webp;base64,dGh1bWJuYWlsLWJ5dGVz",
+      "createdAt": 1750000000000,
+      "updatedAt": 1750000000000
+    },
+    {
+      "id": "grm-bad-created-at-string",
+      "name": "Timestamp As ISO String",
+      "category": "top",
+      "color": "Bone",
+      "colorHex": "#e8e1d5",
+      "styleTags": [],
+      "imageDataUrl": "data:image/webp;base64,dGh1bWJuYWlsLWJ5dGVz",
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": 1750000000000
+    },
+    {
+      "id": "grm-bad-updated-at-null",
+      "name": "Null Timestamp",
+      "category": "top",
+      "color": "Bone",
+      "colorHex": "#e8e1d5",
+      "styleTags": [],
+      "imageDataUrl": "data:image/webp;base64,dGh1bWJuYWlsLWJ5dGVz",
+      "createdAt": 1750000000000,
+      "updatedAt": null
+    },
+    {
+      "id": "grm-bad-missing-image",
+      "name": "No Image At All",
+      "category": "top",
+      "color": "Bone",
+      "colorHex": "#e8e1d5",
+      "styleTags": [],
+      "createdAt": 1750000000000,
+      "updatedAt": 1750000000000
+    },
+    {
+      "id": "grm-bad-colorhex-number",
+      "name": "Numeric Color Hex",
+      "category": "top",
+      "color": "Bone",
+      "colorHex": 123456,
+      "styleTags": [],
+      "imageDataUrl": "data:image/webp;base64,dGh1bWJuYWlsLWJ5dGVz",
+      "createdAt": 1750000000000,
+      "updatedAt": 1750000000000
+    },
+    {
+      "id": "grm-ok-1",
+      "name": "Duplicate Of Survivor One",
+      "category": "shoes",
+      "color": "Black",
+      "colorHex": "#1a1a1c",
+      "styleTags": [],
+      "imageDataUrl": "data:image/webp;base64,dGh1bWJuYWlsLWJ5dGVz",
+      "createdAt": 1750000500000,
+      "updatedAt": 1750000500000
+    },
+    {
+      "id": "grm-ok-2",
+      "name": "Survivor Two",
+      "category": "pants",
+      "color": "Indigo",
+      "colorHex": "#26364f",
+      "styleTags": ["denim"],
+      "imageDataUrl": "data:image/webp;base64,dGh1bWJuYWlsLWJ5dGVz",
+      "createdAt": 1750000600000,
+      "updatedAt": 1750000600000
+    }
+  ],
+  "savedOutfits": [],
+  "currentOutfit": {
+    "outerwear": null,
+    "top": "grm-ok-1",
+    "pants": "grm-ok-2",
+    "shoes": null,
+    "accessory": null
+  }
+}

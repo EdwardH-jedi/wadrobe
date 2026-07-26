@@ -1,0 +1,66 @@
+{
+  "kind": "fit-archive.archive",
+  "schemaVersion": 1,
+  "assetEncoding": "inline-data-url",
+  "exportedAt": 1753577000000,
+  "garments": [
+    {
+      "id": "grm-blob-cutout",
+      "name": "Cutout Jacket",
+      "category": "outerwear",
+      "color": "Olive",
+      "colorHex": "#4a5138",
+      "styleTags": ["utility"],
+      "imageDataUrl": "data:image/webp;base64,dGh1bWJuYWlsLWJ5dGVz",
+      "asset": {
+        "originalImageUrl": "data:image/webp;base64,dGh1bWJuYWlsLWJ5dGVz",
+        "displayImageUrl": "data:image/webp;base64,Y3V0b3V0LWJ5dGVz",
+        "cutoutImageUrl": "data:image/webp;base64,Y3V0b3V0LWJ5dGVz",
+        "assetMode": "cutout"
+      },
+      "createdAt": 1750000000000,
+      "updatedAt": 1750000000000
+    },
+    {
+      "id": "grm-blob-cropped",
+      "name": "Cropped Trousers",
+      "category": "pants",
+      "color": "Sand",
+      "colorHex": "#c2b49a",
+      "styleTags": ["tailored"],
+      "imageDataUrl": "data:image/webp;base64,dGh1bWJuYWlsLWJ5dGVz",
+      "asset": {
+        "originalImageUrl": "data:image/webp;base64,dGh1bWJuYWlsLWJ5dGVz",
+        "displayImageUrl": "data:image/jpeg;base64,Y3JvcC1ieXRlcw==",
+        "croppedImageUrl": "data:image/jpeg;base64,Y3JvcC1ieXRlcw==",
+        "assetMode": "cropped"
+      },
+      "createdAt": 1750000100000,
+      "updatedAt": 1750000100000
+    },
+    {
+      "id": "grm-blob-unresolved",
+      "name": "Piece Whose Blob Was Lost",
+      "category": "shoes",
+      "color": "Black",
+      "colorHex": "#1a1a1c",
+      "styleTags": [],
+      "imageDataUrl": "data:image/webp;base64,dGh1bWJuYWlsLWJ5dGVz",
+      "asset": {
+        "originalImageUrl": "data:image/webp;base64,dGh1bWJuYWlsLWJ5dGVz",
+        "displayImageUrl": "data:image/webp;base64,dGh1bWJuYWlsLWJ5dGVz",
+        "assetMode": "cutout"
+      },
+      "createdAt": 1750000200000,
+      "updatedAt": 1750000200000
+    }
+  ],
+  "savedOutfits": [],
+  "currentOutfit": {
+    "outerwear": "grm-blob-cutout",
+    "top": null,
+    "pants": "grm-blob-cropped",
+    "shoes": null,
+    "accessory": null
+  }
+}

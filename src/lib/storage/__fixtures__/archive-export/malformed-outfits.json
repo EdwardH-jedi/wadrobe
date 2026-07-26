@@ -1,0 +1,94 @@
+{
+  "kind": "fit-archive.archive",
+  "schemaVersion": 1,
+  "assetEncoding": "inline-data-url",
+  "exportedAt": 1753577000000,
+  "garments": [
+    {
+      "id": "grm-outfit-1",
+      "name": "The Only Real Piece",
+      "category": "top",
+      "color": "Bone",
+      "colorHex": "#e8e1d5",
+      "styleTags": [],
+      "imageDataUrl": "data:image/webp;base64,dGh1bWJuYWlsLWJ5dGVz",
+      "createdAt": 1750000000000,
+      "updatedAt": 1750000000000
+    }
+  ],
+  "savedOutfits": [
+    {
+      "id": "look-ok",
+      "name": "Perfectly Fine",
+      "selection": {
+        "outerwear": null,
+        "top": "grm-outfit-1",
+        "pants": null,
+        "shoes": null,
+        "accessory": null
+      },
+      "createdAt": 1753200000000,
+      "coverHex": "#e8e1d5"
+    },
+    null,
+    {
+      "id": "look-missing-cover",
+      "name": "No Cover Hex",
+      "selection": {
+        "outerwear": null,
+        "top": "grm-outfit-1",
+        "pants": null,
+        "shoes": null,
+        "accessory": null
+      },
+      "createdAt": 1753200100000
+    },
+    {
+      "id": "look-selection-not-object",
+      "name": "Selection Is A String",
+      "selection": "top",
+      "createdAt": 1753200200000,
+      "coverHex": "#e8e1d5"
+    },
+    {
+      "id": "look-ok",
+      "name": "Duplicate Of Perfectly Fine",
+      "selection": {
+        "outerwear": null,
+        "top": null,
+        "pants": null,
+        "shoes": null,
+        "accessory": null
+      },
+      "createdAt": 1753200300000,
+      "coverHex": "#2b2b2e"
+    },
+    {
+      "id": "look-dangling-reference",
+      "name": "Points At Pieces That Are Not Here",
+      "selection": {
+        "outerwear": "grm-does-not-exist",
+        "top": "grm-outfit-1",
+        "pants": "grm-also-missing",
+        "shoes": null,
+        "accessory": null
+      },
+      "createdAt": 1753200400000,
+      "coverHex": "#2b2b2e"
+    },
+    {
+      "id": "look-nonstring-slots",
+      "name": "Slot Values Of The Wrong Type",
+      "selection": {
+        "outerwear": 7,
+        "top": { "id": "grm-outfit-1" },
+        "pants": false,
+        "shoes": null,
+        "accessory": null
+      },
+      "createdAt": 1753200500000,
+      "coverHex": "#2b2b2e"
+    }
+  ],
+  "currentOutfit": "top"
+}

@@ -113,27 +113,73 @@ function describeEntry(entry: unknown, index: number): string {
   return `entry #${index + 1}`
 }
 
+/** Asset fields that hold an image url, in the order the display chain reads. */
+const ASSET_URL_FIELDS = [
+  'displayImageUrl',
+  'cutoutImageUrl',
+  'croppedImageUrl',
+  'originalImageUrl',
+  'thumbnailImageUrl',
+  'productReferenceImageUrl',
+] as const
+
 /**
- * Strip blob refs from an imported garment. A key points into the IndexedDB
- * asset store of the profile that wrote it, so on this machine it would resolve
- * to nothing. The inline images the exporter wrote stay; the piece keeps
- * rendering (thumbnail at worst).
+ * Make an imported garment's asset safe to persist on THIS machine. Two things
+ * a conforming export never contains, but a hand-edited or non-conforming file
+ * can (see docs/ARCHIVE_EXPORT_SCHEMA.md §5.2–§5.3):
+ *
+ * 1. Blob refs — a key into the IndexedDB asset store of the profile that wrote
+ *    it, which resolves to nothing here.
+ * 2. `blob:` object URLs — process-local handles from the exporting tab's
+ *    session. Kept, they would render as permanently broken images.
+ *
+ * Both are removed rather than repaired. The inline images the exporter wrote
+ * stay, and the display chain falls through to the `imageDataUrl` thumbnail at
+ * worst, so the piece always keeps rendering.
  */
-function stripForeignBlobRefs(
+function sanitizeImportedAsset(
   garment: GarmentItem,
   issues: ArchiveImportIssue[],
 ): GarmentItem {
   const asset = garment.asset
-  if (!asset || (!asset.croppedImageRef && !asset.cutoutImageRef)) return garment
+  if (!asset) return garment
+
+  const hasRef = !!(asset.croppedImageRef || asset.cutoutImageRef)
+  const deadUrls = ASSET_URL_FIELDS.filter((field) =>
+    asset[field]?.startsWith('blob:'),
+  )
+  if (!hasRef && deadUrls.length === 0) return garment
+
   const cleaned = { ...asset }
-  delete cleaned.croppedImageRef
-  delete cleaned.cutoutImageRef
-  issues.push({
-    scope: 'garment',
-    severity: 'warning',
-    code: 'foreign-blob-ref',
-    message: `"${garment.name}" pointed at image data stored in another browser profile — the pointer was dropped and the piece keeps its inline images.`,
-  })
+  if (hasRef) {
+    delete cleaned.croppedImageRef
+    delete cleaned.cutoutImageRef
+    issues.push({
+      scope: 'garment',
+      severity: 'warning',
+      code: 'foreign-blob-ref',
+      message: `"${garment.name}" pointed at image data stored in another browser profile — the pointer was dropped and the piece keeps its inline images.`,
+    })
+  }
+  for (const field of deadUrls) {
+    // Required-by-type fields are blanked rather than deleted; the display chain
+    // skips empty strings exactly as it skips absent ones.
+    if (field === 'displayImageUrl' || field === 'originalImageUrl') {
+      cleaned[field] = ''
+    } else {
+      delete cleaned[field]
+    }
+  }
+  if (deadUrls.length > 0) {
+    issues.push({
+      scope: 'garment',
+      severity: 'warning',
+      code: 'process-local-url',
+      message: `"${garment.name}" carried ${deadUrls.length} temporary image link${
+        deadUrls.length === 1 ? '' : 's'
+      } from the exporting browser session — dropped, so the piece falls back to its stored image.`,
+    })
+  }
   return { ...garment, asset: cleaned }
 }
 
@@ -213,7 +259,7 @@ export function reviewArchiveImport(raw: unknown): ArchiveImportReview {
       return
     }
     garmentIds.add(garment.id)
-    garments.push(stripForeignBlobRefs(garment, issues))
+    garments.push(sanitizeImportedAsset(garment, issues))
   })
 
   // --- Saved outfits --------------------------------------------------------

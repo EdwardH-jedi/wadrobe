@@ -1,0 +1,167 @@
+{
+  "kind": "fit-archive.archive",
+  "schemaVersion": 1,
+  "assetEncoding": "inline-data-url",
+  "exportedAt": 1753577000000,
+  "garments": [
+    {
+      "id": "grm-full-outerwear",
+      "name": "Charcoal Bomber",
+      "brand": "Unbranded",
+      "category": "outerwear",
+      "color": "Charcoal",
+      "colorHex": "#2b2b2e",
+      "styleTags": ["street", "layering", "archive"],
+      "notes": "Bought at the Shibuya vintage fair. Cuff is fraying slightly.",
+      "material": "Nylon",
+      "size": "M",
+      "price": 340,
+      "currency": "USD",
+      "subtype": "bomber",
+      "purchasedAt": 1690000000000,
+      "retailer": "Berg & Sons",
+      "analysisConfidence": 0.82,
+      "analysisSource": "mock",
+      "userEdited": true,
+      "marketValueHistory": [
+        { "id": "mv-1", "at": 1700000000000, "value": 300, "currency": "USD" },
+        { "id": "mv-2", "at": 1740000000000, "value": 365, "currency": "USD" },
+        { "id": "mv-3", "at": 1753000000000, "value": 410 }
+      ],
+      "imageDataUrl": "data:image/webp;base64,UklGRi4AAABXRUJQVlA4TCEAAAAvAAAAAAfQ//73v/+BiOh/AAA=",
+      "asset": {
+        "originalImageUrl": "data:image/webp;base64,UklGRi4AAABXRUJQVlA4TCEAAAAvAAAAAAfQ//73v/+BiOh/AAA=",
+        "displayImageUrl": "data:image/webp;base64,Y3V0b3V0LWJ5dGVz",
+        "thumbnailImageUrl": "data:image/webp;base64,dGh1bWItYnl0ZXM=",
+        "croppedImageUrl": "data:image/jpeg;base64,Y3JvcC1ieXRlcw==",
+        "cutoutImageUrl": "data:image/webp;base64,Y3V0b3V0LWJ5dGVz",
+        "productReferenceImageUrl": "https://example.invalid/reference/bomber.jpg",
+        "sourceUrl": "https://example.invalid/product/bomber",
+        "sourceLabel": "Vintage racing jacket reference",
+        "assetMode": "cutout"
+      },
+      "proxy3dPreview": {
+        "jobId": "job-9f2c41",
+        "generatedAt": 1752000000000,
+        "mode": "dual-sided",
+        "method": "extruded-alpha-contour-dual",
+        "frontAlphaMaskUsed": true,
+        "backAlphaMaskUsed": true,
+        "vertexCount": 4820,
+        "faceCount": 9216,
+        "limitations": "Proxy preview only: a textured, lightly extruded silhouette card. Not real try-on, garment reconstruction, or fit estimation."
+      },
+      "createdAt": 1690000000000,
+      "updatedAt": 1753100000000
+    },
+    {
+      "id": "grm-full-top",
+      "name": "Ribbed Knit",
+      "brand": "Maison Fleur",
+      "category": "top",
+      "color": "Bone",
+      "colorHex": "#e8e1d5",
+      "styleTags": ["minimal"],
+      "notes": "",
+      "material": "Merino wool",
+      "size": "S",
+      "price": 129.99,
+      "currency": "EUR",
+      "subtype": "crewneck",
+      "purchasedAt": 1710000000000,
+      "retailer": "Maison Fleur Paris",
+      "analysisConfidence": 0.41,
+      "analysisSource": "vision-api",
+      "userEdited": false,
+      "marketValueHistory": [],
+      "imageDataUrl": "data:image/webp;base64,UklGRi4AAABXRUJQVlA4TCEAAAAvAAAAAAfQ//73v/+BiOh/AAA=",
+      "asset": {
+        "originalImageUrl": "data:image/webp;base64,UklGRi4AAABXRUJQVlA4TCEAAAAvAAAAAAfQ//73v/+BiOh/AAA=",
+        "displayImageUrl": "https://example.invalid/reference/knit.jpg",
+        "productReferenceImageUrl": "https://example.invalid/reference/knit.jpg",
+        "cutoutImageUrl": "data:image/webp;base64,Y3V0b3V0LWJ5dGVz",
+        "sourceUrl": "https://example.invalid/product/knit",
+        "sourceLabel": "Product page reference",
+        "assetMode": "product-reference"
+      },
+      "createdAt": 1710000000000,
+      "updatedAt": 1710000000000
+    },
+    {
+      "id": "grm-full-pants",
+      "name": "Selvedge Denim",
+      "category": "pants",
+      "color": "Indigo",
+      "colorHex": "#26364f",
+      "styleTags": ["denim", "workwear"],
+      "imageDataUrl": "data:image/webp;base64,UklGRi4AAABXRUJQVlA4TCEAAAAvAAAAAAfQ//73v/+BiOh/AAA=",
+      "asset": {
+        "originalImageUrl": "data:image/webp;base64,UklGRi4AAABXRUJQVlA4TCEAAAAvAAAAAAfQ//73v/+BiOh/AAA=",
+        "displayImageUrl": "data:image/jpeg;base64,Y3JvcC1ieXRlcw==",
+        "croppedImageUrl": "data:image/jpeg;base64,Y3JvcC1ieXRlcw==",
+        "assetMode": "cropped"
+      },
+      "createdAt": 1720000000000,
+      "updatedAt": 1720000000000
+    },
+    {
+      "id": "grm-full-shoes",
+      "name": "Leather Derbies",
+      "category": "shoes",
+      "color": "Oxblood",
+      "colorHex": "#5c2028",
+      "styleTags": ["formal"],
+      "imageDataUrl": "data:image/webp;base64,UklGRi4AAABXRUJQVlA4TCEAAAAvAAAAAAfQ//73v/+BiOh/AAA=",
+      "createdAt": 1730000000000,
+      "updatedAt": 1730000000000
+    },
+    {
+      "id": "grm-full-accessory",
+      "name": "Steel Watch",
+      "category": "accessory",
+      "color": "Silver",
+      "colorHex": "#c7ccd1",
+      "styleTags": ["metal", "heirloom"],
+      "price": 0,
+      "currency": "GBP",
+      "imageDataUrl": "data:image/webp;base64,UklGRi4AAABXRUJQVlA4TCEAAAAvAAAAAAfQ//73v/+BiOh/AAA=",
+      "createdAt": 1740000000000,
+      "updatedAt": 1740000000000
+    }
+  ],
+  "savedOutfits": [
+    {
+      "id": "look-full-1",
+      "name": "Cold Open",
+      "selection": {
+        "outerwear": "grm-full-outerwear",
+        "top": "grm-full-top",
+        "pants": "grm-full-pants",
+        "shoes": "grm-full-shoes",
+        "accessory": "grm-full-accessory"
+      },
+      "createdAt": 1753200000000,
+      "coverHex": "#2b2b2e"
+    },
+    {
+      "id": "look-full-2",
+      "name": "Off Duty",
+      "selection": {
+        "outerwear": null,
+        "top": "grm-full-top",
+        "pants": "grm-full-pants",
+        "shoes": null,
+        "accessory": null
+      },
+      "createdAt": 1753300000000,
+      "coverHex": "#e8e1d5"
+    }
+  ],
+  "currentOutfit": {
+    "outerwear": "grm-full-outerwear",
+    "top": "grm-full-top",
+    "pants": null,
+    "shoes": "grm-full-shoes",
+    "accessory": null
+  }
+}

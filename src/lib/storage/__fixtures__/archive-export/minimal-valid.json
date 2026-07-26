@@ -1,0 +1,17 @@
+{
+  "kind": "fit-archive.archive",
+  "schemaVersion": 1,
+  "garments": [
+    {
+      "id": "grm-minimal-1",
+      "name": "Grey Tee",
+      "category": "top",
+      "color": "Grey",
+      "colorHex": "#8b8b90",
+      "styleTags": [],
+      "imageDataUrl": "data:image/webp;base64,UklGRi4AAABXRUJQVlA4TCEAAAAvAAAAAAfQ//73v/+BiOh/AAA=",
+      "createdAt": 1753500000000,
+      "updatedAt": 1753500000000
+    }
+  ]
+}

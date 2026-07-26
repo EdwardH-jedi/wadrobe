@@ -1,0 +1,18 @@
+{
+  "kind": "some-other-app.backup",
+  "schemaVersion": 1,
+  "exportedAt": 1753577000000,
+  "garments": [
+    {
+      "id": "grm-1",
+      "name": "Looks Like A Garment",
+      "category": "top",
+      "color": "Bone",
+      "colorHex": "#e8e1d5",
+      "styleTags": [],
+      "imageDataUrl": "data:image/webp;base64,dGh1bWJuYWlsLWJ5dGVz",
+      "createdAt": 1750000000000,
+      "updatedAt": 1750000000000
+    }
+  ]
+}

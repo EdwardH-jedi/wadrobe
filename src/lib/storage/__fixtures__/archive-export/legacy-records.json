@@ -1,0 +1,70 @@
+{
+  "kind": "fit-archive.archive",
+  "schemaVersion": 1,
+  "assetEncoding": "inline-data-url",
+  "exportedAt": 1753577000000,
+  "garments": [
+    {
+      "id": "grm-legacy-1",
+      "name": "Sample Overcoat",
+      "category": "outerwear",
+      "color": "Charcoal",
+      "colorHex": "#2b2b2e",
+      "styleTags": ["sample"],
+      "imageDataUrl": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2010%2010%22%3E%3Crect%20width%3D%2210%22%20height%3D%2210%22%20fill%3D%22%232b2b2e%22%2F%3E%3C%2Fsvg%3E",
+      "createdAt": 1650000000000,
+      "updatedAt": 1650000000000
+    },
+    {
+      "id": "grm-legacy-2",
+      "name": "Sample Tee",
+      "brand": "House",
+      "category": "top",
+      "color": "Bone",
+      "colorHex": "#e8e1d5",
+      "styleTags": [],
+      "notes": "Pre-asset-pipeline record: no asset bundle at all.",
+      "imageDataUrl": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2010%2010%22%3E%3Crect%20width%3D%2210%22%20height%3D%2210%22%20fill%3D%22%23e8e1d5%22%2F%3E%3C%2Fsvg%3E",
+      "createdAt": 1650000100000,
+      "updatedAt": 1650000100000
+    },
+    {
+      "id": "grm-legacy-3",
+      "name": "Early Asset Piece",
+      "category": "pants",
+      "color": "Indigo",
+      "colorHex": "#26364f",
+      "styleTags": ["denim"],
+      "imageDataUrl": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2010%2010%22%3E%3Crect%20width%3D%2210%22%20height%3D%2210%22%20fill%3D%22%2326364f%22%2F%3E%3C%2Fsvg%3E",
+      "asset": {
+        "originalImageUrl": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2010%2010%22%3E%3Crect%20width%3D%2210%22%20height%3D%2210%22%20fill%3D%22%2326364f%22%2F%3E%3C%2Fsvg%3E",
+        "displayImageUrl": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2010%2010%22%3E%3Crect%20width%3D%2210%22%20height%3D%2210%22%20fill%3D%22%2326364f%22%2F%3E%3C%2Fsvg%3E",
+        "assetMode": "uploaded"
+      },
+      "createdAt": 1660000000000,
+      "updatedAt": 1660000000000
+    }
+  ],
+  "savedOutfits": [
+    {
+      "id": "look-legacy-1",
+      "name": "First Look",
+      "selection": {
+        "outerwear": "grm-legacy-1",
+        "top": "grm-legacy-2",
+        "pants": "grm-legacy-3",
+        "shoes": null,
+        "accessory": null
+      },
+      "createdAt": 1660000200000,
+      "coverHex": "#2b2b2e"
+    }
+  ],
+  "currentOutfit": {
+    "outerwear": null,
+    "top": "grm-legacy-2",
+    "pants": null,
+    "shoes": null,
+    "accessory": null
+  }
+}

@@ -175,6 +175,11 @@ piece.
 to the next image source. A file full of `blob:` links is a file full of dead
 links.
 
+A consumer that encounters one anyway **MUST** discard that url — falling
+through to the next source in the §6.3.1 chain — keep the garment, and report it
+as a *warning* (`process-local-url`). Persisting a `blob:` url from another
+browser session would render as a permanently broken image.
+
 ### 5.4 Size expectations
 
 `imageDataUrl` is always a **downscaled thumbnail**; full-resolution originals
@@ -433,6 +438,7 @@ human-readable message:
 | `invalid-shape` | garment / saved-outfit / current-outfit | dropped (warning for current-outfit) | Required fields missing or wrong-typed. |
 | `duplicate-id` | garment / saved-outfit | dropped | Id repeated within the document; first wins. |
 | `foreign-blob-ref` | garment | warning | A blob pointer from another profile was stripped (§5.2). |
+| `process-local-url` | garment | warning | A `blob:` url from the exporting session was stripped (§5.3). |
 | `unknown-garment-reference` | saved-outfit / current-outfit | warning | Slot names a garment the document does not contain. |
 
 A reader **MAY** define additional codes; a reader **MUST NOT** repurpose these.
@@ -455,6 +461,7 @@ This table is the normative summary of §6–§7. When in doubt, this is the ans
 | Malformed element inside `marketValueHistory` | **Drop that element**, keep the rest |
 | `marketValueHistory` not an array | **Drop field**, keep garment |
 | Blob ref present in a document | **Strip ref**, keep garment, warn |
+| `blob:` url present in a document | **Strip that url**, keep garment, warn |
 | Outfit slot names an unknown/mismatched garment | **Clear that slot**, keep outfit, warn |
 | Unknown key anywhere | **Ignore** (§8.4) |
 
@@ -638,6 +645,7 @@ A decoder is conforming when it:
 - [ ] Filters `marketValueHistory` element-wise rather than discarding the array.
 - [ ] Keeps the **first** record on a duplicate id.
 - [ ] Strips any blob ref it encounters and warns.
+- [ ] Strips any `blob:` url it encounters and warns.
 - [ ] Normalizes every `OutfitSelection` to five keys, clearing unknown and category-mismatched ids at commit.
 - [ ] Reports every drop and warning with a stable code (§8.2).
 - [ ] Defaults to `merge`, with existing-wins on id collision, leaving `currentOutfit` alone.

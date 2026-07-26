@@ -1,0 +1,41 @@
+{
+  "kind": "fit-archive.archive",
+  "schemaVersion": 1,
+  "assetEncoding": "inline-data-url",
+  "exportedAt": 1753577000000,
+  "garments": [
+    {
+      "id": "grm-survives-1",
+      "name": "Import Me Anyway",
+      "category": "top",
+      "color": "Bone",
+      "colorHex": "#e8e1d5",
+      "styleTags": [],
+      "imageDataUrl": "data:image/webp;base64,dGh1bWJuYWlsLWJ5dGVz",
+      "createdAt": 1750000000000,
+      "updatedAt": 1750000000000
+    }
+  ],
+  "savedOutfits": {
+    "look-ok": {
+      "id": "look-ok",
+      "name": "Keyed By Id Instead Of Listed",
+      "selection": {
+        "outerwear": null,
+        "top": "grm-survives-1",
+        "pants": null,
+        "shoes": null,
+        "accessory": null
+      },
+      "createdAt": 1753200000000,
+      "coverHex": "#e8e1d5"
+    }
+  },
+  "currentOutfit": {
+    "outerwear": null,
+    "top": "grm-survives-1",
+    "pants": null,
+    "shoes": null,
+    "accessory": null
+  }
+}

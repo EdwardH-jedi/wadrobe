@@ -1,0 +1,5 @@
+{
+  "kind": "fit-archive.archive",
+  "schemaVersion": 1,
+  "garments": [
+    { "id": "grm-1", "name": "Truncated export — the writer died mid-file",
