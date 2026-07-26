@@ -6,9 +6,15 @@ curated closet, style a tall faceless **2.5D** mannequin / mirror preview, run a
 Fit Check, and save looks to an editorial board — all persisted locally, in a
 dark editorial UI.
 
-It does **not** (yet) perform real AI product recognition, real 3D virtual
-try-on, cloth simulation, backend sync, auth, or cloud storage. Phase numbering
-here matches `PLAN.md`.
+It does **not** perform real 3D virtual try-on, cloth simulation, body fitting,
+accounts, auth, or cloud sync — and by default it makes no network calls at all.
+Two optional layers exist beside the closet: off-by-default serverless functions
+in `api/` (including an env-gated vision analyzer), and a local-only FastAPI
+service in `backend/` that generates explicitly-labeled **proxy** 3D GLBs. The
+second is Track B and is documented in `docs/AVATAR_TRACK.md`, not here.
+
+Phase numbering below matches the original build plan (`PLAN.md` has since moved
+on to a separate purchase-accuracy plan).
 
 ## Delivered phases
 
@@ -70,35 +76,65 @@ recognition, or 3D; cutout **quality varies** with the photo background; it is
 skippable. `displayImageUrl` + `assetMode` hold the latest intentional choice, so
 a stored cutout never shadows a chosen product reference.
 
+### Phases 11–12.5 — Asset storage & consistency hardening ✅
+Storage-only, no visible product change. Phase 11 moved new uploads' heavy
+cropped/cutout images into an IndexedDB **Blob** store
+(`lib/storage/assetBlobStore.ts`), leaving refs + the thumbnail in metadata and
+resolving the display blob at hydration (precedence preserved, legacy garments
+untouched, data-URL fallback when IDB is absent). Phase 12 added a conservative,
+**fail-closed orphan-blob sweep** over a single owned-keys source. Phase 12.5
+hardened it for multiple tabs with a **blob-age gate** (timestamped keys) and an
+explicit `ok`/`unavailable` metadata-read status.
+
+### Phases 3–4 (current `PLAN.md`) — Purchase accuracy & the optional vision seam ✅
+The current plan shifted the accuracy source from the photo to the purchase:
+product-URL prefill through the `api/product-meta` function, and a **real vision
+classifier** behind `api/analyze` that is **env-gated and off by default**
+(`VITE_ANALYZER=vision` + `VITE_API_BASE`). When it is on, the scan copy states
+plainly that the photo is sent to a server, and the guess is still a non-binding
+draft the user confirms. With the env unset, nothing leaves the device.
+
+## Track B — Avatar Lab (separate, additive track)
+
+The optional local FastAPI service in `backend/` and the Proxy 3D Lab view are
+**not** part of the roadmap above. They ship an honest **proxy**: a textured
+extruded silhouette GLB, a procedural faceless mannequin, and bounding-box
+outfit alignment — no reconstruction, no fitting, no simulation. Scope, phase
+status, and the wording rules live in `docs/AVATAR_TRACK.md`.
+
 ## Future phases — NOT yet built (do not imply these exist)
 
-### Future — Higher-quality cutout + storage hardening
+### Future — Higher-quality cutout
 Upgrade cutout quality with an on-device **WASM/ML segmentation** model dropped
 into the existing `CutoutDeps` adapter (kept optional/lazy so startup never
-depends on it). Plus **full-resolution image Blobs** in a dedicated IndexedDB
-object store (thumbnails stay in metadata records) and smarter dominant-color /
-palette extraction. The current Phase-10 cutout is a classic flood fill — real,
-but limited to clean flat-lay backgrounds; ML segmentation is the quality path.
+depends on it). The current Phase-10 cutout is a classic flood fill — real, but
+limited to clean flat-lay backgrounds; ML segmentation is the quality path.
+Still open alongside it: **full-resolution image Blobs** (today only the
+downscaled thumbnail is kept) and smarter dominant-color / palette extraction.
 
-### Future — Real Vision API / product recognition
-Replace `mockGarmentAnalysis` with a real `GarmentAnalyzer` (e.g. Anthropic Claude
-vision, Google Cloud Vision, or a hosted model): real category/color/material and
-brand/logo recognition, optional candidate search. The "user confirms before
-save" step stays; the UI contract (`GarmentAnalysisGuess`) is stable. See
-`docs/AI_IMAGE_PIPELINE.md`. Requires explicit user consent before any photo
-leaves the device, plus a local-only fallback.
+### Future — Real product *recognition*
+The vision seam is wired (see above) and an optional `api/candidate-search`
+function can query eBay's Browse API for **reference candidates** when
+server-side keys are configured — but neither recognizes a specific product.
+Nothing is auto-matched: candidates are suggestions the user confirms, and with
+the keys unset the flow stays on local demo candidates. Brand/logo
+identification and a verified product match remain unbuilt. See
+`docs/AI_IMAGE_PIPELINE.md`.
 
 ### Future — Three.js / React Three Fiber room
 Replace the CSS studio scene with a real 3D showroom (R3F): lit room, physical
 materials (walnut, chrome, concrete), camera moves between zones; a 3D/GLB
 mannequin with garment textures on body regions. The domain + state layers are
-renderer-agnostic, so this is a presentation swap, not a rewrite.
+renderer-agnostic, so this is a presentation swap, not a rewrite. `three` is
+already a dependency for Track B's GLB viewer, but it is deliberately confined
+to a dynamic import there — the studio scene today is still plain CSS.
 
 ### Future — Virtual try-on research / prototype
 Research genuine garment-on-body rendering (pose estimation, cloth warping, or
 diffusion-based try-on) behind a clearly-labeled experimental flag. Describe it
-as "real try-on" **only once it actually is** — until then the app remains an
-explicit 2.5D styling composition.
+as "real try-on" **only once it actually is** — until then the closet preview
+remains an explicit 2.5D styling composition and Track B's output remains an
+explicit proxy.
 
 ## Cross-cutting (any phase)
 

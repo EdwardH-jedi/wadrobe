@@ -8,8 +8,15 @@ This document explains how the MVP base is put together and where to extend it.
 - **Plain CSS** with design tokens (`src/styles/`). No CSS-in-JS, no utility
   framework.
 - **Vitest + Testing Library + jsdom** for tests. **ESLint 9** (flat config).
-- No runtime dependencies beyond `react` / `react-dom`. (Editorial fonts load
-  progressively from Google Fonts with a system fallback; the app works offline.)
+- Runtime dependencies: `react`, `react-dom`, and `three`. `three` exists only
+  for Track B's Proxy 3D Lab GLB viewer and is reached through a **dynamic
+  import inside that component**, so the closet app's bundle and startup never
+  pay for it — keep it that way. (Editorial fonts load progressively from Google
+  Fonts with a system fallback; the app works offline.)
+- This document covers the **closet layer** (Track A). The optional serverless
+  functions in `api/` are off unless `VITE_API_BASE` is configured, and the
+  local-only FastAPI service in `backend/` is a separate track documented in
+  `docs/AVATAR_TRACK.md`. Neither is a dependency of anything below.
 
 ## Layering
 
@@ -261,7 +268,9 @@ adds a caption beneath the glass — selected category chips, a layer count, a
 rather than reading as decorative glass.
 
 This is intentionally **2.5D**. It is not, and is never described as, real 3D
-try-on, cloth simulation, or accurate body fitting.
+try-on, cloth simulation, or accurate body fitting. The GLB rendering that does
+exist lives entirely in Track B's Proxy 3D Lab (`src/components/avatar/`) and is
+labeled a **proxy** there; it does not feed this preview.
 
 ## Future extension points
 
@@ -286,4 +295,7 @@ try-on, cloth simulation, or accurate body fitting.
   downscaled thumbnail is kept), and an ML/WASM cutout that writes through the
   same store.
 - **3D room** — replace `StudioScene` / `MannequinPreview` with an R3F scene;
-  the domain + state layers are renderer-agnostic.
+  the domain + state layers are renderer-agnostic. Not built: the studio scene
+  is still CSS. `three` is already a dependency (for Track B's GLB viewer), so
+  this would not add one — but it would move `three` onto Track A's startup
+  path, which is exactly what the dynamic-import rule currently prevents.

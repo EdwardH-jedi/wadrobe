@@ -10,22 +10,31 @@ first. User instructions always take precedence over this file.
 AvatarWardrobe contains two explicitly separated tracks:
 
 - **Track A — Fit Archive closet layer (BUILT).** Everything described in the
-  rest of this file: the local-first 2.5D fashion archive (Vite + React, no
-  backend). Phases 1–12.5 are complete per `PLAN.md`.
-- **Track B — Avatar Lab (B2–B3.9 done).** A user-authorized, additive track
-  toward an optional FastAPI job backend + 3D/GLB avatar try-on pipeline. As
-  of 2026-06-10: **B2** — a backend spike in `backend/` (FastAPI, local-only,
-  pytest-covered) that turns a PNG into an honest **proxy 3D** GLB (a
-  textured, lightly extruded silhouette card, explicitly NOT real try-on);
-  **B3–B3.8** — an additive frontend "Proxy 3D Lab" view (`'lab'` in
-  `views.ts`, `src/components/avatar/`) with per-side cutout-first flows,
-  dual-sided front/back generation, cutout tuning, and manual back
+  rest of this file: the local-first 2.5D fashion archive (Vite + React; no
+  always-on server, and no network calls unless the operator configures the
+  optional `api/` layer — see §3). Phases 1–12.5 of the original build plan
+  are complete; the current `PLAN.md` (purchase-accuracy plan, Phases 1–5) is
+  also complete.
+- **Track B — Avatar Lab (B2–B3.9 done; B4a/B4b/B5 backend done).** A
+  user-authorized, additive track toward an optional FastAPI job backend +
+  3D/GLB proxy avatar pipeline. **B2** — a backend spike in `backend/`
+  (FastAPI, local-only, pytest-covered) that turns a PNG into an honest
+  **proxy 3D** GLB (a textured, lightly extruded silhouette card, explicitly
+  NOT real try-on); **B3–B3.8** — an additive frontend "Proxy 3D Lab" view
+  (`'lab'` in `views.ts`, `src/components/avatar/`) with per-side cutout-first
+  flows, dual-sided front/back generation, cutout tuning, and manual back
   alignment; **B3.9** — the closet bridge: `GarmentItem.proxy3dPreview?`
   (optional, parser-tolerant, metadata-only — NO blob-store bytes, so it is
   intentionally NOT in `garmentBlobKeys`) links a piece to its generated
-  preview. `three` is a dependency but is loaded ONLY via dynamic import
-  inside the lab's GLB viewer — Track A's bundle and startup are unaffected;
-  keep it that way. See `docs/AVATAR_TRACK.md`.
+  preview; **B4a/B4b/B5 (backend only)** — the async jobs API
+  (`app/jobs.py`, `POST /api/jobs` → status → `result.glb`) over the five
+  pipeline `Protocol`s in `app/pipeline/`, whose default runner is a
+  procedural `trimesh` mannequin + a pass-through texture projector + a
+  bounding-box outfit fitter. The frontend still calls only `/api/proxy-3d`;
+  wiring the lab to `/api/jobs` is the open B5 step. `three` is a runtime
+  dependency but is loaded ONLY via dynamic import inside the lab's GLB
+  viewer — Track A's bundle and startup are unaffected; keep it that way.
+  See `docs/AVATAR_TRACK.md`.
 
 Track B may add a backend and 3D dependencies **inside its own explicitly
 started phases only** (see `docs/AVATAR_TRACK.md`); until then, every "What
@@ -145,8 +154,21 @@ npm test           # vitest run
 npm run build      # tsc --noEmit && vite build
 ```
 
+Track B backend (local only; needed when a change touches `backend/`):
+
+```bash
+cd backend
+python -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m pytest -q
+```
+
+Both suites run in CI on every push and pull request
+(`.github/workflows/ci.yml`: a Node 20 frontend job and a Python 3.12 backend
+job). Keep them green.
+
 Before claiming work is done, run typecheck + test + build and report real
-output. Tests (100+) cover the domain (reducer, fit-check, outfit/draft helpers),
+output. The frontend suite (433 tests) covers the domain (reducer, fit-check,
+outfit/draft helpers),
 the storage adapters + facade, the upload-flow reducer + copy honesty, the
 provider (incl. reload/persistence + delete-keeps-garments), and component
 behavior (mannequin zones, mirror caption, saved cards, required-name, a full
@@ -182,7 +204,10 @@ canvas (decode validation is tested via a stubbed `Image`).
 
 ## 8. Roadmap (summary)
 
-See `docs/ROADMAP.md` for detail. Phase numbers match `PLAN.md`.
+See `docs/ROADMAP.md` for detail. The phase numbers below are the original
+build plan's; the current `PLAN.md` runs a separate purchase-accuracy plan
+(Phases 1–5, complete) that added product-URL prefill and the env-gated vision
+analyzer.
 
 - **Phases 1–12 (done):** core data flow → clothes central → upload ritual →
   mannequin/mirror preview → saved board → architecture/docs hardening → Codex
@@ -196,13 +221,18 @@ See `docs/ROADMAP.md` for detail. Phase numbers match `PLAN.md`.
   status).
 - **Future (NOT built — do not imply these exist):** ML/WASM segmentation for
   higher-quality cutouts (the `CutoutDeps` + `assetBlobStore` seams are ready),
-  real Vision API / product recognition, Three.js / R3F room, virtual try-on
+  real product *recognition* (the vision classifier and the optional eBay
+  candidate search are wired, but neither identifies a specific product), a
+  Three.js / R3F **studio room** (the scene is still CSS), virtual try-on
   research.
-- **Track B — Avatar Lab (B2–B3 done):** optional FastAPI backend + 3D/GLB
-  proxy viewer, a separate additive track. B2 (PNG → proxy-3D GLB spike,
-  `backend/`) and B3 (frontend Proxy 3D Lab view + lazy three.js GLB viewer)
-  are implemented; pipeline interfaces, `/api/jobs`, and avatar composition
-  are not. Scope and phases live in `docs/AVATAR_TRACK.md`, not here.
+- **Track B — Avatar Lab (B2–B3.9 + B4/B5 backend done):** optional local
+  FastAPI backend + 3D/GLB **proxy** viewer, a separate additive track. Built:
+  the PNG → proxy-3D GLB spike (`backend/`), the frontend Proxy 3D Lab view +
+  lazy three.js GLB viewer + closet bridge, and — backend-side — the five
+  pipeline interfaces, the async `/api/jobs` API, a procedural mannequin
+  builder, and a bounding-box outfit fitter. NOT built: the frontend wiring
+  from the lab to `/api/jobs`, and B6. Scope and phases live in
+  `docs/AVATAR_TRACK.md`, not here.
 
 Extension points are documented inline in `mockGarmentAnalysis.ts`,
 `indexedDbStorage.ts`, `MannequinPreview.tsx`, and `lib/image/garmentCutout.ts`,
@@ -218,8 +248,9 @@ src/
     closet/       ClosetPanel, GarmentCard, GarmentFilmstrip, CategoryTabs,
                   UploadGarmentModal, GarmentEditor
     outfit/       OutfitInspector, OutfitBuilder, SavedOutfitCard, FitCheck
-    avatar/       Proxy3DLab, GlbViewer, proxy3dFlow, proxy3dApi (Track B3;
-                  three.js via dynamic import only)
+    avatar/       Proxy3DLab, GlbViewer, proxy3dFlow, proxy3dApi,
+                  proxy3dCutout, proxy3dBridge (Track B3.x; three.js via
+                  dynamic import only)
     studio/       ArchiveStudio, StudioScene, SidebarNav, RoomZone,
                   ClothingRack, MirrorPreview, MannequinPreview, OutfitWallBoard
   domain/         garmentTypes, outfitTypes, archiveTypes, garmentTaxonomy,
@@ -228,10 +259,15 @@ src/
   data/           seedGarments (procedural SVG sample set)
   styles/         globals.css, archive-theme.css
   test/           setup, factories
-docs/             ARCHITECTURE, ROADMAP, AI_IMAGE_PIPELINE, QA_CHECKLIST,
-                  CODEX_REVIEW, AVATAR_TRACK
-backend/          Track B spike (FastAPI): app/ (main, config, storage,
-                  proxy3d pipeline + meshbuild), tests/ (pytest), scripts/
+docs/             ARCHITECTURE, ROADMAP, PROJECT_SCOPE, AI_IMAGE_PIPELINE,
+                  QA_CHECKLIST, CODEX_REVIEW, AVATAR_TRACK
+api/              OPTIONAL Vercel serverless functions, off unless configured:
+                  product-meta, analyze (vision), candidate-search (eBay)
+backend/          Track B (FastAPI, local only): app/ (main, config, storage,
+                  jobs, proxy3d/ pipeline + meshbuild, pipeline/ interfaces +
+                  dummy + runner + mannequin + fitter), tests/ (pytest),
+                  scripts/
+.github/workflows CI: ci.yml (frontend Node 20 + backend Python 3.12)
 .claude/skills/   product-vision, ui-style-guide, testing-harness,
                   ai-image-pipeline
 ```

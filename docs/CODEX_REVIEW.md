@@ -1,7 +1,7 @@
 # Codex Review — The Archive (Fit Archive)
 
-Handoff for external (Codex) review. **Phase 7 will refine this**; today it is a
-useful working baseline.
+Handoff for external (Codex) review. Refined in Phase 7 and kept current since;
+it is the working baseline for an outside pass over the repo.
 
 ## Project summary
 
@@ -10,10 +10,26 @@ TypeScript strict, plain CSS, Vitest). A user uploads real clothing photos; the
 app archives each as an "Archive Piece" with a **local demo** classification the
 user confirms, then browses a closet, styles a tall faceless **2.5D** mannequin /
 mirror preview, runs a deterministic Fit Check, and saves looks to an editorial
-board. Everything persists **locally** (IndexedDB → localStorage → memory). There
-is **no backend, no real AI, no real 3D**.
+board. Everything persists **locally** (IndexedDB → localStorage → memory), and
+with no env configured the closet layer makes **no network calls**.
 
-Source of truth for scope/phases: `PLAN.md`. Architecture: `docs/ARCHITECTURE.md`.
+Two optional layers exist beside it and should be reviewed as such:
+
+- `api/` — off-by-default Vercel serverless functions (`product-meta`,
+  `analyze`, `candidate-search`). Reached only when `VITE_API_BASE` is set (and
+  `VITE_ANALYZER=vision` for the vision analyzer, whose scan copy says the photo
+  is sent to a server).
+- `backend/` — a local-only FastAPI service (Track B, `docs/AVATAR_TRACK.md`):
+  `/api/proxy-3d` (PNG → proxy-3D GLB) and `/api/jobs` (async proxy-avatar
+  pipeline). `three` is a real runtime dependency, dynamic-imported only inside
+  the Proxy 3D Lab's GLB viewer.
+
+So the accurate framing is: **no real AI by default, no real 3D try-on ever** —
+but there *is* a local backend and there *is* GLB rendering, both explicitly
+proxy-labeled.
+
+Source of truth for scope/phases: `PLAN.md` (Track A), `docs/AVATAR_TRACK.md`
+(Track B). Architecture: `docs/ARCHITECTURE.md`.
 
 ## Implemented phases (all green)
 
@@ -47,6 +63,13 @@ Source of truth for scope/phases: `PLAN.md`. Architecture: `docs/ARCHITECTURE.md
   a blob-age gate (timestamped keys; recent blobs are kept so a sibling tab's
   in-flight write isn't swept) and an explicit `ok`/`unavailable` metadata-read
   status (a failed read skips the sweep). Still storage-only.
+- **Track B (additive, `docs/AVATAR_TRACK.md`)** — B2: the `backend/` FastAPI
+  spike (`/api/proxy-3d`, PNG → proxy-3D GLB). B3–B3.9: the frontend Proxy 3D
+  Lab view, dual-sided generation, cutout tuning, and the closet bridge
+  (`GarmentItem.proxy3dPreview`, metadata-only). B4a/B4b/B5 **backend only**:
+  the async `/api/jobs` API, the five pipeline `Protocol`s, a procedural
+  `trimesh` mannequin, and a bounding-box outfit fitter. The frontend job-flow
+  wiring for `/api/jobs` is **not** built — the lab still calls `/api/proxy-3d`.
 
 ## Expected MVP behavior
 
@@ -59,23 +82,39 @@ are kept) → reload: all garments, the current outfit, and saved looks persist.
 
 ## Non-goals (by design — not bugs)
 
-No backend / auth / accounts / cloud sync. No real AI product recognition (the
-analyzer is a deterministic keyword mock). No real 3D virtual try-on / cloth
-simulation / body fitting (the preview is explicitly 2.5D). No heavy
-dependencies (runtime deps: `react` + `react-dom` only). **Background removal
-(Phase 10) is real but deliberately a local, classic edge flood fill — NOT ML
-segmentation, cloud AI, or product recognition** — opt-in, non-blocking, with
-honest "experimental / quality varies / local preview" copy.
+No auth / accounts / cloud sync. No real AI product recognition **by default**
+(the analyzer is a deterministic keyword mock; the vision provider is env-gated
+and off). No real 3D virtual try-on / cloth simulation / body fitting — the
+closet preview is explicitly 2.5D, and Track B's GLB output is an explicitly
+labeled **proxy** (extruded silhouette card; procedural mannequin with
+bounding-box outfit alignment; the texture projector is a pass-through that
+does not apply the face photo). Dependency ceiling still holds: runtime deps are
+`react`, `react-dom`, and `three` — `three` justified by, and confined to, the
+lab's GLB viewer via dynamic import. **Background removal (Phase 10) is real but
+deliberately a local, classic edge flood fill — NOT ML segmentation, cloud AI, or
+product recognition** — opt-in, non-blocking, with honest "experimental / quality
+varies / local preview" copy.
+
+The Track B backend is a **non-goal to treat as production**: local-only, no
+auth, no cloud, no paid APIs, in-memory job store, results on local disk.
 
 ## Commands
 
 ```bash
-npm install
+npm ci
 npm run typecheck   # tsc --noEmit (strict)
-npm test            # vitest run (100+ tests)
+npm test            # vitest run (433 tests)
 npm run lint        # eslint (flat config)
 npm run build       # tsc --noEmit && vite build
+
+# Track B backend (optional, local only)
+cd backend
+python -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m pytest -q                       # 65 tests
 ```
+
+Both suites also run in CI on every push and pull request
+(`.github/workflows/ci.yml`).
 
 ## High-risk areas to scrutinize
 
@@ -124,9 +163,14 @@ npm run build       # tsc --noEmit && vite build
 ## Copy-paste review prompt
 
 > Review the "The Archive" (Fit Archive) repo as an external reviewer. It is a
-> local-only fashion-archive MVP (React 18 + TS strict + Vite; no backend, no real
-> AI, no real 3D — the analyzer is a deterministic mock, the preview is 2.5D).
-> Read `PLAN.md` and `docs/ARCHITECTURE.md` first. Run `npm run typecheck`,
+> local-first fashion-archive MVP (React 18 + TS strict + Vite; the closet layer
+> makes no network calls unless env-configured, the analyzer is a deterministic
+> mock by default, and the styling preview is 2.5D — never real try-on). Two
+> optional layers sit beside it: off-by-default serverless functions in `api/`,
+> and a local-only FastAPI service in `backend/` (Track B) that produces
+> explicitly-labeled **proxy** 3D GLBs, rendered by a `three` viewer that is
+> dynamic-imported only inside the lab view.
+> Read `PLAN.md`, `docs/AVATAR_TRACK.md`, and `docs/ARCHITECTURE.md` first. Run `npm run typecheck`,
 > `npm test`, `npm run lint`, and `npm run build` and confirm they are green. Then
 > check: (1) the MVP flow (upload → demo scan → confirm → archive → select →
 > mannequin/mirror update → save → board → restore → delete-keeps-garments →

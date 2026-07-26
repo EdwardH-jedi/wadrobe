@@ -77,13 +77,20 @@ provider (Phase 4, env-gated) is the one exception: when explicitly enabled it
 sends the thumbnail to the backend and the scan copy says so. It still produces a
 non-binding draft the user confirms, and never fabricates a brand.
 
-## Product / reference matching (Phase 8 — mock/demo only)
+## Product / reference matching (Phase 8 — demo by default, optional real search)
 
-The upload flow has an optional **reference step** (`mockProductMatch` in
-`src/lib/productMatch/`). It returns local **demo reference candidates** from the
-draft's category/color/tags — it does **not** search the internet, recognize the
-product, scrape images, or return real source candidates. A manual-entry
-candidate is always offered first; the user confirms or edits everything.
+The upload flow has an optional **reference step**. By default it uses
+`mockProductMatch` (`src/lib/productMatch/`), which returns local **demo
+reference candidates** derived from the draft's category/color/tags — no
+network, no recognition. When server-side eBay keys (`EBAY_CLIENT_ID` /
+`EBAY_CLIENT_SECRET`, never `VITE_`-prefixed) are configured, the
+`api/candidate-search` function queries eBay's Browse API and returns real
+**reference candidates** (title/brand/image/link) instead; with the keys unset
+the endpoint reports "not configured" and the front end stays on the mock.
+
+Either way, nothing is auto-matched: no product is recognized or verified,
+nothing is stored on the user's behalf, a manual-entry candidate is always
+offered first, and the user confirms or edits everything.
 
 Each garment carries a **`GarmentAsset`** (`src/domain/garmentTypes.ts`):
 `originalImageUrl` (uploaded photo), `displayImageUrl` (what renders — via
@@ -104,9 +111,12 @@ object URL at hydration (keyed off `assetMode`, so precedence is preserved). A
 conservative, fail-closed **orphan sweep** (Phase 12, cross-tab-hardened in 12.5
 with a blob-age gate + explicit metadata-read status) reclaims blobs left by a
 failed save at next load while keeping recent (cross-tab) and legacy blobs. This
-is also the storage seam a future ML/WASM cutout would reuse. This `GarmentAsset` remains
-the **foundation** for future 3D/GLB assets and real product candidates — those are
-**not yet produced**.
+is also the storage seam a future ML/WASM cutout would reuse. This `GarmentAsset`
+remains the **foundation** for future 3D/GLB assets — a garment can already carry
+an optional `proxy3dPreview` link (Track B, B3.9), but that is metadata only
+(a job id + honest generation notes; the GLB stays in the local backend's job
+storage and is deliberately **not** in `garmentBlobKeys`). No garment-owned GLB
+asset is produced or stored by Track A today.
 
 ## Local background removal (Phase 10 — real, on-device, experimental)
 
@@ -155,12 +165,16 @@ File
   → mannequin layer mapping       (category → body zone, as today)
 ```
 
-A real provider could also offer **candidate product search** and **garment
-cutout generation** (segmentation → transparent PNG) feeding the body-zone
-mapping. Further out (beyond image analysis): a **3D / GLB mannequin in a React
-Three Fiber room** would replace the CSS studio scene (see `docs/ROADMAP.md`), and
-a research prototype could explore genuine virtual try-on. **None of this exists
-today, and the app never claims it does.**
+A real provider could also offer **garment cutout generation** (segmentation →
+transparent PNG) feeding the body-zone mapping. Further out (beyond image
+analysis): a **3D / GLB mannequin in a React Three Fiber room** would replace the
+CSS studio scene (see `docs/ROADMAP.md`), and a research prototype could explore
+genuine virtual try-on. **Neither exists today, and the app never claims they
+do.** What does exist is Track B's separate Proxy 3D Lab, which renders GLBs the
+local `backend/` service generates — an explicitly labeled **proxy** (extruded
+silhouette card, procedural faceless mannequin, bounding-box outfit alignment,
+pass-through texture projection). It is not part of this pipeline, does not touch
+the studio scene, and is not try-on. See `docs/AVATAR_TRACK.md`.
 
 ## How to add a real Vision API
 
