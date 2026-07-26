@@ -68,3 +68,41 @@ types:
    the code is brought into line in Phase 2/3.
 
 **Suite: 479 passed / 59 files** (documentation-only change, unchanged).
+
+---
+
+## Phases 2 & 3 — Export / Import ✅
+
+The exporter and importer landed in `e0fdaae`; this phase audited both against
+the spec and closed the gaps rather than rewriting working code.
+
+**Audit result — already correct, now covered by explicit tests:** chunked
+single-garment-at-a-time writing, blob refs resolved to base64 and dropped,
+`blob:` object URLs never written, `assetMode` display precedence preserved,
+per-entry validation through `storageTypes.ts`, `merge`/`replace` with
+existing-wins, drop reporting with stable codes.
+
+**Gap closed (finding 3 of Phase 1).** `sanitizeGarment` in `storageTypes.ts`
+now drops a malformed `asset` and wrong-typed `brand`/`notes`:
+
+- `asset` present but not a plain object (string, number, array, `null`) is
+  dropped; the garment survives and renders from `imageDataUrl`.
+- Fields *inside* a well-shaped `asset` are deliberately **not** pre-validated —
+  `getGarmentDisplayImage` already skips non-string urls and terminates at
+  `imageDataUrl`. Validation there is by use, not up front. The spec's §6.3 was
+  tightened to say this outright, since "required" in a field table reads as
+  "reject if absent" and that would be wrong here.
+- `brand` and `notes` joined the existing wrong-typed-string drop list.
+
+This is the storage validator, so the fix applies to both the import path and
+ordinary persisted reads — the two cannot drift, which is the property CLAUDE.md
+asks for.
+
+**Scale (Phase 2's explicit ask).** Three tests over a synthetic 400-garment
+archive: every piece exported with each blob-backed image resolved exactly once
+and no key leaked into the file; the writer emits exactly `SIZE + 2` chunks,
+proving it never buffers the garment list as one string; a full 400-piece export
+re-imports with zero drops; and with every blob missing, all 400 pieces still
+export against their thumbnails with an honest `unresolvedImageCount`.
+
+**Suite: 491 passed / 59 files** (+12). typecheck, lint clean.

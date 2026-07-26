@@ -256,6 +256,13 @@ Optional. Absent on pre-asset-pipeline ("legacy") garments, which render from
 | `croppedImageRef` | object | no | **MUST NOT appear in an export** — §5.2. |
 | `cutoutImageRef` | object | no | **MUST NOT appear in an export** — §5.2. |
 
+"Required within `asset`" is a **producer** obligation. A consumer **MUST NOT**
+drop the asset or the garment when one of the three is missing or wrong-typed:
+the render chain in §6.3.1 already skips any non-string url and terminates at
+`imageDataUrl`, and a missing `assetMode` is treated as `"uploaded"`. Validation
+inside a well-shaped `asset` object is therefore *by use*, not up front — only
+the object-ness of `asset` itself is checked.
+
 #### 6.3.1 Choosing which image to render
 
 A renderer **MUST** resolve a garment's picture by taking the first non-empty

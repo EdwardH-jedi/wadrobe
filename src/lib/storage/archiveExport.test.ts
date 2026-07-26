@@ -3,7 +3,7 @@ import { makeGarment } from '../../test/factories'
 import { createEmptyOutfit, type SavedOutfit } from '../../domain/outfitTypes'
 import type { GarmentItem } from '../../domain/garmentTypes'
 import { createMemoryBlobStore } from './assetBlobStore'
-import { readArchiveFileText } from './archiveImport'
+import { readArchiveFileText, reviewArchiveImportText } from './archiveImport'
 import { dataUrlToBlob } from './garmentAssetStorage'
 import {
   ARCHIVE_EXPORT_ASSET_ENCODING,
@@ -204,6 +204,96 @@ describe('blob-backed images are inlined as base64', () => {
     const { json, stats } = await collect(emptyInput([garment]))
     expect(JSON.parse(json).garments[0]).toEqual(garment)
     expect(stats.inlinedImageCount).toBe(0)
+  })
+})
+
+// Phase 2 of the export brief: a realistic archive, not a three-item toy.
+describe('a several-hundred-garment archive', () => {
+  const SIZE = 400
+
+  it('exports every piece, resolving each blob-backed image exactly once', async () => {
+    const store = createMemoryBlobStore(true)
+    const garments: GarmentItem[] = []
+    // Every third piece is blob-backed, so the run mixes resolve paths rather
+    // than exercising one of them 400 times.
+    for (let i = 0; i < SIZE; i += 1) {
+      if (i % 3 === 0) {
+        const key = await store.put(dataUrlToBlob(CUTOUT_DATA_URL)!)
+        garments.push(
+          makeGarment({
+            id: `grm-${i}`,
+            asset: {
+              originalImageUrl: '',
+              displayImageUrl: '',
+              assetMode: 'cutout',
+              cutoutImageRef: { kind: 'indexeddb-blob', key: key! },
+            },
+          }),
+        )
+      } else {
+        garments.push(makeGarment({ id: `grm-${i}` }))
+      }
+    }
+
+    const { chunks, stats, json } = await collect(emptyInput(garments), {
+      blobStore: store,
+    })
+
+    const parsed = JSON.parse(json)
+    expect(parsed.garments).toHaveLength(SIZE)
+    expect(stats.garmentCount).toBe(SIZE)
+    expect(stats.inlinedImageCount).toBe(Math.ceil(SIZE / 3))
+    expect(stats.unresolvedImageCount).toBe(0)
+
+    // One chunk per garment plus the header and footer: the writer never
+    // buffers the whole garment list as a single string.
+    expect(chunks).toHaveLength(SIZE + 2)
+
+    // Ids survive in document order, and no blob key leaked into the file.
+    expect(parsed.garments.map((g: GarmentItem) => g.id)).toEqual(
+      garments.map((g) => g.id),
+    )
+    expect(json).not.toContain('indexeddb-blob')
+    expect(json).not.toContain('ImageRef')
+  })
+
+  it('re-imports a several-hundred-piece export with no drops', async () => {
+    const garments = Array.from({ length: SIZE }, (_, i) =>
+      makeGarment({ id: `grm-${i}`, name: `Piece ${i}` }),
+    )
+    const { json } = await collect(emptyInput(garments))
+
+    const review = reviewArchiveImportText(json)
+
+    expect(review.ok).toBe(true)
+    expect(review.garments).toHaveLength(SIZE)
+    expect(review.issues).toEqual([])
+  })
+
+  it('degrades honestly when the store has lost the bytes at scale', async () => {
+    const store = createMemoryBlobStore(true)
+    const garments = Array.from({ length: SIZE }, (_, i) =>
+      makeGarment({
+        id: `grm-${i}`,
+        asset: {
+          originalImageUrl: '',
+          displayImageUrl: '',
+          assetMode: 'cutout',
+          cutoutImageRef: { kind: 'indexeddb-blob', key: `asset_1_missing-${i}` },
+        },
+      }),
+    )
+
+    const { stats, json } = await collect(emptyInput(garments), { blobStore: store })
+
+    expect(stats.unresolvedImageCount).toBe(SIZE)
+    expect(stats.inlinedImageCount).toBe(0)
+    // Nothing is lost: every piece still exports and still has its thumbnail.
+    const parsed = JSON.parse(json)
+    expect(parsed.garments).toHaveLength(SIZE)
+    expect(
+      parsed.garments.every((g: GarmentItem) => g.imageDataUrl.length > 0),
+    ).toBe(true)
   })
 })
 

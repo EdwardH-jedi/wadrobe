@@ -166,6 +166,78 @@ describe('garment drops are reported, not silent', () => {
   })
 })
 
+// docs/ARCHIVE_EXPORT_SCHEMA.md §6.3 / §8.3: a malformed OPTIONAL field costs
+// the user the field, never the garment. These are the cases the storage
+// validator did not previously cover.
+describe('a malformed optional field never costs a garment', () => {
+  it.each([
+    ['a string asset', 'banana'],
+    ['a numeric asset', 42],
+    ['an array asset', [{ displayImageUrl: 'data:image/png,x' }]],
+    ['a null asset', null],
+  ])('drops %s and keeps the piece rendering from its thumbnail', (_label, asset) => {
+    const review = reviewArchiveImport(
+      doc({ garments: [{ ...makeGarment({ name: 'Bomber' }), asset }] }),
+    )
+
+    expect(review.ok).toBe(true)
+    expect(review.garments).toHaveLength(1)
+    expect(review.garments[0].asset).toBeUndefined()
+    expect(review.garments[0].imageDataUrl).toBe('data:image/svg+xml,<svg/>')
+    expect(codes(review.issues)).not.toContain('invalid-shape')
+  })
+
+  it('keeps a well-shaped asset untouched', () => {
+    const asset = {
+      originalImageUrl: 'data:image/png,orig',
+      displayImageUrl: 'data:image/png,shown',
+      assetMode: 'cropped' as const,
+    }
+    const review = reviewArchiveImport(doc({ garments: [makeGarment({ asset })] }))
+
+    expect(review.garments[0].asset).toEqual(asset)
+  })
+
+  it('tolerates an asset missing its required urls rather than dropping it', () => {
+    // Producer obligation, not consumer: the display chain falls through to
+    // imageDataUrl on its own, so there is nothing to drop.
+    const review = reviewArchiveImport(
+      doc({ garments: [{ ...makeGarment(), asset: { assetMode: 'cutout' } }] }),
+    )
+
+    expect(review.garments).toHaveLength(1)
+    expect(review.garments[0].asset).toEqual({ assetMode: 'cutout' })
+  })
+
+  it('keeps a garment carrying an unrecognized assetMode', () => {
+    const review = reviewArchiveImport(
+      doc({
+        garments: [
+          {
+            ...makeGarment(),
+            asset: { originalImageUrl: 'x', displayImageUrl: 'x', assetMode: 'holo-scan' },
+          },
+        ],
+      }),
+    )
+
+    expect(review.garments).toHaveLength(1)
+    expect(codes(review.issues)).toHaveLength(0)
+  })
+
+  it.each(['brand', 'notes'])(
+    'drops a wrong-typed %s and keeps the piece',
+    (field) => {
+      const review = reviewArchiveImport(
+        doc({ garments: [{ ...makeGarment(), [field]: 12345 }] }),
+      )
+
+      expect(review.garments).toHaveLength(1)
+      expect(review.garments[0]).not.toHaveProperty(field)
+    },
+  )
+})
+
 describe('saved outfit and current outfit handling', () => {
   it('drops malformed looks and reports each one', () => {
     const good = savedOutfit({ id: 'look-ok', name: 'Sunday' })

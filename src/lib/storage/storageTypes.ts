@@ -149,9 +149,23 @@ function sanitizeGarment(garment: GarmentItem): GarmentItem {
     drop('proxy3dPreview')
   }
 
+  // The image bundle must be a plain object. A non-object (or an array) is
+  // dropped outright: the garment still renders from `imageDataUrl`, which is
+  // required. Fields *inside* a well-shaped asset are left alone — the display
+  // chain in `getGarmentDisplayImage` already ignores non-string urls.
+  // See docs/ARCHIVE_EXPORT_SCHEMA.md §6.3.
+  if (
+    garment.asset !== undefined &&
+    (!isRecord(garment.asset) || Array.isArray(garment.asset))
+  ) {
+    drop('asset')
+  }
+
   // Phase 1 purchase metadata + analysis provenance: keep only well-typed
   // values; drop anything malformed (older/hand-edited data) rather than throw.
   const strFields = [
+    'brand',
+    'notes',
     'material',
     'size',
     'currency',
