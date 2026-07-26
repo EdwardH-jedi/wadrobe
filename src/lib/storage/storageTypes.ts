@@ -9,6 +9,10 @@ import type {
   GarmentProxy3dPreview,
   MarketValueEntry,
 } from '../../domain/garmentTypes'
+import type {
+  GarmentPriceHistory,
+  PriceObservation,
+} from '../../domain/priceTypes'
 import {
   OUTFIT_SLOT_ORDER,
   createEmptyOutfit,
@@ -132,6 +136,64 @@ function isMarketValueEntry(value: unknown): value is MarketValueEntry {
   )
 }
 
+const PRICE_OBSERVATION_SOURCES = new Set([
+  'ebay-browse',
+  'ebay-sold',
+  'manual',
+])
+
+/** A well-formed market-value observation (`domain/priceTypes.ts`). Every
+ *  numeric field must be finite so the pure helpers can never produce
+ *  NaN/Infinity from persisted data. */
+function isPriceObservation(value: unknown): value is PriceObservation {
+  if (!isRecord(value)) return false
+  return (
+    isFiniteNumber(value.observedAt) &&
+    isFiniteNumber(value.low) &&
+    isFiniteNumber(value.median) &&
+    isFiniteNumber(value.high) &&
+    typeof value.currency === 'string' &&
+    isFiniteNumber(value.sampleSize) &&
+    typeof value.source === 'string' &&
+    PRICE_OBSERVATION_SOURCES.has(value.source)
+  )
+}
+
+/** True when observations already satisfy the ascending-`observedAt` invariant
+ *  the domain type documents. Lets a clean history skip the re-sort clone. */
+function isAscendingByObservedAt(observations: PriceObservation[]): boolean {
+  for (let i = 1; i < observations.length; i += 1) {
+    if (observations[i - 1].observedAt > observations[i].observedAt) return false
+  }
+  return true
+}
+
+/**
+ * Sanitize the optional price history. Returns the input unchanged when it is
+ * already clean, a repaired copy when only some observations were malformed or
+ * the order had drifted, or `null` when the whole value is unusable (the caller
+ * then drops the field and keeps the garment).
+ */
+function sanitizePriceHistory(value: unknown): GarmentPriceHistory | null {
+  if (!isRecord(value)) return null
+  if (typeof value.garmentId !== 'string' || value.garmentId.length === 0) {
+    return null
+  }
+  if (!Array.isArray(value.observations)) return null
+
+  const history = value as unknown as GarmentPriceHistory
+  const valid = history.observations.filter(isPriceObservation)
+  // Restore the documented ascending invariant if hand-edited data drifted.
+  const ordered = isAscendingByObservedAt(valid)
+    ? valid
+    : [...valid].sort((a, b) => a.observedAt - b.observedAt)
+
+  if (ordered === valid && valid.length === history.observations.length) {
+    return history
+  }
+  return { ...history, observations: ordered }
+}
+
 /** Drop an optional field from a clone if it is present but the wrong type, so a
  *  corrupt persisted value can never reach the UI. Allocates a clone lazily so
  *  the common (clean) path stays allocation-free. */
@@ -205,6 +267,20 @@ function sanitizeGarment(garment: GarmentItem): GarmentItem {
         target.marketValueHistory = valid
         cleaned = target
       }
+    }
+  }
+
+  // Market-value observations: drop an unusable value outright, otherwise keep
+  // the well-formed observations (in ascending order) so one bad record can't
+  // poison the whole series.
+  if (garment.priceHistory !== undefined) {
+    const sanitized = sanitizePriceHistory(garment.priceHistory)
+    if (sanitized === null) {
+      drop('priceHistory')
+    } else if (sanitized !== garment.priceHistory) {
+      const target = cleaned ?? { ...garment }
+      target.priceHistory = sanitized
+      cleaned = target
     }
   }
 

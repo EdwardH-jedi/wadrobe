@@ -1,5 +1,6 @@
 // Core garment domain types for The Archive.
 // These types are persistence-agnostic and contain no UI concerns.
+import type { GarmentPriceHistory } from './priceTypes'
 
 /** The five top-level clothing categories the archive understands. */
 export type ClothingCategory =
@@ -201,6 +202,21 @@ export interface GarmentItem {
    * `garmentBlobKeys` (no blob-store bytes are owned by this field).
    */
   proxy3dPreview?: GarmentProxy3dPreview
+  /**
+   * Timestamped market-value observations (`domain/priceTypes.ts`). Distinct
+   * from `price`, which is the one-off PURCHASE price: this series records what
+   * the piece is estimated to be worth over time, so resale movement can be
+   * derived by the pure helpers in `domain/priceHistory.ts`.
+   *
+   * Optional and parser-tolerant — legacy records and the procedural sample set
+   * simply lack it, and the storage parser drops a malformed value rather than
+   * rejecting the garment. Like `proxy3dPreview` this is plain metadata owning
+   * NO blob bytes, so it is intentionally NOT part of `garmentBlobKeys`. It is
+   * also intentionally absent from `GarmentDraft`: observations are appended,
+   * never edited through the draft form, so a normal `updateGarment`
+   * ({...existing, ...draft}) preserves the series.
+   */
+  priceHistory?: GarmentPriceHistory
   /** Epoch milliseconds. */
   createdAt: number
   /** Epoch milliseconds. */
