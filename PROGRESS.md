@@ -182,3 +182,72 @@ New CSS uses only existing tokens (`--accent`, `--line-strong`, `--text-200`)
 and honours `prefers-reduced-motion`.
 
 **Suite: 584 passed / 60 files** (+5). typecheck, lint, build clean.
+
+---
+
+## Phase 6 — Round-trip hardening ✅
+
+`archiveTransfer.property.test.ts` — two properties over generated cases.
+
+Randomness is a seeded mulberry32 PRNG, not a fuzzing dependency: no new
+package (CLAUDE.md §3), the run is deterministic in CI, and every assertion
+carries its seed so a failure reproduces immediately.
+
+**Property 1 — round trip.** For 150 generated archives (garments with randomly
+present optional fields, asset bundles, market-value histories, proxy previews;
+random looks and rails), export → import returns garments, looks and current
+outfit **deep-equal** to the input with **zero issues**. Plus: export is
+idempotent (re-exporting an import is byte-identical), and the blob built by
+`buildArchiveExportBlob` matches the streamed chunks exactly.
+
+**Property 2 — the importer never corrupts.** 400 structurally mutated exports
+(delete a key, replace with junk, duplicate an array element, alias a sibling,
+deep-nest), 300 text-level corruptions (truncation, byte splicing, lone
+surrogates), plus hand-picked non-documents and a prototype-pollution attempt.
+Each asserts `reviewArchiveImportText` does not throw **and** that the result
+satisfies the storage invariants: rejected documents commit nothing at all;
+surviving garments have every required field well-typed and a known category;
+ids unique; no blob ref and no `blob:` image url persisted; every selection
+exactly five slots of `string | null`; every issue carries a valid
+scope/severity/code/message.
+
+**Bug found and fixed.** The fuzzer failed on seed 5 within seconds:
+
+```
+TypeError: asset[field]?.startsWith is not a function
+```
+
+`sanitizeImportedAsset` (added in Phase 4) used `asset[field]?.startsWith('blob:')`.
+Optional chaining guards `null`/`undefined` but **not a wrong type**, and asset
+fields are validated by use rather than up front — so a file with a numeric
+`displayImageUrl` crashed the whole import instead of dropping one field. Now
+type-checked before the call. This was reachable from any hand-edited file, and
+no example-based test had covered it.
+
+One further failure was the *test's* invariant being wrong, not the code: a
+mutation put a `blob:` string into `assetMode`, and serializing the whole asset
+to grep for `blob:` flagged it. A junk `assetMode` is tolerated by design
+(spec §8.3) and is never fetched, so the invariant is now scoped to the six url
+fields a renderer actually loads.
+
+**Confidence run.** Before settling on the committed counts the suite was run at
+1200 round-trips / 6000 structural mutations / 4000 text corruptions — all
+green. The committed counts (150/400/300, ~0.4s) are the routine gate; raise the
+loop bounds for a deeper sweep.
+
+**Suite: 591 passed / 61 files** (+7). typecheck, lint, build clean.
+
+---
+
+## Status
+
+All six phases complete. Final suite **591 passed / 61 files**, up from the 479
+inherited at the start of this thread; typecheck, lint and build clean.
+
+Deliverables: `docs/ARCHIVE_EXPORT_SCHEMA.md` (the cross-language contract),
+`src/lib/storage/__fixtures__/archive-export/` (16 fixtures + README, the
+artifact an iOS implementation tests against), exporter/importer hardened by
+three real bug fixes, and the transfer UI with progress and an actionable drop
+report.
+
+Nothing merged, nothing pushed — the work sits on `thread/json-export`.

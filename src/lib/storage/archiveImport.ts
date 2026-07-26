@@ -145,9 +145,13 @@ function sanitizeImportedAsset(
   if (!asset) return garment
 
   const hasRef = !!(asset.croppedImageRef || asset.cutoutImageRef)
-  const deadUrls = ASSET_URL_FIELDS.filter((field) =>
-    asset[field]?.startsWith('blob:'),
-  )
+  // A well-shaped asset is not a well-TYPED one: fields inside it are validated
+  // by use, so a hand-edited file can put a number here. Check the type, not
+  // just presence — `?.startsWith` would throw on a non-string.
+  const deadUrls = ASSET_URL_FIELDS.filter((field) => {
+    const value = asset[field]
+    return typeof value === 'string' && value.startsWith('blob:')
+  })
   if (!hasRef && deadUrls.length === 0) return garment
 
   const cleaned = { ...asset }
