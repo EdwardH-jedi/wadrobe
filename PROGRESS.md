@@ -251,3 +251,42 @@ three real bug fixes, and the transfer UI with progress and an actionable drop
 report.
 
 Nothing merged, nothing pushed — the work sits on `thread/json-export`.
+
+---
+
+# Cross-client reconciliation (web ⇄ WardrobeDomain)
+
+A second thread on the same branch: the Swift package at
+`~/Desktop/archive-ios/WardrobeDomain` contains a decoder for this export
+format that was **written blind** — its author never saw this exporter and
+derived the format from `src/lib/storage/` alone, recording every guess in
+`DECODER_ASSUMPTIONS.md`. These phases reconcile the two.
+
+## Phase 1 — Establish what actually exists
+
+**Audit of what the earlier unattended session landed on `thread/json-export`.**
+The intended deliverables were an exporter, an importer, a schema doc and
+committed golden fixtures. All four exist and **none of them is a stub**:
+
+| Deliverable | File | Size | Verdict |
+|---|---|---|---|
+| Exporter | `src/lib/storage/archiveExport.ts` | 287 lines | Real. Chunked `write(chunk)` sink, one garment at a time; blob refs resolved out of the asset store and inlined as base64 data URLs; `*Ref` fields deleted; `blob:` object URLs excluded; progress callback; honest `unresolvedImageCount`. |
+| Importer | `src/lib/storage/archiveImport.ts` | 435 lines | Real. Validates every entry through the existing `storageTypes.ts` parsers one at a time, reports each drop as an `ArchiveImportIssue` before committing; `merge` (default, never overwrites) vs explicit `replace`. |
+| Spec | `docs/ARCHIVE_EXPORT_SCHEMA.md` | 657 lines | Real. RFC-2119 producer/consumer split, five document-level rejection codes, per-record tolerance rules, versioning policy. |
+| Fixtures | `src/lib/storage/__fixtures__/archive-export/` | 16 `.json` + README | Real and committed (not generated), with a README stating expected outcomes per file. |
+
+Also wired, not orphaned: `ArchiveProvider.tsx:391` calls
+`buildArchiveExportBlob`, `ArchiveTransferModal` is mounted from
+`ArchiveStudio.tsx:185`.
+
+**Baselines at the start of this thread — both green:**
+
+- `npm test` (Node 20): **591 passed / 61 files**
+- `swift test` in WardrobeDomain: **462 tests in 81 suites passed**
+
+No exporter work was needed in this phase; it had already landed complete.
+
+**Read:** `WardrobeDomain/DECODER_ASSUMPTIONS.md`. It is an unusually honest
+document — every guess states what was assumed, why, and what it costs if
+wrong — and it closes with five questions for the exporter's author. Phase 2
+answers them against the real format.
