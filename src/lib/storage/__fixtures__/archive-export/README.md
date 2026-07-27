@@ -97,3 +97,32 @@ Every box in §12 of the specification is exercised here:
 | Reports every drop with a stable code | asserted across **all** fixtures |
 | Defaults to merge with existing-wins | `archiveImport.test.ts` / `archiveReducer.test.ts` |
 | Ignores unknown keys | `unrecognized-enums.json` |
+
+---
+
+## The second implementation reads these exact bytes
+
+These files are copied verbatim into the iOS package at
+`WardrobeDomain/Tests/WardrobeDomainTests/Fixtures/archive-export/`, and both
+repositories commit the same `FIXTURES.sha256`.
+
+| Side | Asserts the outcomes | Asserts byte identity |
+|---|---|---|
+| Web | `../../archiveFixtures.conformance.test.ts` | `describe('fixture integrity')` in the same file |
+| iOS | `Tests/WardrobeDomainTests/ArchiveExportConformanceTests.swift` | `FixtureIntegrityTests.checksumsMatch` |
+
+Editing a fixture in either place turns **both** suites red. That is deliberate
+and it is the only thing that makes rule 2 above enforceable rather than
+aspirational — a copied fixture that nobody checks is two fixtures.
+
+To change one anyway (a spec change first — §9 of the specification):
+
+```bash
+# in src/lib/storage/__fixtures__/archive-export/
+shasum -a 256 *.json | sort -k2 > FIXTURES.sha256
+cp *.json README.md FIXTURES.sha256 \
+   ~/Desktop/archive-ios/WardrobeDomain/Tests/WardrobeDomainTests/Fixtures/archive-export/
+```
+
+Then tell every consumer. A fixture is a contract; changing one silently is
+changing someone else's tests without telling them.

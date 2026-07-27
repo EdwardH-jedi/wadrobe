@@ -290,3 +290,42 @@ No exporter work was needed in this phase; it had already landed complete.
 document — every guess states what was assumed, why, and what it costs if
 wrong — and it closes with five questions for the exporter's author. Phase 2
 answers them against the real format.
+
+## Phase 3 — Shared golden fixtures
+
+The fixture set already covered everything this phase asked for — minimal
+valid, full-featured with every optional field, legacy records, blob-backed
+assets, unrecognized enum values, and nine distinct malformed documents (six
+rejected at the document level, three recovered at the record level). It was
+not extended: the README's own rule 2 says a fixture set is append-only and
+that changing one silently changes the contract, and there was no gap to fill.
+
+What was missing was the part that makes them *shared*.
+
+**Copied, not re-derived.** All 16 fixtures plus the README now also live at
+`WardrobeDomain/Tests/WardrobeDomainTests/Fixtures/archive-export/`, declared
+as a `.copy` resource (not `.process` — one fixture is deliberately not valid
+JSON, and these bytes must reach the bundle unmodified).
+
+**Byte identity is enforced, not asserted.** A copied file that nobody checks is
+two files that agree today. Both repositories now commit the same
+`FIXTURES.sha256`, and both suites verify it:
+
+- web — `describe('fixture integrity')` in `archiveFixtures.conformance.test.ts`
+- iOS — `FixtureIntegrityTests.checksumsMatch`
+
+Editing a fixture in either place turns **both** suites red. Each check also
+asserts the manifest lists 16 entries, so an empty or truncated manifest cannot
+make the check vacuously pass.
+
+**The Swift side now asserts the same outcomes.** New —
+`ArchiveExportConformanceTests.swift`, 31 tests mirroring the web suite's
+expectations file by file: the ids that survive `malformed-garment-entries.json`
+and that the *first* duplicate wins, the 2 × `foreignBlobRef` + 1 ×
+`processLocalURL` from `blob-ref-leaked.json`, the display chain refusing to let
+a cutout shadow a product reference, percent-encoded SVG data urls, and each
+malformed document mapping to its own spec §3.1 rejection code. Plus two
+invariants over the whole set: nothing crashes and no surviving record is
+malformed, and every importable fixture survives a Swift round trip.
+
+**Suites: 608 web / 61 files** (+17), **496 Swift / 87 suites** (+31).

@@ -8,6 +8,7 @@
 // wrong — see `__fixtures__/archive-export/README.md`.
 //
 // Every expectation here traces to a rule in docs/ARCHIVE_EXPORT_SCHEMA.md.
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -440,5 +441,38 @@ describe('every fixture', () => {
       expect(issue.code.length).toBeGreaterThan(0)
       expect(['dropped', 'warning']).toContain(issue.severity)
     }
+  })
+})
+
+// --- Byte identity with the other implementation ------------------------------
+//
+// These fixtures are copied verbatim into the iOS package at
+// `WardrobeDomain/Tests/WardrobeDomainTests/Fixtures/archive-export/`, and both
+// repositories commit the same `FIXTURES.sha256`. Editing a fixture in either
+// place fails this test AND its Swift counterpart
+// (`FixtureIntegrityTests.checksumsMatch`), which is what makes "both sides
+// test against the same files" a fact rather than an intention.
+//
+// If this fails: you changed the contract. That is allowed, but it is a spec
+// change first (§9) — regenerate the manifest with
+// `shasum -a 256 *.json | sort -k2 > FIXTURES.sha256`, copy the fixtures and
+// the manifest across, and tell every consumer.
+describe('fixture integrity', () => {
+  const manifest = readFileSync(join(FIXTURE_DIR, 'FIXTURES.sha256'), 'utf8')
+  const entries = manifest
+    .split('\n')
+    .map((line) => line.trim().split(/\s+/))
+    .filter((parts): parts is [string, string] => parts.length === 2)
+
+  it('lists every fixture', () => {
+    expect(entries).toHaveLength(16)
+  })
+
+  it.each(entries)('%s… matches %s', (expected, name) => {
+    const actual = createHash('sha256')
+      .update(readFileSync(join(FIXTURE_DIR, name)))
+      .digest('hex')
+
+    expect(actual).toBe(expected)
   })
 })
