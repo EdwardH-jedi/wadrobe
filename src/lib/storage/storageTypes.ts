@@ -58,6 +58,25 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
+/**
+ * `isRecord`, minus arrays.
+ *
+ * `typeof [] === 'object'`, so `isRecord` accepts a JSON array wherever a JSON
+ * object is required. That is harmless for a garment (an array has none of the
+ * required fields, so it fails validation anyway) and NOT harmless for a saved
+ * outfit's `selection`, which is only ever read by key: an array passed the
+ * shape check and then normalized to an empty selection, so a look silently
+ * lost everything it was styling and nothing was reported.
+ *
+ * Found by differential fuzzing against the iOS decoder, which had dropped and
+ * reported the same look all along. The export specification agrees with it —
+ * §7.2 types `selection` as an object, and §3.1 already establishes that an
+ * array does not count as one.
+ */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return isRecord(value) && !Array.isArray(value)
+}
+
 const CLOTHING_CATEGORIES = new Set([
   'outerwear',
   'top',
@@ -90,7 +109,7 @@ function isSavedOutfit(value: unknown): value is SavedOutfit {
   return (
     typeof value.id === 'string' &&
     typeof value.name === 'string' &&
-    isRecord(value.selection) &&
+    isPlainObject(value.selection) &&
     typeof value.createdAt === 'number' &&
     Number.isFinite(value.createdAt) &&
     typeof value.coverHex === 'string'
@@ -238,7 +257,9 @@ export function parseSavedOutfits(raw: unknown): SavedOutfit[] {
 }
 
 export function parseCurrentOutfit(raw: unknown): OutfitSelection | null {
-  if (!isRecord(raw)) return null
+  // An array is not a selection (§7.1); returning `null` here is what lets the
+  // caller report it rather than hand back a silently emptied rail.
+  if (!isPlainObject(raw)) return null
   const result = createEmptyOutfit()
   for (const slot of OUTFIT_SLOT_ORDER) {
     const value = raw[slot]

@@ -402,3 +402,54 @@ That comparison is what produced the divergence table.
 
 **Suites: 618 web / 62 files** (+10), **498 Swift / 87 suites**. typecheck, lint
 and build clean.
+
+## Phase 5 — Break it deliberately
+
+This importer was already fuzzed (`archiveTransfer.property.test.ts`, 150
+round-trips / 400 structural mutations / 300 text corruptions). The Swift
+package now has an equivalent of its own. But both can pass and the two can
+still disagree, and a disagreement about a broken file is how a user ends up
+with an archive on one device and an error on the other.
+
+**`archiveTransfer.differential.test.ts`** puts the *same* mutants through
+*both* decoders and requires they agree on the things the specification
+actually fixes: accepted or rejected, which of the five §3.1 rejection codes,
+and how many records survived. Warning taxonomies are deliberately not
+compared — this side reports issue codes, the other reports warning kinds, and
+forcing those to match would be inventing a rule the format does not have. What
+is compared is that neither side drops anything without saying so.
+
+It runs the whole mutant directory through `wardrobe-verify fuzzcheck` in one
+process, so 360 mutants cost about a second. `DIFFERENTIAL_MUTANTS` raises it.
+
+### What it found — and this one was ours
+
+At 60 mutants per fixture the two implementations agreed. At 1,200 they did
+not, ten times, always the same shape: **a saved outfit whose `selection` had
+been mutated into an array.**
+
+`typeof [] === 'object'`, so `isRecord` accepted it, `isSavedOutfit` passed, and
+`parseCurrentOutfit` then normalized the array to an empty selection. The look
+survived having silently lost everything it was styling, and **nothing was
+reported** — the exact failure the validate-and-drop contract exists to prevent,
+in the one code path that promises never to be silent.
+
+The iOS decoder had been dropping and reporting that look all along. It was
+right and this was wrong: spec §7.2 types `selection` as an object, and §3.1
+already establishes that an array does not count as one.
+
+Fixed in `storageTypes.ts` with `isPlainObject` — `isRecord` minus arrays —
+applied to `isSavedOutfit.selection` and `parseCurrentOutfit`. Deliberately not
+applied to `isGarmentItem`, where an array garment already fails on its missing
+required fields and tightening the check would change nothing but the reason.
+Regression tests added to `archiveImport.test.ts` so the fix does not depend on
+the Swift toolchain being installed.
+
+**Confidence run: 24,000 mutants across six fixtures, complete agreement on
+every one.** The committed count is 360.
+
+The other crash-class finding was on the Swift side — a deeply nested document
+overflowed its stack — and is written up in that repository's PROGRESS.md.
+
+**Suites: 627 web / 63 files** (+9), **504 Swift / 89 suites** (+6). typecheck,
+lint and build clean.

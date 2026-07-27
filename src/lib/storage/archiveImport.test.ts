@@ -355,3 +355,56 @@ describe('summarizeArchiveImport', () => {
     })
   })
 })
+
+// --- Found by differential fuzzing against the iOS decoder --------------------
+
+describe('a selection that is an array', () => {
+  const look = (selection: unknown) => ({
+    kind: 'fit-archive.archive',
+    schemaVersion: 1,
+    garments: [],
+    savedOutfits: [
+      {
+        id: 'look-1',
+        name: 'First Look',
+        selection,
+        createdAt: 1_660_000_000_000,
+        coverHex: '#2b2b2e',
+      },
+    ],
+  })
+
+  // `typeof [] === 'object'`, so the shape check used to pass and the selection
+  // then normalized to empty: the look survived having silently lost everything
+  // it was styling, and nothing was reported. Spec §7.2 types `selection` as an
+  // object and §3.1 already establishes that an array is not one.
+  it('drops the look and says so, rather than emptying it in silence', () => {
+    const review = reviewArchiveImport(look([null, 1]))
+
+    expect(review.ok).toBe(true)
+    expect(review.savedOutfits).toEqual([])
+    expect(review.issues.map((i) => i.code)).toEqual(['invalid-shape'])
+  })
+
+  it('still accepts a real selection object', () => {
+    const review = reviewArchiveImport(look({ top: 'grm-1' }))
+
+    expect(review.savedOutfits).toHaveLength(1)
+    expect(review.savedOutfits[0].selection.top).toBe('grm-1')
+    // The look is kept. It warns only because `grm-1` is not in this document's
+    // (empty) garment list — §7.1's dangling reference, not a shape problem.
+    expect(review.issues.map((i) => i.code)).toEqual(['unknown-garment-reference'])
+  })
+
+  it('treats an array currentOutfit as an empty rail, reported', () => {
+    const review = reviewArchiveImport({
+      kind: 'fit-archive.archive',
+      schemaVersion: 1,
+      garments: [],
+      currentOutfit: ['top', 'grm-1'],
+    })
+
+    expect(review.currentOutfit).toEqual(createEmptyOutfit())
+    expect(review.issues.map((i) => i.code)).toEqual(['invalid-shape'])
+  })
+})
