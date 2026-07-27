@@ -453,3 +453,50 @@ overflowed its stack — and is written up in that repository's PROGRESS.md.
 
 **Suites: 627 web / 63 files** (+9), **504 Swift / 89 suites** (+6). typecheck,
 lint and build clean.
+
+## Phase 6 — RECONCILIATION.md
+
+Written at the root of the Swift package, since that is where the port and its
+assumptions live: `~/Desktop/archive-ios/WardrobeDomain/RECONCILIATION.md`.
+
+Twelve divergences. **Eleven were the iOS side's**, all of them in the envelope
+or in consumer rules — the two things it had to guess at. **One was ours**: the
+array-`selection` silent drop from Phase 5. Three of the eleven were data loss
+(unknown keys destroyed, `assetMode` rewritten, duplicate ids kept), and one
+direction of the round trip had simply never worked, because a Swift-written
+file carried no `kind` and this importer would have refused it outright.
+
+The finding that matters for how this repository works:
+
+> A round-trip test within one implementation proves serialization, not
+> interoperability.
+
+Both repositories had "export → import → identical" tests. Both passed. Both
+were self-confirming — each read its own output back with its own reader, so a
+field they *both* mishandled looked exactly like agreement. Only
+`archiveTransfer.crossclient.test.ts` could see the difference.
+
+`docs/ARCHIVE_EXPORT_SCHEMA.md` comes out of this well. It would have prevented
+ten of the twelve divergences had it existed before the port rather than
+alongside it, and every reconciliation decision in Phase 2 was settled by
+quoting a section of it rather than by argument.
+
+---
+
+## Status
+
+Six phases complete. Both suites green at every commit.
+
+| | Start of this thread | Now |
+|---|---|---|
+| `npm test` | 591 / 61 files | **627 / 63 files** |
+| `swift test` | 462 / 81 suites | **504 / 89 suites** |
+
+typecheck, lint and build clean. Nothing merged, nothing pushed — the work sits
+on `thread/json-export` here and on the Swift package's working branch.
+
+**Changes to this repository across all six phases were deliberately small:**
+the fixture-integrity check, the two cross-boundary test files, and one
+production fix (`isPlainObject` in `storageTypes.ts`). The web format was the
+source of truth and was treated as such; almost all the correcting happened on
+the other side.
