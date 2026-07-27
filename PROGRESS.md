@@ -329,3 +329,76 @@ invariants over the whole set: nothing crashes and no surviving record is
 malformed, and every importable fixture survives a Swift round trip.
 
 **Suites: 608 web / 61 files** (+17), **496 Swift / 87 suites** (+31).
+
+## Phase 4 — Proving the round trip crosses the boundary
+
+Everything before this phase was inference. Both implementations can be
+internally perfect and still disagree, and they were: each round-trip test on
+each side read its own output back with its own reader, so a field they *both*
+mishandled looked exactly like agreement.
+
+**`archiveTransfer.crossclient.test.ts`** runs the whole loop across the process
+boundary, inside `npm test`:
+
+```
+fixture → web importer → WEB EXPORTER → file
+        → swift decoder → SWIFT ENCODER → file
+        → web importer → compare
+```
+
+It shells out to `wardrobe-verify reencode` in the Swift package. Ten tests:
+six fixtures round-tripped and compared field for field, the `kind`/
+`schemaVersion`/`assetEncoding` envelope check, image bytes (both base64 and
+percent-encoded), blob-backed bytes resolved out of a stub asset store at export
+time, and a second lap asserting the trip is **idempotent**, not merely lossless
+— one lap can hide a systematic rewrite that happens to be self-consistent.
+
+It skips when the Swift package is absent (`WARDROBE_DOMAIN_PATH` overrides the
+location) so a clone without the sibling checkout is not red for a reason that
+has nothing to do with the format. `CROSSCLIENT_STRICT=1` turns that skip into a
+failure, for a machine that is meant to have both.
+
+**What it found.** Three real losses, all on the Swift side, all invisible to
+either suite alone:
+
+1. A Swift-written file had no `kind`, so the web importer refused it outright
+   with `wrong-kind`. That direction had never worked. (Fixed in Phase 2, and
+   this is the test that would have caught it.)
+2. Unknown keys were destroyed — `fabricWeightGsm`, `futureAssetField`. Spec
+   §8.4 asks that they survive a re-export.
+3. An unrecognized `assetMode` was rewritten: `"holo-scan"` came back
+   `"uploaded"`, silently downgrading a record from a newer build.
+
+### What could not be automated, stated plainly
+
+Three things, and none of them is covered by the ten passing tests above:
+
+- **The browser download itself.** The test calls `writeArchiveExport` directly.
+  `download.ts`, `URL.createObjectURL`, and the `ArchiveTransferModal` file
+  picker are not exercised — jsdom has no download. The bytes are the same
+  bytes; the delivery of them is untested here and is covered only by
+  `ArchiveTransferModal.test.tsx` against a stubbed download.
+- **An actual iOS app.** `WardrobeDomain` is a domain package with no
+  application and no view layer, and no Simulator was run (another session owns
+  it). What is proven is that the *domain layer* reads and writes the format.
+- **A real archive of real photographs.** Every fixture carries tiny placeholder
+  payloads. A genuine export is tens of megabytes of base64 (spec §5.4), and
+  nothing here demonstrates that either side streams it without trouble. The
+  Swift package benchmarks 500 synthetic garments at ~42 ms, but that is its own
+  data, not a file that came out of this exporter.
+
+**And the gap that automation cannot close, because the feature does not
+exist:** an iOS client that imports this format gets every garment, every
+field and every look, and **cannot display a single image**. Each image is a
+data URL; `AssetFileRef` needs a filename. `AssetIntegrity` reports 16 unusable
+references for the 5 garments of `full-featured.json` — one per image. Decoding
+those payloads into the asset store is an import *pipeline*, not a decoder, and
+it is not built. The data round-trips; the pictures do not render.
+
+**Manual verification performed:** `wardrobe-verify inspect` was run against all
+16 fixtures before and after the Phase 2 changes, and the before/after outcome
+of each was compared against the expectations in the fixtures README by hand.
+That comparison is what produced the divergence table.
+
+**Suites: 618 web / 62 files** (+10), **498 Swift / 87 suites**. typecheck, lint
+and build clean.
