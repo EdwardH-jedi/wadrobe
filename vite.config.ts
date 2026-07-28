@@ -19,5 +19,25 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     css: false,
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    poolOptions: {
+      // Node 22 shipped a built-in Web Storage implementation and Node 25 has
+      // it on by default, so `globalThis.localStorage` now exists *before*
+      // jsdom installs its own. jsdom's environment cannot replace a global
+      // Node already owns, so `window.localStorage` resolves to Node's object
+      // — which is not a `Storage`: it has no `clear`, no `setItem`, and
+      // touching it prints
+      //   Warning: `--localstorage-file` was provided without a valid path
+      //
+      // Measured on node v25.8.0, inside the jsdom environment:
+      //   default                       typeof clear = undefined, ctor = undefined
+      //   --no-experimental-webstorage  typeof clear = function,  ctor = Storage
+      //
+      // Turning Node's off is what lets jsdom's real implementation through.
+      // It lives here rather than in an npm script so that `npx vitest`,
+      // `npm test` and an IDE runner all get it; a fix that only works through
+      // one entry point is how this broke in the first place.
+      forks: { execArgv: ['--no-experimental-webstorage'] },
+      threads: { execArgv: ['--no-experimental-webstorage'] },
+    },
   },
 })

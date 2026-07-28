@@ -500,3 +500,86 @@ the fixture-integrity check, the two cross-boundary test files, and one
 production fix (`isPlainObject` in `storageTypes.ts`). The web format was the
 source of truth and was treated as such; almost all the correcting happened on
 the other side.
+
+---
+
+# Session 2 — running it from a clean shell
+
+The reconciliation above was real; the suite it left behind was not reproducible.
+Three problems appeared the moment it ran outside the session that wrote it, plus
+the asset gap RECONCILIATION.md §5.1 records as the largest remaining item.
+
+## Phase 1 — The seven failing component tests ✅
+
+`npm test -- archiveTransfer` failed all seven tests in
+`src/components/settings/ArchiveTransferModal.test.tsx` with
+`TypeError: localStorage.clear is not a function` at line 65, in 4ms — before
+any component rendered. Every test under `src/lib/storage/` passed.
+
+### Cause
+
+**Node's own `localStorage` shadows jsdom's.**
+
+Node 22 shipped a built-in Web Storage implementation; Node 25 has it on by
+default. This machine runs **v25.8.0**, so `globalThis.localStorage` exists
+*before* the jsdom environment initialises — and jsdom cannot replace a global
+Node already owns. Measured, inside the jsdom environment:
+
+| | `typeof localStorage` | `typeof .clear` | `constructor.name` |
+|---|---|---|---|
+| default | `object` | **`undefined`** | `undefined` |
+| `--no-experimental-webstorage` | `object` | `function` | `Storage` |
+
+`window.localStorage === globalThis.localStorage` was `true` in both cases, so
+the jsdom window was handing out Node's object. The
+`Warning: --localstorage-file was provided without a valid path` in the run was
+the same global announcing itself — a Node warning, not a jsdom one.
+
+**Why only the `.tsx` file failed:** nothing under `src/lib/storage/` touches
+the real `localStorage`. Those tests drive the storage facade through injected
+in-memory stores. `ArchiveTransferModal.test.tsx` is the only file that renders
+the real provider over the real browser API, so it is the only one that meets
+the shadowed global.
+
+**Why the previous session saw it pass:** it did not run this Node. The failure
+is a property of the toolchain, not the test — which is why "the suite is green"
+was true in one shell and false in another. None of the candidate causes in the
+brief applied: there is no per-file environment annotation, no
+`environmentMatchGlobs`, and one setup file that loads for every path.
+
+### Fix
+
+`vite.config.ts` now passes `--no-experimental-webstorage` through
+`test.poolOptions.forks.execArgv` (and `threads`, for whichever pool is
+selected). It lives in the config rather than an npm script so `npx vitest`,
+`npm test` and an IDE runner all get it — a fix that works through one entry
+point only is how this arrived.
+
+`src/test/setup.ts` gained a tripwire: it asserts `localStorage` and
+`sessionStorage` really implement `clear/getItem/setItem/removeItem/key`, and
+fails at setup naming the cause if not. Verified by removing the flag:
+
+```
+Error: [test setup] globalThis.localStorage is not a Web Storage — missing
+clear, getItem, setItem, removeItem, key.
+This is almost certainly Node's own built-in localStorage shadowing jsdom's
+(node v25.8.0).
+```
+
+One failure at setup, with the diagnosis, instead of seven `is not a function`
+errors pointing at whichever line touched storage first.
+
+Nothing was deleted from the test and no assertion was weakened.
+
+### Verified, both invocations
+
+```
+env -u CROSSCLIENT_STRICT -u DIFFERENTIAL_MUTANTS npm test -- archiveTransfer
+  → Test Files 5 passed (5) · Tests 35 passed (35)
+
+CROSSCLIENT_STRICT=1 DIFFERENTIAL_MUTANTS=50000 npm test -- archiveTransfer
+  → Test Files 5 passed (5) · Tests 35 passed (35)
+```
+
+The second still reports `Timeout calling "onTaskUpdate"` and SwiftPM lock
+contention appears in both — Phases 2 and 3.
