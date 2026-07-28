@@ -583,3 +583,93 @@ CROSSCLIENT_STRICT=1 DIFFERENTIAL_MUTANTS=50000 npm test -- archiveTransfer
 
 The second still reports `Timeout calling "onTaskUpdate"` and SwiftPM lock
 contention appears in both — Phases 2 and 3.
+
+## Phases 2 and 3 — the long run, and the lock ✅
+
+One change fixes both, because both had the same root cause: **the tests drove
+SwiftPM instead of driving a binary.**
+
+### Phase 2 — `Timeout calling "onTaskUpdate"`
+
+At 50,000 mutants the differential `beforeAll` ran **~124 seconds of unbroken
+synchronous work** — 300,000 mutations, 300,000 `writeFileSync` calls, 300,000
+web verdicts, then a blocking `execFileSync` for the Swift sweep. A vitest worker
+answers the runner's RPC heartbeat from the event loop, and the loop never got a
+turn, so:
+
+```
+Error: [vitest-worker]: Timeout calling "onTaskUpdate"
+This might cause false positive tests.
+```
+
+The tests passed and the runner said the results might not mean anything, which
+is the worst of both.
+
+**Fixed by not blocking**, not by raising the timeout:
+- the generation loop `await`s a `setImmediate` every 250 mutants;
+- both subprocess calls are `await`ed rather than `*Sync`;
+- progress prints every 10s once a run is long enough to warrant it, so a long
+  sweep is visibly alive rather than apparently hung.
+
+### Phase 3 — `Another instance of SwiftPM is already running`
+
+`swift run` takes an exclusive lock on `.build` for the whole invocation, and
+both suites called it — the cross-client one **once per fixture**. vitest runs
+test files in parallel workers, so two workers reached for the same lock. It
+appeared twice in one run and resolved both times, because SwiftPM waits rather
+than failing; a suite whose runtime depends on lock ordering eventually times out
+instead.
+
+**Fixed by removing `swift run` from the tests entirely.** A vitest `globalSetup`
+(`src/test/globalSetup.ts`) builds the package **once**, in the main process,
+before any worker exists, and publishes the binary path. Tests exec that binary
+directly via `src/test/wardrobeDomain.ts`. No package resolution per call, no
+lock, no contention — and `requireWardrobeVerify()` throws rather than silently
+falling back to `swift run`, which would reintroduce exactly what was removed.
+
+### Measured
+
+**Zero unhandled errors at 50,000 mutants**, exit 0:
+
+```
+[differential] generated 125000/300000 mutants (10s)
+[differential] generated 242500/300000 mutants (20s)
+[differential] 300000 mutants written in 25s; running Swift decoder
+[differential] both decoders done in 123s
+ Test Files  5 passed (5) · Tests  35 passed (35)
+```
+
+`grep -icE "unhandled|onTaskUpdate|Another instance of SwiftPM|false positive"`
+over the whole run: **0**.
+
+Five consecutive runs, contention count and duration:
+
+| run | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|
+| contention | 0 | 0 | 0 | 0 | 0 |
+| duration | 1.44s | 1.42s | 1.44s | 1.44s | 1.44s |
+
+Dropping SwiftPM from the hot path also made the suite dramatically faster,
+because the cross-client tests were paying package resolution per fixture:
+
+| | before | after |
+|---|---|---|
+| `archiveTransfer.crossclient` | 6032 ms | **89 ms** |
+| whole `archiveTransfer` selection | 6.50 s | **1.44 s** |
+
+### What a run costs
+
+| `DIFFERENTIAL_MUTANTS` | files generated | wall clock |
+|---|---|---|
+| **60** (default) | 360 | **2.2 s** |
+| 1,000 | 6,000 | 3.3 s |
+| 5,000 | 30,000 | 11.5 s |
+| 50,000 (deep) | 300,000 | **124 s** |
+
+**The default of 60 stays.** It is 2.2s and it is the sweep that already found
+the array-`selection` bug. 5,000 costs 11.5s and is a reasonable pre-merge sweep.
+50,000 is a ~2 minute deep run: worth it on a decoder change, too slow for every
+commit. Cost is close to linear in mutant count above 1,000 — the Swift sweep,
+not the JavaScript, dominates.
+
+Full suites green: **627 web tests / 63 files**, **504 Swift tests / 89 suites**.

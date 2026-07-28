@@ -18,8 +18,13 @@
 // skips rather than failing — a missing toolchain is not a format disagreement.
 // `CROSSCLIENT_STRICT=1` turns the skip into a failure, which is what a machine
 // that is supposed to have both should run.
-import { execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import {
+  requireWardrobeVerify,
+  runVerifySync,
+  SWIFT_PACKAGE,
+  wardrobeDomainPresent,
+} from '../../test/wardrobeDomain'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { beforeAll, describe, expect, it } from 'vitest'
@@ -34,13 +39,8 @@ const FIXTURE_DIR = join(
   'src/lib/storage/__fixtures__/archive-export',
 )
 
-/** Overridable so this can run against a checkout somewhere else. */
-const SWIFT_PACKAGE =
-  process.env.WARDROBE_DOMAIN_PATH ??
-  join(process.env.HOME ?? '', 'Desktop/archive-ios/WardrobeDomain')
-
 const STRICT = process.env.CROSSCLIENT_STRICT === '1'
-const available = existsSync(join(SWIFT_PACKAGE, 'Package.swift'))
+const available = wardrobeDomainPresent
 
 if (STRICT && !available) {
   throw new Error(
@@ -57,14 +57,10 @@ function reencodeInSwift(name: string, json: string): string {
   const output = join(workDir, `${name}.swift.json`)
   writeFileSync(input, json, 'utf8')
 
-  execFileSync('swift', ['run', '-q', 'wardrobe-verify', 'reencode', input, output], {
-    cwd: SWIFT_PACKAGE,
-    encoding: 'utf8',
-    // A slow first build must not look like a hang; a real failure surfaces as
-    // a non-zero exit with Swift's own message attached.
-    timeout: 300_000,
-    env: { ...process.env, NO_COLOR: '1' },
-  })
+  // The built binary, not `swift run`: `swift run` re-resolves the package and
+  // takes the SwiftPM lock on every call, which two parallel vitest workers
+  // then contend for. globalSetup built this once before any worker started.
+  runVerifySync(['reencode', input, output])
 
   return readFileSync(output, 'utf8')
 }
@@ -124,14 +120,11 @@ async function exportToString(
 describe.skipIf(!available)('cross-client round trip (web ⇄ WardrobeDomain)', () => {
   beforeAll(() => {
     workDir = mkdtempSync(join(tmpdir(), 'archive-crossclient-'))
-    // Build once, out of band, so the first test is not charged for it and a
-    // compile error reads as a compile error rather than a timeout.
-    execFileSync('swift', ['build'], {
-      cwd: SWIFT_PACKAGE,
-      encoding: 'utf8',
-      timeout: 600_000,
-    })
-  }, 600_000)
+    // The build happened once in globalSetup, before any worker started. This
+    // only asserts the binary is really there, so a missing one fails here with
+    // an explanation rather than inside the first reencode.
+    requireWardrobeVerify()
+  }, 60_000)
 
   // The fixtures that represent a real archive. The malformed ones are the
   // other implementation's problem to reject, which Phase 3 already asserts on

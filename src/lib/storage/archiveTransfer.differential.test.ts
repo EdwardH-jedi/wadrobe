@@ -18,23 +18,43 @@
 // records are dropped, both sides say something about it.
 //
 // Mutants are seeded, so a disagreement reproduces from the seed in its message.
-import { execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { reviewArchiveImportText } from './archiveImport'
+import {
+  requireWardrobeVerify,
+  runVerify,
+  wardrobeDomainPresent,
+} from '../../test/wardrobeDomain'
+
+// Vitest's worker talks to the runner over an RPC channel with its own timeout,
+// and answering it needs a turn of the event loop. At 50,000 mutants this
+// `beforeAll` used to run ~124 seconds of unbroken synchronous work — 300,000
+// file writes plus a blocking `execFileSync` — so the heartbeat never got a
+// turn and the run ended with
+//
+//   Error: [vitest-worker]: Timeout calling "onTaskUpdate"
+//   This might cause false positive tests.
+//
+// The tests passed, but a runner warning that results may be unreliable makes
+// the green meaningless. The fix is to stop blocking rather than to raise the
+// timeout: every subprocess call is awaited, and the generation loop yields on
+// a fixed interval.
+const YIELD_EVERY = 250
+
+/** Hand the event loop a turn so the worker can answer its RPC heartbeat. */
+function yieldToEventLoop(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve))
+}
 
 const FIXTURE_DIR = join(
   process.cwd(),
   'src/lib/storage/__fixtures__/archive-export',
 )
 
-const SWIFT_PACKAGE =
-  process.env.WARDROBE_DOMAIN_PATH ??
-  join(process.env.HOME ?? '', 'Desktop/archive-ios/WardrobeDomain')
-
-const available = existsSync(join(SWIFT_PACKAGE, 'Package.swift'))
+const available = wardrobeDomainPresent
 
 /** How many mutants per source fixture. Raise for a deeper sweep. */
 const MUTANTS = Number(process.env.DIFFERENTIAL_MUTANTS ?? 60)
@@ -164,18 +184,11 @@ function webVerdict(file: string, text: string): Verdict {
 
 let workDir = ''
 
-function swiftVerdicts(): Map<string, Verdict> {
-  const stdout = execFileSync(
-    'swift',
-    ['run', '-q', 'wardrobe-verify', 'fuzzcheck', workDir],
-    {
-      cwd: SWIFT_PACKAGE,
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-      timeout: 300_000,
-      env: { ...process.env, NO_COLOR: '1' },
-    },
-  )
+async function swiftVerdicts(): Promise<Map<string, Verdict>> {
+  // Awaited, and against the built binary: a blocking call that lasts minutes
+  // stops the worker answering vitest's RPC heartbeat, and `swift run` would
+  // take the SwiftPM lock that a parallel worker is also reaching for.
+  const stdout = await runVerify(['fuzzcheck', workDir])
   const map = new Map<string, Verdict>()
   for (const line of stdout.split('\n')) {
     if (!line.trim().startsWith('{')) continue
@@ -201,13 +214,14 @@ describe.skipIf(!available)('differential fuzzing (web vs WardrobeDomain)', () =
   const seeds = new Map<string, string>()
   let swift = new Map<string, Verdict>()
 
-  beforeAll(() => {
+  beforeAll(async () => {
+    const started = Date.now()
     workDir = mkdtempSync(join(tmpdir(), 'archive-differential-'))
-    execFileSync('swift', ['build'], {
-      cwd: SWIFT_PACKAGE,
-      encoding: 'utf8',
-      timeout: 600_000,
-    })
+    requireWardrobeVerify()
+
+    const total = SOURCES.length * MUTANTS
+    let generated = 0
+    let lastReport = Date.now()
 
     for (const source of SOURCES) {
       const original = JSON.parse(
@@ -221,6 +235,23 @@ describe.skipIf(!available)('differential fuzzing (web vs WardrobeDomain)', () =
         // edit tends to hit only the rules that are already well covered.
         const rounds = 1 + Math.floor(random() * 3)
         for (let i = 0; i < rounds; i += 1) mutated = mutate(mutated, random)
+
+        generated += 1
+        // Yield on a fixed interval so the worker can answer its RPC heartbeat.
+        // Without this the loop runs to completion without ever returning to
+        // the event loop, and vitest reports `Timeout calling "onTaskUpdate"`.
+        if (generated % YIELD_EVERY === 0) {
+          await yieldToEventLoop()
+          // Progress, but only when a run is long enough to need it — at the
+          // default 60 mutants this never prints.
+          if (Date.now() - lastReport > 10_000) {
+            lastReport = Date.now()
+            const elapsed = ((Date.now() - started) / 1000).toFixed(0)
+            console.log(
+              `[differential] generated ${generated}/${total} mutants (${elapsed}s)`,
+            )
+          }
+        }
 
         let text: string
         try {
@@ -237,8 +268,20 @@ describe.skipIf(!available)('differential fuzzing (web vs WardrobeDomain)', () =
       }
     }
 
-    swift = swiftVerdicts()
-  }, 900_000)
+    if (total > YIELD_EVERY) {
+      console.log(
+        `[differential] ${web.size} mutants written in ` +
+          `${((Date.now() - started) / 1000).toFixed(0)}s; running Swift decoder`,
+      )
+    }
+    swift = await swiftVerdicts()
+    if (total > YIELD_EVERY) {
+      console.log(
+        `[differential] both decoders done in ` +
+          `${((Date.now() - started) / 1000).toFixed(0)}s`,
+      )
+    }
+  }, 3_600_000)
 
   it('produces mutants for both decoders to disagree about', () => {
     expect(web.size).toBe(SOURCES.length * MUTANTS)

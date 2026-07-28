@@ -17,6 +17,10 @@ export default defineConfig({
     environment: 'jsdom',
     globals: false,
     setupFiles: ['./src/test/setup.ts'],
+    // Builds the Swift verification binary once, in the main process, before
+    // any worker starts — so no test calls `swift run` and no two workers
+    // contend for the SwiftPM lock. See src/test/wardrobeDomain.ts.
+    globalSetup: ['./src/test/globalSetup.ts'],
     css: false,
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     poolOptions: {
