@@ -149,15 +149,33 @@ unit test.)
 
 ```bash
 npm install        # first time only
+npm run check      # ← the one command. Everything, exits non-zero on any failure.
 npm run dev        # local dev server (http://localhost:5173)
 npm run typecheck  # tsc --noEmit (strict)
 npm run lint       # eslint (flat config)
-npm test           # vitest run
+npm test           # vitest run  (web suite only)
 npm run build      # tsc --noEmit && vite build
 ```
 
-Before claiming work is done, run typecheck + test + build and report real
-output. Tests (100+) cover the domain (reducer, fit-check, outfit/draft helpers),
+**`npm run check` is the command to run before claiming anything works.** It
+needs no environment variables and runs, in order: `tsc --noEmit`, `eslint .`,
+the full Vitest suite, a coverage audit of the cross-boundary suites, and
+`swift test` in the WardrobeDomain package.
+
+It fails on something `npm test` alone cannot see. The two cross-boundary suites
+(`archiveTransfer.crossclient` and `archiveTransfer.differential`) shell out to
+the Swift package and `describe.skipIf` themselves when it is absent — right when
+the package genuinely is not checked out, and dangerously wrong when it is
+present and the build failed, because vitest then prints `0 failed` meaning
+`0 tested`. `check` reads the JSON reporter and fails if either file executed no
+tests while the package was present. Verified by making one of them skip
+deliberately: vitest reported the whole run green and `npm run check` exited 1.
+
+Depth is a flag, not an environment variable: `npm run check:deep` (5,000
+mutants, ~12 s) and `npm run check:deepest` (50,000, ~2 min). The default sweep
+is 60 mutants per fixture and takes ~2 s.
+
+Before claiming work is done, run `npm run check` and report real output. Tests (100+) cover the domain (reducer, fit-check, outfit/draft helpers),
 the storage adapters + facade, the upload-flow reducer + copy honesty, the
 provider (incl. reload/persistence + delete-keeps-garments), and component
 behavior (mannequin zones, mirror caption, saved cards, required-name, a full

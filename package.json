@@ -11,7 +11,10 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "check": "node scripts/check.mjs",
+    "check:deep": "node scripts/check.mjs --deep",
+    "check:deepest": "node scripts/check.mjs --deepest"
   },
   "dependencies": {
     "@types/three": "^0.184.1",

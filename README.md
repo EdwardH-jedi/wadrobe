@@ -30,6 +30,9 @@ the room, or **Upload** a clothing photo to archive your own piece.
 | `npm run typecheck` | `tsc --noEmit` (strict) |
 | `npm run lint` | ESLint (flat config) |
 | `npm test` | Run the Vitest suite |
+| **`npm run check`** | **Everything: typecheck, lint, the web suite, and the WardrobeDomain Swift suite. Exits non-zero on any failure — including a cross-boundary suite that skipped when it should have run.** |
+| `npm run check:deep` | `check` with 5,000 differential mutants (~12 s more) |
+| `npm run check:deepest` | `check` with 50,000 differential mutants (~2 min more) |
 
 ## Tech
 

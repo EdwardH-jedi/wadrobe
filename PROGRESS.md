@@ -673,3 +673,61 @@ commit. Cost is close to linear in mutant count above 1,000 — the Swift sweep,
 not the JavaScript, dominates.
 
 Full suites green: **627 web tests / 63 files**, **504 Swift tests / 89 suites**.
+
+## Phase 4 — One reliable command ✅
+
+**`npm run check`.** No environment variables. Runs, in order:
+
+1. `tsc --noEmit`
+2. `eslint .`
+3. the full Vitest suite (with `CROSSCLIENT_STRICT=1` set automatically when the
+   Swift package is present)
+4. **a coverage audit of the cross-boundary suites**
+5. `swift test` in WardrobeDomain
+
+Exits non-zero on any failure. Depth is a flag rather than an environment
+variable: `npm run check:deep` (5,000 mutants) and `npm run check:deepest`
+(50,000).
+
+### The part that matters: a skip is a failure
+
+`archiveTransfer.crossclient` and `archiveTransfer.differential` both
+`describe.skipIf(!available)`. That is right when the Swift package is genuinely
+not checked out, and dangerously wrong when it is present and something else
+broke — a failed build, a missing binary, a globalSetup that never ran. vitest
+then prints `0 failed` and means `0 tested`.
+
+`check.mjs` reads vitest's JSON reporter and requires that, when the package is
+present, both files executed at least one test. It also names any `pending`
+test anywhere in the run.
+
+**Verified by mutation.** Forcing `archiveTransfer.differential` to skip while
+the package was present:
+
+```
+ Test Files  63 passed (63)        ← vitest is happy
+...
+[2] coverage of the cross-boundary suites
+  ✓ src/lib/storage/archiveTransfer.crossclient.test.ts — 10 tests executed
+  ✗ src/lib/storage/archiveTransfer.differential.test.ts
+    the Swift package is present at .../WardrobeDomain but every test in this
+    file skipped. That reports 0 failures while testing nothing.
+✗ 1 failure(s)                     ← exit 1
+```
+
+vitest reported the entire run green; `npm run check` exited 1. The same mutation
+on the cross-client file was caught twice over, because `CROSSCLIENT_STRICT=1`
+independently turns its skip into a throw.
+
+Documented in `README.md` (command table) and `CLAUDE.md` §6, which now names
+`npm run check` as the command to run before claiming anything works.
+
+### Green
+
+```
+✓ typecheck · ✓ lint · ✓ web suite
+✓ archiveTransfer.crossclient.test.ts — 10 tests executed
+✓ archiveTransfer.differential.test.ts — 6 tests executed
+✓ nothing skipped unexpectedly · ✓ swift test
+✓ everything green                                        exit 0
+```
