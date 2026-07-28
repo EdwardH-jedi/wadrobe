@@ -731,3 +731,101 @@ Documented in `README.md` (command table) and `CLAUDE.md` §6, which now names
 ✓ nothing skipped unexpectedly · ✓ swift test
 ✓ everything green                                        exit 0
 ```
+
+## Phases 5 and 6 — Asset materialization ✅
+
+The gap RECONCILIATION.md §5.1 calls the largest remaining one. Built in
+WardrobeDomain; documented in full in that package's **`ASSETS.md`**.
+
+### What was missing
+
+Every image in a web export is an inline data URL; `AssetFileRef` holds a
+filename. Both are JSON strings, so the decoder was never wrong — a document
+round-trips byte for byte — and `AssetIntegrity` then reports every image
+reference as unusable, because a data URL is not a filename.
+
+### The pipeline
+
+`ArchiveImporter.decodeAndMaterialize` → parse the data URL, base64 decode,
+**sniff the format from the bytes**, write one atomic file, replace the field
+with the minted reference. `ArchiveExporter.encodeInlining` is the reverse, so
+the round trip works in both directions rather than only outward.
+
+- **The bytes decide the format, not the label.** A payload announced as
+  `image/jpeg` whose bytes are a PNG is stored `.png`; a `.jpg` that is not one
+  fails at render time, far from the import that could have reported it.
+- **Deduplicated by content within an import** — `GarmentAsset.uploaded` sets
+  `originalImageUrl` and `displayImageUrl` to the same string, so a garment
+  routinely carries one image three times. 500 garments → 500 files, 1000 fields
+  deduplicated.
+- **Nothing partial is ever written.** Bytes are fully decoded *and* identified
+  before anything touches disk, and `AssetStore.write` is atomic underneath.
+- **Bad payloads are reported, never thrown**, as `unusableAssetReference`
+  warnings beside every other drop.
+
+### Blocking, and the measurement that decided it
+
+500 garments, 500 distinct 200 KB images (97.7 MB), real directory, release:
+
+| | elapsed |
+|---|---|
+| decode + sniff only (in-memory store) | 0.794 s |
+| the same, writing 500 files | 0.899 s |
+
+**The writes are 105 ms of 899 — about 12%.** Base64 decoding is the rest and
+nothing avoids it. Deferring the writes would save an eighth of the import and
+cost ~130 MB of retained base64, a "resolves but not written yet" state the view
+layer would have to render, and corrupt payloads surfacing on scroll rather than
+at import. Reproduce with `ASSET_BENCH_FULL=1 swift test -c release`.
+
+### Proven across the process boundary
+
+`archiveTransfer.crossclient.test.ts` gained three tests — 10 → 13 — driving a
+new `wardrobe-verify materialize` command:
+
+- **real PNG and JPEG bytes go web → Swift → files on disk → Swift → web**, and
+  come back byte for byte, with `unusableReferences: 0` and `missingReferences: 0`;
+- a payload that is not an image is reported, writes no file, and does not fail
+  the document;
+- `full-featured.json` is pinned at its honest numbers.
+
+**Confirmed to have teeth by mutation:** disabling materialization inside
+`decodeAndMaterialize` fails all three; restoring it passes them.
+
+### full-featured.json: 16 → 8, and why not 0
+
+Its 15 data URLs are **8 real 38-byte WEBP payloads** (identical, so they
+deduplicate to one file) and **7 literal ASCII placeholders** — `crop-bytes`,
+`thumb-bytes`, `cutout-bytes` — declared as images. RECONCILIATION.md §6
+predicted exactly this: *"every fixture carries tiny placeholder payloads."*
+
+The pipeline is **correct** to refuse them: writing `crop-bytes` into a `.jpg`
+and reporting success would mint a reference resolving to something no renderer
+can draw. The golden fixtures were deliberately not edited to force a zero —
+`FIXTURES.sha256` is committed in both repositories, and changing a shared
+contract so a new assertion passes is how a contract stops meaning anything.
+The genuine zero is asserted on an export built from real image bytes.
+
+### Green
+
+```
+npm run check → ✓ everything green (exit 0)
+  web    630 tests / 63 files
+  swift  540 tests / 95 suites
+```
+
+---
+
+## Status — session 2
+
+| | Session 1 end | Now |
+|---|---|---|
+| `npm test` | 627 / 63 files | **630 / 63 files** |
+| `swift test` | 504 / 89 suites | **540 / 95 suites** |
+| one command | none | **`npm run check`**, exit non-zero on failure *or* unexpected skip |
+| deep fuzz | 124 s with an RPC timeout warning | 124 s, **zero unhandled errors** |
+| SwiftPM contention | twice in one run | **zero across five consecutive runs** |
+| `archiveTransfer` suite | 6.50 s | **1.44 s** |
+| images from an export | unusable, all of them | **materialized to files, round trip proven** |
+
+Nothing merged, nothing pushed. Both suites green at every commit.

@@ -24,7 +24,7 @@ import {
   SWIFT_PACKAGE,
   wardrobeDomainPresent,
 } from '../../test/wardrobeDomain'
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { beforeAll, describe, expect, it } from 'vitest'
@@ -63,6 +63,40 @@ function reencodeInSwift(name: string, json: string): string {
   runVerifySync(['reencode', input, output])
 
   return readFileSync(output, 'utf8')
+}
+
+/**
+ * The full asset round trip, through real files on disk.
+ *
+ *   web export → Swift decode → one file per image → Swift read back → web
+ *
+ * `reencodeInSwift` proves the *fields* survive; this proves the *bytes* do,
+ * having been through a filesystem in between. That is the gap
+ * RECONCILIATION.md §5.1 describes: both sides treat an image field as an
+ * opaque string, so a document round-trips byte for byte while every image in
+ * it stays unusable.
+ */
+function materializeInSwift(
+  name: string,
+  json: string,
+): { json: string; summary: Record<string, number | string>; assetFiles: string[] } {
+  const input = join(workDir, `${name}.web.json`)
+  const output = join(workDir, `${name}.materialized.json`)
+  const assets = join(workDir, `${name}.assets`)
+  mkdirSync(assets, { recursive: true })
+  writeFileSync(input, json, 'utf8')
+
+  const stdout = runVerifySync(['materialize', input, output, '--assets', assets])
+  // The command prints one JSON line before its human output, so a test never
+  // has to scrape prose.
+  const line = stdout.split('\n').find((l) => l.trim().startsWith('{'))
+  if (!line) throw new Error(`materialize printed no JSON summary:\n${stdout}`)
+
+  return {
+    json: readFileSync(output, 'utf8'),
+    summary: JSON.parse(line) as Record<string, number | string>,
+    assetFiles: readdirSync(assets),
+  }
 }
 
 /**
@@ -186,6 +220,151 @@ describe.skipIf(!available)('cross-client round trip (web ⇄ WardrobeDomain)', 
       legacy.source.garments.map((g) => g.imageDataUrl),
     )
     expect(legacy.source.garments[0].imageDataUrl).toContain('data:image/svg+xml,%3C')
+  }, 300_000)
+
+  // --- Assets: the bytes, through a filesystem ------------------------------
+
+  /** A real 1x1 PNG. Genuine signature, IHDR, IDAT and IEND. */
+  const ONE_PIXEL_PNG_BASE64 =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+  /** A real minimal JPEG. */
+  const TINY_JPEG_BASE64 =
+    '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q=='
+
+  it('real image bytes survive web → Swift → files on disk → Swift → web', async () => {
+    // The end-to-end proof for RECONCILIATION.md §5.1. Every other test here
+    // compares image *fields*; this one writes the images to a filesystem in
+    // between and compares the *bytes* on the far side.
+    const png = `data:image/png;base64,${ONE_PIXEL_PNG_BASE64}`
+    const jpeg = `data:image/jpeg;base64,${TINY_JPEG_BASE64}`
+
+    const base = reviewArchiveImportText(
+      readFileSync(join(FIXTURE_DIR, 'minimal-valid.json'), 'utf8'),
+    )
+    const garments: GarmentItem[] = [
+      {
+        ...base.garments[0],
+        id: 'grm-png',
+        imageDataUrl: png,
+        asset: {
+          originalImageUrl: png,
+          displayImageUrl: png,
+          assetMode: 'uploaded',
+        },
+      },
+      {
+        ...base.garments[0],
+        id: 'grm-jpeg',
+        imageDataUrl: jpeg,
+        asset: {
+          originalImageUrl: jpeg,
+          displayImageUrl: jpeg,
+          croppedImageUrl: png,
+          assetMode: 'cropped',
+        },
+      },
+    ]
+
+    const json = await exportToString(
+      {
+        garments,
+        savedOutfits: [],
+        currentOutfit: base.currentOutfit as OutfitSelection,
+      },
+      { blobStore: null, now: 1_753_577_000_000 },
+    )
+
+    const { json: back, summary, assetFiles } = materializeInSwift('real-images', json)
+
+    // Two distinct images, each appearing in several fields: two files, not six.
+    expect(summary.imagesWritten).toBe(2)
+    expect(summary.imageFailures).toBe(0)
+    expect(assetFiles.length).toBe(2)
+    // The extension comes from the bytes, so a PNG is stored as .png.
+    expect(assetFiles.some((f) => f.endsWith('.png'))).toBe(true)
+    expect(assetFiles.some((f) => f.endsWith('.jpg'))).toBe(true)
+
+    // Every reference resolved once materialized — this is the count that was 16.
+    expect(summary.unusableReferences).toBe(0)
+    expect(summary.missingReferences).toBe(0)
+
+    // And the bytes came back byte for byte, having been on a disk.
+    const returned = reviewArchiveImportText(back)
+    expect(returned.ok).toBe(true)
+    const byId = new Map(returned.garments.map((g) => [g.id, g]))
+
+    const pngBack = byId.get('grm-png')!
+    expect(pngBack.imageDataUrl).toBe(png)
+    expect(pngBack.asset?.originalImageUrl).toBe(png)
+    expect(pngBack.asset?.displayImageUrl).toBe(png)
+
+    const jpegBack = byId.get('grm-jpeg')!
+    expect(jpegBack.imageDataUrl).toBe(jpeg)
+    expect(jpegBack.asset?.croppedImageUrl).toBe(png)
+  }, 300_000)
+
+  it('a payload that is not an image is reported, and never written', async () => {
+    // The other half of the contract: a bad image must not fail the document,
+    // must not produce a file, and must be reported the way every other drop is.
+    const good = `data:image/png;base64,${ONE_PIXEL_PNG_BASE64}`
+    const notAnImage = `data:image/png;base64,${Buffer.from('definitely not an image').toString('base64')}`
+
+    const base = reviewArchiveImportText(
+      readFileSync(join(FIXTURE_DIR, 'minimal-valid.json'), 'utf8'),
+    )
+    const json = await exportToString(
+      {
+        garments: [
+          { ...base.garments[0], id: 'grm-good', imageDataUrl: good },
+          { ...base.garments[0], id: 'grm-bad', imageDataUrl: notAnImage },
+        ],
+        savedOutfits: [],
+        currentOutfit: base.currentOutfit as OutfitSelection,
+      },
+      { blobStore: null, now: 1_753_577_000_000 },
+    )
+
+    const { json: back, summary, assetFiles } = materializeInSwift('bad-image', json)
+
+    expect(summary.imagesWritten).toBe(1)
+    expect(summary.imageFailures).toBe(1)
+    expect(assetFiles.length).toBe(1)
+
+    // Both garments survive; the document is not failed by one bad image.
+    const returned = reviewArchiveImportText(back)
+    expect(returned.ok).toBe(true)
+    expect(returned.garments.map((g) => g.id).sort()).toEqual(['grm-bad', 'grm-good'])
+    // The good one resolved; the bad one still carries what the producer wrote.
+    const byId = new Map(returned.garments.map((g) => [g.id, g]))
+    expect(byId.get('grm-good')!.imageDataUrl).toBe(good)
+    expect(byId.get('grm-bad')!.imageDataUrl).toBe(notAnImage)
+  }, 300_000)
+
+  it('full-featured.json: every real image resolves, and the placeholders do not', async () => {
+    // RECONCILIATION.md §5.1 records 16 unusable references for this fixture.
+    // After materialization the ones that are genuinely images resolve; what
+    // remains is the fixture's own ASCII placeholders — `crop-bytes`,
+    // `thumb-bytes`, `cutout-bytes` — which are not images and which the
+    // pipeline is CORRECT to refuse. Writing `crop-bytes` into a .jpg would be
+    // the bug, not the fix.
+    //
+    // So the honest assertion is not "zero" but "zero that were ever images",
+    // and this pins both halves so neither can regress.
+    const { json } = await exportFromFixture('full-featured.json')
+    const { summary } = materializeInSwift('full-featured-assets', json)
+
+    // The eight real 38-byte WEBP payloads are identical, so they deduplicate
+    // to a single file.
+    expect(summary.imagesWritten).toBe(1)
+    expect(summary.filesOnDisk).toBe(1)
+    // Seven fields carry ASCII placeholders and are refused, with a reason.
+    expect(summary.imageFailures).toBe(7)
+    // Nothing that resolved is missing: no half-written files.
+    expect(summary.missingReferences).toBe(0)
+    // Down from 16, and every remaining one is a placeholder rather than an
+    // image the pipeline failed to store.
+    expect(summary.unusableReferences).toBeLessThan(16)
+    expect(summary.unusableReferences).toBe(8)
   }, 300_000)
 
   it('blob-backed bytes resolved at export time survive the trip', async () => {
