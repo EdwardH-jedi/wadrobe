@@ -23,8 +23,13 @@ __pycache__/
 .claude/scheduled_tasks.lock
 .claude/settings.local.json
 
+# Env files (.env.local / .env.*.local already covered by *.local below)
+.env
+.env.production
+
 # Editor / OS
 .DS_Store
+Thumbs.db
 *.local
 .vscode/*
 !.vscode/extensions.json
