@@ -1,0 +1,11 @@
+# Benchmark-only dependencies. Installed into eval/cutout/.venv ONLY:
+#
+#   /opt/homebrew/bin/python3.12 -m venv eval/cutout/.venv
+#   eval/cutout/.venv/bin/python -m pip install -r eval/cutout/requirements.txt
+#
+# The repo root has no Python dependency manifest and must not gain one.
+# Python 3.12 is used deliberately: the local default (3.14) is ahead of the
+# torch/ultralytics support matrix needed in Phase 4.
+numpy>=2.0
+pillow>=11.0
+# Phase 4 (yolo11seg) adds: ultralytics
