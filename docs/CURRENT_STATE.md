@@ -171,9 +171,15 @@ Ordered by what actually costs something.
    working tree, but a genuine purge would need `git filter-repo` and a
    force-push — an owner's decision. Recover it with
    `git show 319b673:IMG_0198.jpg > IMG_0198.jpg` if it is ever wanted.
-6. **The `eval/cutout` harness is a stub.** Scaffolding for a cutout benchmark
+6. **`backend/requirements.txt` has no upper bounds.** Every entry is a `>=`
+   floor, so a fresh install resolves whatever is newest — verified: a clean
+   install today pulls trimesh **5.0.0** and FastAPI **0.141.1**, two majors
+   ahead of the checked-in virtualenv's trimesh 4.12.2. The suite passes on
+   both, but nothing prevents a future release from breaking CI without a
+   commit. Pinning, or adding upper bounds, would make backend CI reproducible.
+7. **The `eval/cutout` harness is a stub.** Scaffolding for a cutout benchmark
    with no results committed. It is excluded from lint and from CI.
-7. **The repository is named `wadrobe`** (missing the `r`). Renaming it on
+8. **The repository is named `wadrobe`** (missing the `r`). Renaming it on
    GitHub is a one-click improvement; GitHub redirects the old URL.
 
 ---
