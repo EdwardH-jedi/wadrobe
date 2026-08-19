@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel a superseded run on the same branch instead of paying for both.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: Web app (Node 20)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 20 is pinned in .nvmrc and package.json engines: the Vitest suite
+      # relies on jsdom's localStorage, which newer Node shadows with a native
+      # implementation the tests cannot reset.
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # Run each gate separately so a failure names itself.
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  backend:
+    name: Experimental backend (Python 3.12)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 3.12 is the version the backend virtualenv is built and verified on.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r backend/requirements.txt
+
+      # Run from the repository root — backend/pytest.ini sets rootdir/pythonpath.
+      - run: python -m pytest backend
