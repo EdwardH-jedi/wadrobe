@@ -1,3 +1,10 @@
+> **Historical document — not current implementation status.**
+> Kept for the reasoning it records. It was accurate when written and has not
+> been maintained since. For what the repository actually contains today, see
+> [`docs/CURRENT_STATE.md`](../CURRENT_STATE.md).
+
+---
+
 # The Archive — Vision Step 2: 동의 게이트 + positive 테스트
 
 전제(보고로 확정): vision seam은 이미 채택됐고, cloud 카피 분기("configured server로 전송")는

@@ -1,3 +1,10 @@
+> **Historical document — not current implementation status.**
+> Kept for the reasoning it records. It was accurate when written and has not
+> been maintained since. For what the repository actually contains today, see
+> [`docs/CURRENT_STATE.md`](../CURRENT_STATE.md).
+
+---
+
 # Track B — Phase B4a: Async Jobs API + Pipeline Interfaces (배선)
 
 목표: 무거운 아바타 빌드를 위한 **async job lifecycle**(`/api/jobs`)과 **5개 pipeline interface +

@@ -8,16 +8,27 @@ downscaled thumbnail to the `api/analyze` Vercel function (a Claude vision call)
 and maps the result via `parseVisionGuess` (`source: 'vision-api'`); any failure
 falls back to the mock. The default (env unset) remains mock-only with no upload.
 
-> **Note on "Phase" numbers — they collide.** PLAN.md's roadmap and this document
-> both say "Phase N" but mean different things. **PLAN.md Phase 3 ("Upload To
-> Archive Transition")** is a *UX illusion*: a premium demo-scan → draft-metadata
-> suggestion → "Archive Piece created" → transition ritual layered over the
-> existing **local mock**. It is NOT this document's *future* "Phase 3 (real
-> Vision provider)". **No real AI / vision recognition or 3D try-on is
-> implemented** — the analyzer is still `mockGarmentAnalysis`, and the upload copy
-> is deliberately worded as a *local demo* (see `uploadFlow.ts` `UPLOAD_COPY`,
-> guarded by an honesty unit test). (Local **background removal** shipped later in
-> Phase 10 — a real on-device edge flood fill, not AI/ML; see below.)
+> **What is and is not real, precisely.**
+>
+> - The **default** analyzer is `mockGarmentAnalysis` — deterministic, on-device,
+>   no network. This is what a clone runs.
+> - The **optional** vision analyzer is implemented and reachable only when
+>   `VITE_API_BASE` **and** `VITE_ANALYZER=vision` are both set, plus a
+>   session-scoped consent gate. It produces a *draft* the user still confirms.
+> - **Background removal** is a real on-device edge flood fill — not AI, not ML,
+>   not segmentation. See below.
+> - **No 3D try-on exists.** The mannequin preview is a 2.5D layered composition;
+>   the experimental proxy-3D lab is a separate, opt-in research track
+>   (`docs/AVATAR_TRACK.md`).
+>
+> Upload copy is deliberately worded to match whichever path is active
+> (`uploadFlow.ts` `UPLOAD_COPY`, guarded by an honesty unit test).
+>
+> **Careful with "Phase N".** The historical roadmap in `docs/archive/PLAN.md`
+> and this document both use the phrase and mean different things — that
+> roadmap's "Phase 3" is a UX transition ritual, not this document's *future*
+> "Phase 3 (real Vision provider)". Current status lives in
+> [`CURRENT_STATE.md`](CURRENT_STATE.md), not in either numbering.
 
 ## Current pipeline (mock, on-device)
 
@@ -158,7 +169,7 @@ File
 A real provider could also offer **candidate product search** and **garment
 cutout generation** (segmentation → transparent PNG) feeding the body-zone
 mapping. Further out (beyond image analysis): a **3D / GLB mannequin in a React
-Three Fiber room** would replace the CSS studio scene (see `docs/ROADMAP.md`), and
+Three Fiber room** would replace the CSS studio scene, and
 a research prototype could explore genuine virtual try-on. **None of this exists
 today, and the app never claims it does.**
 

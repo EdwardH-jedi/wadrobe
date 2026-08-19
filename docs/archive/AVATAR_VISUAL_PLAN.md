@@ -1,3 +1,10 @@
+> **Historical document — not current implementation status.**
+> Kept for the reasoning it records. It was accurate when written and has not
+> been maintained since. For what the repository actually contains today, see
+> [`docs/CURRENT_STATE.md`](../CURRENT_STATE.md).
+
+---
+
 # AVATAR VISUAL PLAN — 배경제거 → 사이즈 fit → 3D 회전
 
 > 목표: Studio/Mirror 마네킹의 "배경 포함 엉성한 사진 카드" 문제를 근본부터 해결.

@@ -1,17 +1,34 @@
 # AVATAR_TRACK.md — Track B: Avatar Lab (additive 3D/GLB track)
 
-> **Status: B2–B3.9 DONE; B4–B5 backend DONE (frontend wiring pending).**
-> As of 2026-06-27: the **B2 spike** (PNG → proxy-3D GLB, `backend/`, FastAPI)
-> and the **B3–B3.9 frontend** (additive "Proxy 3D Lab" view,
-> `src/components/avatar/`, with `three` lazy-loaded only inside the GLB
-> viewer + the closet bridge) are implemented. **B4–B5 backend** now also
-> exists and is pytest-green: the generic async jobs API (`/api/jobs`), all
-> five pipeline interfaces with dummy impls, a procedural `trimesh` mannequin
-> builder, and a bounding-box outfit-GLB fitter (65 backend tests total).
-> What is **NOT built yet:** the frontend job-flow wiring that drives
-> `/api/jobs` from the Avatar Lab view (the UI still only calls
-> `/api/proxy-3d`), and B6. Do not imply real try-on / accurate fit anywhere —
-> the avatar pipeline is an honest proxy (placeholder/procedural mesh).
+> ## ⚠️ EXPERIMENTAL — and hidden by default
+>
+> This entire track is research, not product. **The wardrobe archive is the
+> product**; the detail below describes an opt-in side track.
+>
+> Since 2026-08-19 the Proxy 3D Lab is gated behind
+> `VITE_ENABLE_EXPERIMENTAL_3D`. With the flag unset (the default) the lab's
+> navigation entry is not listed, the closet withholds its 3D action and the
+> matching saved-preview badge, the lab is never mounted, and three.js is never
+> loaded. Saved `proxy3dPreview` metadata is untouched either way.
+>
+> **Status: B2–B3.9 done; B4–B5 backend done, frontend wiring not built.**
+> The **B2 spike** (PNG → proxy-3D GLB, `backend/`, FastAPI) and the
+> **B3–B3.9 frontend** (the Proxy 3D Lab view, `src/components/avatar/`, with
+> `three` lazy-loaded only inside the GLB viewer, plus the closet bridge) are
+> implemented. The **B4–B5 backend** exists and is pytest-green: the async jobs
+> API (`/api/jobs`), all five pipeline interfaces, a procedural `trimesh`
+> mannequin builder, and a bounding-box outfit-GLB fitter — 65 backend tests in
+> total.
+>
+> **Not built:** the frontend job-flow wiring that would drive `/api/jobs` from
+> the lab (the UI calls only `/api/proxy-3d`), real body estimation, real
+> texture projection, and B6. Body estimation and texture projection remain
+> deterministic stubs that record honestly what they did not do.
+>
+> Nothing here is real try-on, body reconstruction, or accurate fit. The avatar
+> pipeline is an honest proxy.
+>
+> For repository-wide status see [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
 ---
 
@@ -23,11 +40,14 @@ an *approximate* 3D avatar, fits a user-provided outfit 3D file
 (`.glb`/`.gltf`) onto it, and exports a single combined GLB viewable in the
 browser.
 
-A 2026-06-08/10 repo audit confirmed none of this exists yet. The repository
-contains only **Track A**: the fit-archive closet layer (local-first 2.5D
-fashion archive, Vite + React, 229 passing tests). The user has confirmed that
-Track A **is** the AvatarWardrobe v0 closet layer — it is not a wrong or
-throwaway codebase — and has authorized Track B as a separate, additive track.
+The audit that opened this track confirmed none of that existed. The repository
+was — and in terms of what ships by default, still is — **Track A**: the
+fit-archive closet layer (a local-first 2.5D fashion archive, Vite + React).
+Track A **is** the product; Track B was authorized as a separate, additive track
+that must never rewrite, rename, or degrade it.
+
+Current test counts live in [`CURRENT_STATE.md`](CURRENT_STATE.md); the numbers
+quoted in the phase table below are historical per-phase figures.
 
 ## 2. Relationship to Track A (hard rules)
 
@@ -38,7 +58,7 @@ throwaway codebase — and has authorized Track B as a separate, additive track.
 - Track A's test suite must remain green after every Track B change. A Track B
   phase that breaks a Track A test is not done.
 - Track B work happens **only when the user explicitly starts a Track B
-  phase**. Default sessions continue Track A per `PLAN.md`.
+  phase**. Default sessions continue Track A per `docs/CURRENT_STATE.md`.
 
 ## 3. Intended architecture (target, not current state)
 

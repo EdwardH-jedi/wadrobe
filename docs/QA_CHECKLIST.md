@@ -3,6 +3,27 @@
 Run `npm run dev` and walk through these. (Automated coverage:
 `npm run typecheck`, `npm run lint`, `npm test`.)
 
+> This checklist covers the **default build**, which is the wardrobe archive
+> only. Section headings carry historical phase numbers; current status is in
+> [`CURRENT_STATE.md`](CURRENT_STATE.md).
+
+## Core / experimental boundary (default build)
+
+- [ ] The sidebar lists Studio, Closet, Lookbook, Mirror, Outfits — and **no
+      "Proxy 3D" entry**.
+- [ ] Closet cards offer **no** "Create 3D preview" / "View 3D preview" action,
+      and no "3D" badge, even on a piece that has a saved preview.
+- [ ] DevTools → Network shows **no three.js chunk** loaded on any wardrobe view.
+- [ ] Every wardrobe flow below works with no backend running and no `.env.local`.
+
+With `VITE_ENABLE_EXPERIMENTAL_3D=true` in `.env.local` (restart the dev server):
+
+- [ ] The "Proxy 3D" entry appears and the lab opens.
+- [ ] A piece that had a saved preview **still has it** — toggling the flag must
+      never lose stored `proxy3dPreview` metadata.
+- [ ] Turning the flag back off hides the affordances again, and the piece's
+      preview reappears intact when it is turned back on.
+
 ## Upload & archive (the Phase 3 ritual)
 
 - [ ] Open Upload (sidebar, topbar, or rail "Upload" button).

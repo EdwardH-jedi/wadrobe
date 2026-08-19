@@ -1,3 +1,10 @@
+> **Historical document — not current implementation status.**
+> Kept for the reasoning it records. It was accurate when written and has not
+> been maintained since. For what the repository actually contains today, see
+> [`docs/CURRENT_STATE.md`](../CURRENT_STATE.md).
+
+---
+
 # Codex Review — The Archive (Fit Archive)
 
 Handoff for external (Codex) review. **Phase 7 will refine this**; today it is a

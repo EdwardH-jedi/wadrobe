@@ -1,54 +1,254 @@
-# The Archive — Fit Archive
+# The Archive
 
-A premium, interactive **fashion archive** web app. Upload photos of clothes you
-own, archive them with a **local demo** classification (a draft metadata
-suggestion) you confirm, browse your digital closet, style a tall faceless
-mannequin, run a **Fit Check**, and save looks to an editorial board — all in a
-dark editorial showroom UI, persisted locally in your browser.
+**A local-first digital wardrobe: photograph the clothes you own, archive them
+with real metadata, and style them on a mannequin — no account, no server, no
+data leaving the browser.**
 
-> This is an MVP base. It is a convincing **2.5D** styling illusion, not real 3D
-> virtual try-on, and it makes no real AI/Vision API calls yet (the classifier
-> is a deterministic mock with a clean seam for a real provider). See `docs/`.
+[![CI](https://github.com/EdwardH-jedi/wadrobe/actions/workflows/ci.yml/badge.svg)](https://github.com/EdwardH-jedi/wadrobe/actions/workflows/ci.yml)
 
-## Quick start
+---
 
-```bash
-npm install
-npm run dev        # http://localhost:5173
+## What it does
+
+Drop in a photo of a jacket. The app drafts a classification — category, colour,
+style tags — and hands it to you to correct; nothing is archived until you
+confirm it and give the piece a name. From there it joins a browsable closet
+where you can record what you paid, what it is made of, where it came from, and
+what you think it is worth now. Pick five pieces, lay them over a tall faceless
+mannequin as a 2.5D composition, run a Fit Check on the palette, and save the
+result to a lookbook.
+
+All of it persists in your browser. There is no sign-up, no backend, and — in
+the default configuration — not a single network request.
+
+The interesting engineering is not the styling loop; it is what sits underneath
+it. State runs through a pure reducer that receives every non-deterministic
+value (ids, timestamps, events) in its action payloads, so the whole domain is
+unit-testable without mocking clocks. Persistence degrades through three tiers
+rather than failing. Image bytes and metadata are stored in separate IndexedDB
+databases so a lost blob costs you a preview, never a piece. And every path that
+could touch a network is gated behind two independent environment variables and
+falls back to a local mock when it fails.
+
+---
+
+## Core features
+
+Everything here works with the repository as cloned, with no configuration.
+
+- **Upload → confirm → archive.** A drafted classification you always approve or
+  edit first. A name is required; the draft is never binding.
+- **Five categories** — outerwear, tops, pants, shoes, accessories — each mapped
+  to a body zone on the mannequin.
+- **Full garment metadata**: brand, subtype, colour and hex swatch, style tags,
+  material, size, purchase price and currency, retailer, purchase date, notes.
+- **Manual crop.** An on-device canvas crop to frame the garment.
+- **Local background removal.** An on-device, edge-seeded flood fill that lifts a
+  garment off a flat-lay background into a transparent cutout. Opt-in and
+  skippable — it is a classical algorithm, not ML segmentation, and quality
+  varies with the photo.
+- **Closet, Lookbook, Mirror, Outfits.** Browse by category, view pieces with
+  their reference details, layer them on the mannequin, and save looks.
+- **Fit Check.** A deterministic read on the current outfit's palette, tone and
+  completeness. No model is involved.
+- **Manual market-value history.** Timestamped estimates *you* type, so the
+  archive can show a trend against what you paid. Nothing is fetched; no number
+  here is market data.
+- **Local persistence** across reloads: IndexedDB, falling back to localStorage,
+  falling back to in-memory.
+
+## Optional integrations
+
+Three Vercel Edge functions in `api/`. Each is **off unless you configure it**,
+and the app is fully usable without any of them.
+
+| Feature | Requires | What it does |
+| --- | --- | --- |
+| Product-metadata prefill | `VITE_API_BASE` | Reads a pasted product page's declared metadata to prefill the form. |
+| Vision metadata draft | `VITE_API_BASE` **and** `VITE_ANALYZER=vision` | Sends the downscaled photo to a vision model for a draft classification. |
+| Reference-candidate search | `VITE_API_BASE` **and** `VITE_CANDIDATES=search` | Looks up candidate reference listings via the eBay Browse API. |
+
+The two conditions are deliberately ANDed: configuring an API base for the URL
+lookup cannot silently start sending your photos anywhere. Sending a photo needs
+the second flag *and* a session-scoped consent gate, and when the vision path is
+on, the scan copy says plainly that the photo is going to a server. Any failure
+falls back to the local mock, so a misconfigured backend degrades rather than
+blocking an upload.
+
+## Experimental 3D Lab
+
+A separate research track, **hidden by default** behind
+`VITE_ENABLE_EXPERIMENTAL_3D`. It turns a transparent PNG into a GLB — a
+textured, lightly-extruded silhouette — generated by a local FastAPI service and
+rendered in a three.js viewer.
+
+It is a **proxy**, and the app says so in its own UI. It is not virtual try-on,
+not body reconstruction, not cloth simulation, and not an accurate fit. The
+backend also carries an unconsumed async job surface that assembles a procedural
+mannequin from primitives; body estimation and texture projection there are
+still deterministic stubs, and no part of the web app calls it.
+
+With the flag unset, none of this is reachable and three.js is never loaded.
+
+---
+
+## Architecture
+
+Dependencies point downward, never up.
+
+```
+src/domain/        pure types + business logic (no React, no browser APIs)
+src/lib/           storage, image processing, analyzer + product-match adapters
+src/app/providers/ application state — one provider over a pure reducer
+src/components/    web UI
+api/               optional Vercel Edge functions
+backend/           experimental FastAPI service (3D research track)
 ```
 
-In an empty studio, click **Load sample** to populate a curated set and explore
-the room, or **Upload** a clothing photo to archive your own piece.
+Three points worth knowing:
 
-## Scripts
+**The reducer is pure and the provider does the plumbing.** `archiveReducer.ts`
+takes ids, timestamps, and events in its action payloads; every `Date.now()` and
+`crypto` call lives in the provider's action creators. The cost is more verbose
+action creators; the benefit is a domain layer that tests without fakes.
 
-| Command | Description |
-|---|---|
-| `npm run dev` | Start the Vite dev server |
-| `npm run build` | Typecheck then build for production (`dist/`) |
-| `npm run preview` | Preview the production build |
-| `npm run typecheck` | `tsc --noEmit` (strict) |
-| `npm run lint` | ESLint (flat config) |
-| `npm test` | Run the Vitest suite |
+**Persistence degrades instead of failing.** A facade probes IndexedDB (with a
+timeout, so a stalled `open()` cannot hang startup), falls back to localStorage,
+and finally to an in-memory adapter that keeps the app usable when storage is
+blocked. Writes are gated on a `hydrated` flag so an initial empty state can
+never overwrite what is stored.
 
-## Tech
+**Image bytes live apart from metadata.** Garment records keep a downscaled
+thumbnail plus blob references; the heavy cropped and cutout images sit as Blobs
+in a second IndexedDB database. A `put()` resolves only after its transaction
+commits, so a reference is never attached to a blob that did not land — and
+because a thumbnail is always present, a missing blob degrades the preview
+rather than losing the piece.
 
-Vite · React 18 · TypeScript (strict) · plain CSS design tokens · Vitest +
-Testing Library. No backend, no runtime dependencies beyond React.
+Two servers can serve paths under `/api`, and they are not the same thing: the
+Edge functions are reached by absolute URL from `VITE_API_BASE`, while the local
+FastAPI backend is reached by the relative path `/api/proxy-3d` that the Vite dev
+server proxies. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) untangles this
+properly.
 
-## Documentation
+## Tech stack
 
-- `CLAUDE.md` — vision, rules, and constraints (read first).
-- `docs/ARCHITECTURE.md` — components, domain models, storage, flows.
-- `docs/ROADMAP.md` — delivered Phases 1–7 + clearly-labeled future work.
-- `docs/AI_IMAGE_PIPELINE.md` — current mock + how to add a real Vision API.
-- `docs/QA_CHECKLIST.md` — manual QA pass.
-- `.claude/skills/` — short project-local guidance for Claude CLI sessions.
+Vite 6 · React 18 · TypeScript (strict) · plain CSS custom properties — no
+CSS-in-JS, no utility framework · Vitest + Testing Library.
 
-## Storage
+React and three.js are the only runtime dependencies, and three.js loads only
+inside the experimental lab, via a single dynamic `import()`. The production
+build confirms the split: a 283 kB main chunk and a 733 kB three.js chunk that a
+default visitor never downloads.
 
-Garments, saved looks, and the current outfit persist across reloads via a
-storage adapter that prefers **IndexedDB**, falls back to **localStorage**, and
-finally to **in-memory** (non-persistent) if both are blocked. Images are
-downscaled to thumbnails before storage to stay within quota.
+The experimental backend adds FastAPI, Pillow, NumPy, trimesh and pygltflib —
+none of which the web app depends on.
 
+## Data & privacy
+
+Your wardrobe stays in your browser. There is no account, no sync, and no
+server-side copy.
+
+With no environment configuration, **the web app makes no network requests at
+all.** Photos are downscaled to thumbnails in-browser before storage; cropping
+and background removal run on-device via canvas.
+
+A photo leaves your machine only if you set both `VITE_API_BASE` and
+`VITE_ANALYZER=vision`, and then only after you pass a session-scoped consent
+gate that resets when the tab closes. Product-URL lookups send the URL you
+pasted, never an image. Server-side API keys are read from `process.env` in the
+Edge functions and are never exposed to the client bundle.
+
+---
+
+## Getting started
+
+Requires **Node 20** (`.nvmrc`). The test suite fails on Node 25 — jsdom's
+`localStorage` is shadowed by a native implementation the tests cannot reset.
+
+```bash
+npm ci
+npm run dev          # http://localhost:5173
+```
+
+In an empty studio, click **Load sample** for a curated procedural set, or
+**Upload** a clothing photo to archive your own piece.
+
+Full setup, including the optional backend and every environment variable, is in
+[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
+
+## Testing
+
+```bash
+npm run typecheck    # tsc --noEmit, strict
+npm run lint         # eslint, flat config
+npm test             # vitest — 443 tests across 58 files
+npm run build        # typecheck + production build
+```
+
+Experimental backend:
+
+```bash
+python3 -m venv backend/.venv && source backend/.venv/bin/activate
+pip install -r backend/requirements.txt
+python -m pytest backend       # 65 tests
+```
+
+All five gates run in CI on every pull request and every push to `main`.
+
+Tests cover the domain layer (reducer, fit check, outfit and draft helpers,
+market-value math), all three storage adapters and the facade that chooses
+between them, the upload-flow reducer *and the honesty of its user-facing copy*,
+provider behaviour including reload and persistence, and component behaviour up
+to a full `<App/>` mount.
+
+## Repository structure
+
+```
+src/
+  app/            App + ArchiveProvider, reducer, context, hook
+  components/     ui/ closet/ outfit/ studio/ avatar/
+  domain/         garment + outfit types, taxonomy, draft, fit check, market value
+  lib/            storage/ ai/ image/ candidates/ productMatch/
+  data/           procedural sample archive
+  styles/         design tokens + globals
+api/              optional Vercel Edge functions
+backend/          experimental FastAPI service + pytest suite
+docs/             current documentation
+docs/archive/     historical planning documents (not current status)
+eval/             cutout benchmark scaffolding (stub; not wired into CI)
+```
+
+## Current status
+
+Actively maintained; the wardrobe loop is complete and green.
+
+[`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md) is the **single source of truth**
+for what exists, what is experimental, what is incomplete, and what the known
+technical debt is. It carries a verification date and the commit it was checked
+against. Anything in `docs/archive/` is historical and should not be read as
+status.
+
+## Roadmap
+
+Deliberately short, and none of it is required for the app to be complete:
+
+1. Merge the written-but-unmerged API hardening (origin allowlist, token cache,
+   per-caller throttle) before `api/` is ever deployed publicly.
+2. Extract the domain layer toward a shared package so a React Native client can
+   consume it — see [`docs/MOBILE_MIGRATION.md`](docs/MOBILE_MIGRATION.md).
+3. Higher-quality cutouts via ML/WASM segmentation. The seams are in place.
+
+## Known limitations
+
+- **The mannequin preview is 2.5D**, not 3D. Garment photos are layered by body
+  zone with z-ordering; nothing is fitted, draped, or simulated.
+- **The default classifier is a deterministic local mock**, not recognition. The
+  optional vision path produces a *draft* you still confirm.
+- **Background removal is a flood fill**, not segmentation. It works well on
+  clean flat-lay backgrounds and poorly on busy ones.
+- **Market values are numbers you typed.** Nothing is fetched or appraised.
+- **The 3D lab is a proxy** and needs the local backend running.
+- **There is no sync.** Clearing browser storage clears the archive; there is no
+  export yet.
+- **Node 20 only.** Newer Node breaks the test suite.

@@ -1,15 +1,20 @@
 # Architecture — The Archive
 
-This document explains how the MVP base is put together and where to extend it.
+How the app is put together and where to extend it. For *what currently exists*
+and what does not, see [`CURRENT_STATE.md`](CURRENT_STATE.md) — this document
+describes structure, not status.
 
 ## Stack
 
-- **Vite + React 18 + TypeScript** (strict mode).
+- **Vite 6 + React 18 + TypeScript** (strict mode).
 - **Plain CSS** with design tokens (`src/styles/`). No CSS-in-JS, no utility
   framework.
 - **Vitest + Testing Library + jsdom** for tests. **ESLint 9** (flat config).
-- No runtime dependencies beyond `react` / `react-dom`. (Editorial fonts load
-  progressively from Google Fonts with a system fallback; the app works offline.)
+- Runtime dependencies: `react`, `react-dom`, and `three`. **three.js is reached
+  only through a single dynamic `import()`** inside the experimental lab's GLB
+  viewer, so a default visitor never downloads it — the production build splits
+  it into its own chunk. Keep it that way. (Editorial fonts load progressively
+  from Google Fonts with a system fallback; the app works offline.)
 
 ## Layering
 
@@ -20,12 +25,44 @@ components/  (React UI)
    │
 app/providers/  (ArchiveProvider — context + reducer + persistence effects)
    │
-lib/  (storage, ai, image, color, id, cx, format)
+lib/  (storage, ai, image, candidates, productMatch, color, id, cx, format)
    │
-domain/  (pure types + pure logic: taxonomy, fitCheck, drafts)
+domain/  (pure types + pure logic: taxonomy, fitCheck, drafts, market value)
 ```
 
 `domain/` and most of `lib/` are framework-free and unit-testable in isolation.
+
+Two optional server layers sit *outside* this stack. Neither is imported by it;
+both are reached over HTTP and both are inert unless configured:
+
+```
+api/        optional Vercel Edge functions (product-meta, analyze, candidate-search)
+backend/    experimental local FastAPI service (proxy-3D + an unconsumed jobs API)
+```
+
+## API routing — three runtimes, one prefix
+
+This is the single most confusing thing in the repository, so it is worth being
+explicit. Two different servers can answer paths beginning with `/api`, and they
+are unrelated.
+
+| | Web app (`src/`) | Edge functions (`api/`) | Local backend (`backend/`) |
+| --- | --- | --- | --- |
+| Runtime | Browser | Vercel Edge | Python / uvicorn on `127.0.0.1:8000` |
+| Reached by | — | **Absolute** URL: `${VITE_API_BASE}/api/...` | **Relative** path: `/api/proxy-3d` |
+| Enabled by | always | `VITE_API_BASE` (+ a second flag per feature) | `VITE_ENABLE_EXPERIMENTAL_3D` + the service running |
+| Runs under `npm run dev`? | yes | **no** — needs `vercel dev` or a deployment | yes, via the Vite proxy |
+
+The Vite dev server proxies `/api` → `http://127.0.0.1:8000`
+(`vite.config.ts`). That proxy exists purely so the Proxy 3D Lab's relative
+requests reach the local FastAPI service same-origin, with no CORS setup.
+
+Because the Edge functions are addressed by an **absolute** URL built from
+`VITE_API_BASE` (`lib/ai/backendClient.ts`), they never collide with that proxy:
+if you point `VITE_API_BASE` at a deployment, those calls leave the dev server
+entirely. The collision you *could* create is pointing `VITE_API_BASE` at
+`http://localhost:5173` — then `/api/analyze` would be proxied to FastAPI, which
+does not serve it. Point it at your Vercel origin instead.
 
 ## Domain models
 
@@ -41,7 +78,7 @@ domain/  (pure types + pure logic: taxonomy, fitCheck, drafts)
 | `OutfitSelection` | `outfitTypes.ts` | `Record<slot, garmentId \| null>`. One slot per category. |
 | `SavedOutfit` | `outfitTypes.ts` | Named snapshot of a selection + cover hue. |
 | `ArchiveEvent` | `archiveTypes.ts` | Activity event; drives the "entering the rail" flourish. |
-| `GarmentAnalysisGuess` | `lib/ai/garmentAnalysisTypes.ts` | Non-binding mock guess (no real AI). |
+| `GarmentAnalysisGuess` | `lib/ai/garmentAnalysisTypes.ts` | A non-binding draft, tagged with its `source` (`mock` by default, `vision-api` when opted in). |
 | `FitCheckResult` | `fitCheck.ts` | Pure read on palette/tone/style. |
 | `ProductMatchCandidate` | `lib/productMatch/` | A local **demo/reference** candidate — no real search or recognition. |
 
@@ -233,12 +270,59 @@ exists today**.
   date, and Restore/Delete. Deleting a look removes only the look, never its
   garments; a look whose garments were since deleted renders gracefully.
 
-## Mock analysis flow (no real AI)
+## Analysis flow — mock by default, vision by opt-in
 
-`lib/ai/mockGarmentAnalysis.ts` returns a **deterministic** guess from the file
-name (keyword tables for category/color) plus an optional dominant color and a
-hash for tags/confidence. It performs no network or canvas work, so it runs in
-any environment. The `GarmentAnalyzer` interface is the seam for a real provider.
+`runGarmentAnalysis` routes through the factory in `lib/ai/createAnalyzer.ts`
+rather than binding an implementation directly:
+
+- **Default (no env):** `lib/ai/mockGarmentAnalysis.ts` returns a
+  **deterministic** guess from the file name (keyword tables for
+  category/colour) plus an optional dominant colour and a hash for
+  tags/confidence. No network, no canvas — it runs anywhere.
+- **`VITE_API_BASE` *and* `VITE_ANALYZER=vision`:** the backend analyzer POSTs
+  the downscaled thumbnail to `api/analyze` and normalizes the response with
+  `parseVisionGuess` (`source: 'vision-api'`).
+
+The two conditions are ANDed deliberately: setting an API base for the
+product-metadata lookup must not silently start sending photos. Sending a photo
+additionally requires the session-scoped consent gate in `lib/ai/visionConsent.ts`
+(stored in `sessionStorage`, so it resets when the tab closes), and the upload
+scan copy switches to wording that states the photo goes to a server.
+
+Any failure — no image, network error, unparseable result — falls back to the
+mock and keeps `source: 'mock'`, so a configured-but-broken backend degrades
+instead of blocking an upload. Whichever path ran, the result is a **draft the
+user confirms**; it is never binding.
+
+The same `BackendClient` transport serves `api/product-meta` (URL metadata
+prefill) and `api/candidate-search` (reference candidates, behind
+`VITE_CANDIDATES=search`).
+
+## Experimental 3D — the core/experimental boundary
+
+The Proxy 3D Lab (`src/components/avatar/`) is a research track, gated at build
+time by `VITE_ENABLE_EXPERIMENTAL_3D`. `src/lib/featureFlags.ts` exposes
+`isExperimental3dEnabled(env)` — a pure function over an injected env slice,
+matching the `resolveApiBase` / `selectAnalyzerKind` seams — and the flag reaches
+the UI through exactly three points in `ArchiveStudio.tsx`:
+
+1. `visibleViewOrder(enabled)` (`components/studio/views.ts`) drops `'lab'` from
+   the navigation, which is what the sidebar renders.
+2. `onProxy3d` is not passed to `ClosetPanel`, so no card offers a 3D action —
+   and `GarmentCard` ties its saved-preview badge to that same callback, so a
+   surface never advertises a preview it cannot open.
+3. The `'lab'` case returns `null` defensively.
+
+Because three.js is only ever reached through the dynamic `import()` inside
+`GlbViewer.tsx`, never mounting the lab is sufficient to guarantee it is never
+loaded. The flag governs **reachability only**: `GarmentItem.proxy3dPreview` is
+never read, written, or cleared by it, so toggling it in either direction is
+lossless for stored data.
+
+The lab talks to `backend/` over `/api/proxy-3d`. The backend also exposes an
+async `/api/jobs` surface (procedural mannequin builder + bbox outfit fitter
+behind five injectable stage Protocols) that **no frontend code consumes** —
+see [`AVATAR_TRACK.md`](AVATAR_TRACK.md).
 
 ## Mannequin preview approach
 
@@ -246,8 +330,8 @@ any environment. The `GarmentAnalyzer` interface is the seam for a real provider
 current outfit mapped onto body zones (`torsoOuter`, `torso`, `legs`, `feet`,
 `accessory`) as framed, matted **garment panels** — an editorial *collage*, not
 a simulated "worn" garment. Each panel uses `mix-blend-mode: multiply` against a
-light matte so white flat-lay backgrounds drop out without real background
-removal (a future phase). **Category layer presets** (`domain/garmentLayout.ts`)
+light matte so white flat-lay backgrounds drop out cheaply, without needing the
+optional cutout step. **Category layer presets** (`domain/garmentLayout.ts`)
 drive the per-zone presentation: `fit` (`contain` for wide/odd pieces like shoes
 and accessories so they are not over-cropped, `cover` for body garments) and
 `zIndex` stacking. The raw zone **geometry stays in CSS** (`.zone-*`, eyeball-
@@ -265,7 +349,8 @@ try-on, cloth simulation, or accurate body fitting.
 
 ## Future extension points
 
-- **Real AI** — implement `GarmentAnalyzer`, swap behind `runGarmentAnalysis`.
+- **A different analysis provider** — implement `GarmentAnalyzer` and add a case
+  to `createAnalyzer`; `runGarmentAnalysis` and every caller stay unchanged.
 - **Background removal / cutout** — implemented (Phase 10): `attemptGarmentCutout`
   (`lib/image/garmentCutout.ts`) is a real, local edge-seeded flood fill behind a
   swappable `CutoutDeps` adapter. To upgrade quality, drop a WASM/ML segmentation
@@ -287,3 +372,6 @@ try-on, cloth simulation, or accurate body fitting.
   same store.
 - **3D room** — replace `StudioScene` / `MannequinPreview` with an R3F scene;
   the domain + state layers are renderer-agnostic.
+- **A mobile client** — `domain/` and the pure half of `lib/` port as-is; the
+  browser-bound adapters are enumerated in
+  [`MOBILE_MIGRATION.md`](MOBILE_MIGRATION.md).

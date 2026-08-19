@@ -1,3 +1,10 @@
+> **Historical document — not current implementation status.**
+> Kept for the reasoning it records. It was accurate when written and has not
+> been maintained since. For what the repository actually contains today, see
+> [`docs/CURRENT_STATE.md`](../CURRENT_STATE.md).
+
+---
+
 # MASTER SCOPE ROADMAP
 
 > 원칙: 한 번에 한 scope. Scope 1(파이프라인)이 서야 Scope 2(옷장 UI)가 그 위에서

@@ -1,8 +1,15 @@
+> **Historical document — not current implementation status.**
+> Kept for the reasoning it records. It was accurate when written and has not
+> been maintained since. For what the repository actually contains today, see
+> [`docs/CURRENT_STATE.md`](../CURRENT_STATE.md).
+
+---
+
 # The Archive
 
 A local-first web app for archiving the clothes you own: photograph a piece, confirm a drafted classification, browse the resulting digital closet, and compose outfits on a faceless mannequin — built for one person cataloguing their own wardrobe, with no account, no server, and no data leaving the browser by default.
 
-![demo](docs/demo.png)
+_(The draft included a screenshot placeholder here pointing at `docs/demo.png`, which was never created.)_
 
 **Screen to capture here:** the **Mirror / Fit Preview** view with three or four garments layered on the mannequin and the Fit Check panel open. It is the payoff of the app's core loop (upload → archive → style → check) and the only screen that shows the domain model, the layered 2.5D composition, and the editorial UI in one frame. Second choice if you want to lead with technical range instead: the **Proxy 3D Lab** view showing a generated GLB in the viewer.
 

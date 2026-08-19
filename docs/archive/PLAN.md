@@ -1,3 +1,10 @@
+> **Historical document — not current implementation status.**
+> Kept for the reasoning it records. It was accurate when written and has not
+> been maintained since. For what the repository actually contains today, see
+> [`docs/CURRENT_STATE.md`](../CURRENT_STATE.md).
+
+---
+
 # The Archive — "산 옷 정확하게 올리기" 실행 Plan
 
 > 목표: 사용자가 **실제로 산 옷**을 정확한 메타데이터(소재·사이즈·가격·브랜드 등)와

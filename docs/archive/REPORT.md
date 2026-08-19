@@ -1,3 +1,10 @@
+> **Historical document — not current implementation status.**
+> Kept for the reasoning it records. It was accurate when written and has not
+> been maintained since. For what the repository actually contains today, see
+> [`docs/CURRENT_STATE.md`](../CURRENT_STATE.md).
+
+---
+
 # Repository review — 2026-08-12
 
 Prepared unattended. Nothing was deleted, committed, pushed, or refactored; the only two files created are `README.draft.md` and this file. `README.md` was left untouched.
