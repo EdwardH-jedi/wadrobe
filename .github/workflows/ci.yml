@@ -19,7 +19,9 @@ jobs:
 
       # Node 20 is pinned in .nvmrc and package.json engines: the Vitest suite
       # relies on jsdom's localStorage, which newer Node shadows with a native
-      # implementation the tests cannot reset.
+      # implementation the tests cannot reset. Node 20 is past LTS maintenance,
+      # so this is tracked as debt in docs/CURRENT_STATE.md — moving off it
+      # needs the test storage setup fixed first, not just a version bump.
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc

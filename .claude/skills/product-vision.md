@@ -22,7 +22,10 @@ studio · streetwear/vintage wardrobe OS. Uploaded clothing photos are the hero.
   explicit **2.5D** layered composition.
 - The demo suggestion is **never binding** — the user confirms/edits (a name is
   required) before saving. Never claim real AI recognition.
-- No backend/auth/server in this phase. Local storage only.
+- No auth, accounts, or cloud storage. Wardrobe data is local, always.
+- The optional serverless routes in `api/` are inert unless `VITE_API_BASE` is
+  configured; the experimental FastAPI service in `backend/` is local-only and
+  hidden unless `VITE_ENABLE_EXPERIMENTAL_3D` is set. Keep both opt-in.
 - No dependency bloat; justify anything new.
 
 ## The core loop
@@ -35,6 +38,7 @@ editorial feel, without overbuilding? See `CLAUDE.md` and `docs/` for detail.
 
 ## Working here
 
-`PLAN.md` is the source of truth — read it first, implement only the next
-incomplete phase, keep changes small and verified (typecheck/test/lint/build),
-and write code comments in **English**.
+`docs/CURRENT_STATE.md` is the source of truth for what exists — read it first.
+Keep changes small and verified (typecheck / lint / test / build), and write code
+comments in **English**. Historical plans live in `docs/archive/` and are not
+status.

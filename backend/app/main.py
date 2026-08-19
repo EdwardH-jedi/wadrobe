@@ -32,11 +32,13 @@ from app.pipeline.interfaces import AvatarInputs
 from app.proxy3d import pipeline
 
 app = FastAPI(
-    title="AvatarWardrobe backend — proxy-3D spike",
+    title="The Archive — experimental backend",
     description=(
-        "Track B2 feasibility spike. Generates an honest proxy 3D preview "
-        "(textured, lightly extruded silhouette card) from a PNG. Not real "
-        "virtual try-on."
+        "EXPERIMENTAL, local-only. Two surfaces: /api/proxy-3d generates an "
+        "honest proxy 3D preview (a textured, lightly extruded silhouette "
+        "card) from a PNG, synchronously; /api/jobs is an async avatar-build "
+        "surface that no frontend consumes. Neither is real virtual try-on, "
+        "body reconstruction, or accurate fitting."
     ),
     version="0.1.0",
 )

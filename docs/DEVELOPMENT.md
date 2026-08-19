@@ -19,6 +19,10 @@ provides a native `localStorage` that shadows jsdom's, and the tests cannot rese
 it (`TypeError: localStorage.clear is not a function`). Verified failing on
 v25.8.0 and passing on v20.20.2; the versions between were not tested.
 
+Node 20 is past its LTS maintenance window, so this pin is debt, not a
+destination — see [`CURRENT_STATE.md`](CURRENT_STATE.md#known-technical-debt).
+Moving off it means fixing the storage setup first, then bumping the pin.
+
 `.nvmrc` pins the version for any version manager that reads it (nvm, fnm,
 volta, asdf). Without one, install Node 20 directly — e.g.
 `brew install node@20` and put `$(brew --prefix node@20)/bin` first on `PATH`.
@@ -51,13 +55,18 @@ Run these individually so a failure names itself. These are exactly the commands
 CI runs.
 
 ```bash
-npm run typecheck    # tsc --noEmit (strict)
+npm run typecheck    # tsc --noEmit (strict) — src/ AND the api/ Edge functions
 npm run lint         # eslint (flat config)
 npm test             # vitest run
 npm run build        # typecheck + vite build → dist/
 ```
 
 `npm run test:watch` is available while developing.
+
+`typecheck` runs twice: once against the root `tsconfig.json` (the app) and once
+against `tsconfig.api.json` (the Edge functions in `api/`). They are separate
+compilation units — one targets the browser bundle, the other a server runtime —
+so a single project cannot cover both.
 
 The suite is jsdom-based and deliberately keeps the canvas/image path out of unit
 tests — jsdom has no canvas, so decode validation is exercised through a stubbed

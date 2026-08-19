@@ -144,34 +144,42 @@ can always **continue without** it. The canvas work sits behind a swappable
 rasterize/segment seam (e.g. via dynamic import) without changing the UI or the
 `CutoutResult` contract.
 
-## Future pipeline (later roadmap phases — real analysis, NOT yet built)
+## The full pipeline, with what is real marked
 
 ```
 File
-  → create preview (as today)
-  → OPTIONAL manual crop          (Phase 9: SHIPPED — local crop → croppedImageUrl)
-  → OPTIONAL background removal   (Phase 10: SHIPPED — local edge flood fill →
-                                   transparent WebP cutoutImageUrl. A WASM/ML
-                                   segmentation model can replace the adapter for
-                                   higher quality without changing the contract.)
-  → AI analysis                   (future: real Vision provider)
-        • category, color, material
-        • style tags
-        • brand / logo recognition
-  → user confirmation             (still required — guesses stay non-binding)
-  → archive save                  (Phase 11: SHIPPED — thumbnail in metadata +
-                                   cropped/cutout Blobs in the IDB asset store;
-                                   full-res Blob storage is still future)
-  → transition into the room      (existing archiveIn flourish)
-  → mannequin layer mapping       (category → body zone, as today)
+  → create preview
+  → OPTIONAL manual crop          BUILT — local canvas crop → croppedImageUrl
+  → OPTIONAL background removal   BUILT — local edge flood fill → transparent
+                                  WebP cutoutImageUrl. Classical, not ML. A
+                                  WASM/ML segmentation model can replace the
+                                  adapter without changing the contract.
+  → metadata analysis             BUILT, two paths:
+                                    · default — the deterministic local mock
+                                    · opt-in  — the cloud vision analyzer, when
+                                      VITE_API_BASE + VITE_ANALYZER=vision are
+                                      set and the consent gate is passed;
+                                      falls back to the mock on any failure
+  → OPTIONAL reference candidates BUILT — local mock by default; live search
+                                  when VITE_API_BASE + VITE_CANDIDATES=search
+  → user confirmation             BUILT — always required; guesses never bind
+  → archive save                  BUILT — thumbnail in metadata + cropped/cutout
+                                  Blobs in the IDB asset store
+  → transition into the room      BUILT — the archiveIn flourish
+  → mannequin layer mapping       BUILT — category → body zone
 ```
 
-A real provider could also offer **candidate product search** and **garment
-cutout generation** (segmentation → transparent PNG) feeding the body-zone
-mapping. Further out (beyond image analysis): a **3D / GLB mannequin in a React
-Three Fiber room** would replace the CSS studio scene, and
-a research prototype could explore genuine virtual try-on. **None of this exists
-today, and the app never claims it does.**
+**Still not built**, and never claimed anywhere in the UI:
+
+- **ML/WASM segmentation** for higher-quality cutouts. The `CutoutDeps` and
+  `assetBlobStore` seams are ready for it; the model is not there.
+- **Full-resolution image storage.** Only the downscaled thumbnail is kept.
+- **Brand / logo recognition.** The vision analyzer fills brand only when a logo
+  is unambiguous, and the mock never fabricates one.
+- **A 3D / GLB room.** A React Three Fiber scene would replace the CSS studio;
+  the experimental proxy-3D lab is a separate opt-in track
+  (`AVATAR_TRACK.md`), not this.
+- **Genuine virtual try-on.** No fitting, draping, or cloth simulation exists.
 
 ## How to add a real Vision API
 

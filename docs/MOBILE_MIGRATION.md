@@ -58,8 +58,11 @@ lines total — port as-is. They are plain TypeScript with no React and no DOM.
 
 **One caveat.** `getGarmentDisplayImage` returns a URL string, and on web some of
 those are `blob:` object URLs. React Native has no object URLs; a port would
-resolve refs to `file://` paths instead. The *precedence logic* is what ports —
-cutout → display → cropped → original → thumbnail — not the URL scheme.
+resolve refs to `file://` paths instead. The *precedence logic* is what ports:
+`displayImageUrl → cutoutImageUrl → croppedImageUrl → originalImageUrl →
+imageDataUrl`. `displayImageUrl` ranking **first** is load-bearing — it holds the
+user's latest intentional choice, so an unaccepted cutout can never shadow a
+chosen product reference. A port must preserve that order, not just the list.
 
 ---
 

@@ -47,10 +47,14 @@ describe('<GarmentCard /> — proxy 3D entry point (B3.9)', () => {
 
   it('hides the saved-preview badge too when no 3D entry point is offered', () => {
     // How the experimental-3D opt-in reaches the card: the app withholds
-    // `onProxy3d`, so the card must advertise nothing the visitor cannot open.
-    // The piece still carries its preview metadata — only the affordance goes.
-    const garment = makeGarment({ proxy3dPreview: PREVIEW })
-    render(<GarmentCard garment={garment} />)
+    // `onProxy3d`, so the card must advertise nothing the visitor cannot open —
+    // a badge without a way to act on it is worse than no badge.
+    //
+    // This asserts only what the card renders. That the underlying metadata
+    // survives is a storage concern, covered by
+    // `lib/storage/proxy3dPreviewPersistence.test.ts` and
+    // `app/providers/ArchiveProvider.proxy3d.test.tsx`.
+    render(<GarmentCard garment={makeGarment({ proxy3dPreview: PREVIEW })} />)
 
     expect(
       screen.queryByLabelText('Proxy 3D preview saved'),
@@ -58,6 +62,5 @@ describe('<GarmentCard /> — proxy 3D entry point (B3.9)', () => {
     expect(
       screen.queryByRole('button', { name: /3D preview/ }),
     ).not.toBeInTheDocument()
-    expect(garment.proxy3dPreview).toEqual(PREVIEW)
   })
 })

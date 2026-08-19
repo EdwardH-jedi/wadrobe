@@ -26,9 +26,9 @@ it. State runs through a pure reducer that receives every non-deterministic
 value (ids, timestamps, events) in its action payloads, so the whole domain is
 unit-testable without mocking clocks. Persistence degrades through three tiers
 rather than failing. Image bytes and metadata are stored in separate IndexedDB
-databases so a lost blob costs you a preview, never a piece. And every path that
-could touch a network is gated behind two independent environment variables and
-falls back to a local mock when it fails.
+databases so a lost blob costs you a preview, never a piece. And the paths that
+send your *photos* anywhere are gated behind two independent environment
+variables plus a consent gate, falling back to a local mock when they fail.
 
 ---
 
@@ -68,12 +68,15 @@ and the app is fully usable without any of them.
 | Vision metadata draft | `VITE_API_BASE` **and** `VITE_ANALYZER=vision` | Sends the downscaled photo to a vision model for a draft classification. |
 | Reference-candidate search | `VITE_API_BASE` **and** `VITE_CANDIDATES=search` | Looks up candidate reference listings via the eBay Browse API. |
 
-The two conditions are deliberately ANDed: configuring an API base for the URL
-lookup cannot silently start sending your photos anywhere. Sending a photo needs
-the second flag *and* a session-scoped consent gate, and when the vision path is
-on, the scan copy says plainly that the photo is going to a server. Any failure
-falls back to the local mock, so a misconfigured backend degrades rather than
-blocking an upload.
+Note which rows need two variables and which need one. Product-metadata prefill
+turns on with `VITE_API_BASE` alone — it sends only the URL you pasted, and on
+failure it reports the lookup as unavailable and leaves you to type the fields.
+The two photo/search paths are deliberately ANDed behind a *second* flag, so
+configuring an API base for the URL lookup cannot silently start sending your
+photos anywhere. Sending a photo needs that second flag **and** a session-scoped
+consent gate, and the scan copy then says plainly that the photo goes to a
+server. The vision and candidate paths fall back to the local mock on failure, so
+a misconfigured backend degrades rather than blocking an upload.
 
 ## Experimental 3D Lab
 

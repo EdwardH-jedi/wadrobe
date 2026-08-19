@@ -50,8 +50,12 @@ are unrelated.
 | --- | --- | --- | --- |
 | Runtime | Browser | Vercel Edge | Python / uvicorn on `127.0.0.1:8000` |
 | Reached by | — | **Absolute** URL: `${VITE_API_BASE}/api/...` | **Relative** path: `/api/proxy-3d` |
-| Enabled by | always | `VITE_API_BASE` (+ a second flag per feature) | `VITE_ENABLE_EXPERIMENTAL_3D` + the service running |
+| Enabled by | always | `VITE_API_BASE` alone for `product-meta`; **plus** `VITE_ANALYZER=vision` for `analyze` and `VITE_CANDIDATES=search` for `candidate-search` | `VITE_ENABLE_EXPERIMENTAL_3D` + the service running |
 | Runs under `npm run dev`? | yes | **no** — needs `vercel dev` or a deployment | yes, via the Vite proxy |
+
+The Edge functions are their own compilation unit (`tsconfig.api.json`, run by
+`npm run typecheck`) because they target a server runtime, not the browser
+bundle the root `tsconfig.json` describes.
 
 The Vite dev server proxies `/api` → `http://127.0.0.1:8000`
 (`vite.config.ts`). That proxy exists purely so the Proxy 3D Lab's relative

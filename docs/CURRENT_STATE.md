@@ -86,13 +86,20 @@ as of this commit it is **opt-in**:
   never loaded.
 - Set it to `true` → everything behaves exactly as before.
 
-The flag changes only what is **reachable**. It never reads, writes, or clears
-the `proxy3dPreview` metadata already saved on an archived piece, so toggling it
-in either direction is lossless. Both halves are tested: the default build in
+The flag changes only what is **reachable**. It is read once in
+`ArchiveStudio.tsx` and used to decide what to render and which callback to pass
+down — it reaches no storage code, so there is no path by which it could read,
+write, or clear the `proxy3dPreview` metadata on an archived piece. Toggling it
+in either direction is lossless.
+
+Both halves of the boundary are tested: the default build in
 `src/app/App.test.tsx`, `components/studio/SidebarNav.test.tsx` and
 `views.test.ts`; the enabled build in `src/app/App.experimental3d.test.tsx`,
-which drives the real env variable through a full `<App/>` mount. That the
-metadata survives is asserted in `src/components/closet/GarmentCard.test.tsx`.
+which drives the real env variable through a full `<App/>` mount and is verified
+to fail when the flag is not honoured. That the preview metadata itself survives
+save/load and reload is covered separately, by
+`lib/storage/proxy3dPreviewPersistence.test.ts` and
+`app/providers/ArchiveProvider.proxy3d.test.tsx`.
 
 Implementation: `src/lib/featureFlags.ts` (a pure function over an injected env
 slice, matching the existing `resolveApiBase` / `selectAnalyzerKind` seams),
@@ -133,7 +140,7 @@ reset) and **Python 3.12.13**.
 
 | Gate | Command | Result |
 | --- | --- | --- |
-| Types | `npm run typecheck` | Pass (strict, exit 0) |
+| Types | `npm run typecheck` | Pass (strict, exit 0) — covers `src/` **and** the `api/` Edge functions |
 | Lint | `npm run lint` | Pass (exit 0) |
 | Web tests | `npm test` | **445 passed** across **59 files** |
 | Build | `npm run build` | Pass — main chunk 282.91 kB, three.js 732.83 kB as a separate lazy chunk |
@@ -171,15 +178,22 @@ Ordered by what actually costs something.
    working tree, but a genuine purge would need `git filter-repo` and a
    force-push — an owner's decision. Recover it with
    `git show 319b673:IMG_0198.jpg > IMG_0198.jpg` if it is ever wanted.
-6. **`backend/requirements.txt` has no upper bounds.** Every entry is a `>=`
+6. **Node 20 is pinned, and Node 20 is past its LTS maintenance window.** The
+   pin is not a preference: the Vitest suite fails on Node 25 because newer Node
+   provides a native `localStorage` that shadows jsdom's, and the tests cannot
+   reset it. Node 22 and 24 were **not** tested. Moving to a current LTS means
+   making the jsdom storage setup deterministic first (likely an explicit
+   storage stub in `src/test/setup.ts`) and only then bumping `.nvmrc`,
+   `engines`, and CI. That is a real piece of work, not a version bump.
+7. **`backend/requirements.txt` has no upper bounds.** Every entry is a `>=`
    floor, so a fresh install resolves whatever is newest — verified: a clean
    install today pulls trimesh **5.0.0** and FastAPI **0.141.1**, two majors
    ahead of the checked-in virtualenv's trimesh 4.12.2. The suite passes on
    both, but nothing prevents a future release from breaking CI without a
    commit. Pinning, or adding upper bounds, would make backend CI reproducible.
-7. **The `eval/cutout` harness is a stub.** Scaffolding for a cutout benchmark
+8. **The `eval/cutout` harness is a stub.** Scaffolding for a cutout benchmark
    with no results committed. It is excluded from lint and from CI.
-8. **The repository is named `wadrobe`** (missing the `r`). Renaming it on
+9. **The repository is named `wadrobe`** (missing the `r`). Renaming it on
    GitHub is a one-click improvement; GitHub redirects the old URL.
 
 ---

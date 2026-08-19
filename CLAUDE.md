@@ -205,28 +205,8 @@ an instruction file is worse than none.
 - A future mobile port's seams: `docs/MOBILE_MIGRATION.md`.
 - Historical plans and progress snapshots: `docs/archive/` (not status).
 
-The summary below is kept only as background on how the app was built.
-Historical phase numbering matches `docs/archive/PLAN.md`.
-
-- **Phases 1–12 (done):** core data flow → clothes central → upload ritual →
-  mannequin/mirror preview → saved board → architecture/docs hardening → Codex
-  review prep → product-match & `GarmentAsset` pipeline → garment asset compiler
-  (manual crop + layer presets) → real local background removal / cutout
-  (`garmentCutout.ts`, edge flood fill; opt-in, non-blocking, not ML/cloud) →
-  asset storage hardening (IndexedDB blob store for heavy cropped/cutout images;
-  lightweight metadata; backwards-compatible, precedence-preserving) →
-  storage-consistency hardening (fail-closed orphan-blob sweep, object-URL
-  lifecycle) → **cross-tab sweep safety** (blob-age gate + explicit metadata-read
-  status).
-- **Future (NOT built — do not imply these exist):** ML/WASM segmentation for
-  higher-quality cutouts (the `CutoutDeps` + `assetBlobStore` seams are ready),
-  real Vision API / product recognition, Three.js / R3F room, virtual try-on
-  research.
-- **Track B — Avatar Lab (B2–B3 done):** optional FastAPI backend + 3D/GLB
-  proxy viewer, a separate additive track. B2 (PNG → proxy-3D GLB spike,
-  `backend/`) and B3 (frontend Proxy 3D Lab view + lazy three.js GLB viewer)
-  are implemented; pipeline interfaces, `/api/jobs`, and avatar composition
-  are not. Scope and phases live in `docs/AVATAR_TRACK.md`, not here.
+Historical phase numbering, where you still meet it in comments, matches
+`docs/archive/PLAN.md`. Treat those numbers as archaeology, not as a plan.
 
 Extension points are documented inline in `mockGarmentAnalysis.ts`,
 `indexedDbStorage.ts`, `MannequinPreview.tsx`, and `lib/image/garmentCutout.ts`,
