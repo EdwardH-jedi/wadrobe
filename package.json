@@ -3,7 +3,10 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "The Archive — a premium interactive fashion archive web app (MVP base).",
+  "description": "The Archive — a local-first digital wardrobe and fashion archive web app.",
+  "engines": {
+    "node": ">=20 <21"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

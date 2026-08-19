@@ -54,9 +54,10 @@ class BboxOutfitFitter:
             raise ValueError(f"Could not load the outfit GLB: {exc}") from exc
 
         if isinstance(loaded, trimesh.Scene):
-            geom = (
-                loaded.dump(concatenate=True) if len(loaded.geometry) else None
-            )
+            # `Scene.to_geometry()` is the supported replacement for the removed
+            # `Scene.dump(concatenate=True)`; both concatenate the scene's
+            # geometry into a single mesh.
+            geom = loaded.to_geometry() if len(loaded.geometry) else None
         elif isinstance(loaded, trimesh.Trimesh):
             geom = loaded
         else:

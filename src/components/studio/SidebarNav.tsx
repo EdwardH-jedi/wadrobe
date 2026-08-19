@@ -11,6 +11,12 @@ export interface SidebarNavProps {
   outfitCount: number
   storageBackend: StorageBackend | 'pending'
   uploadDisabled?: boolean
+  /**
+   * Which views to list, in order. Defaults to every declared view; the app
+   * passes the flag-filtered order so an experimental view can be withheld
+   * without this component knowing why (see `visibleViewOrder`).
+   */
+  views?: StudioView[]
 }
 
 const BACKEND_LABEL: Record<StorageBackend | 'pending', string> = {
@@ -28,6 +34,7 @@ export function SidebarNav({
   outfitCount,
   storageBackend,
   uploadDisabled = false,
+  views = VIEW_ORDER,
 }: SidebarNavProps) {
   const countFor = (id: StudioView): number | null => {
     if (id === 'closet') return garmentCount
@@ -46,7 +53,7 @@ export function SidebarNav({
       </div>
 
       <div className="sidebar__nav">
-        {VIEW_ORDER.map((id) => {
+        {views.map((id) => {
           const meta = VIEW_META[id]
           const count = countFor(id)
           return (

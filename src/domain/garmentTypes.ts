@@ -35,17 +35,22 @@ export type AssetImageRef = {
 
 /**
  * A garment's image asset bundle. All four `assetMode`s now exist: `uploaded`
- * (the raw photo), `cropped` (Phase 9 manual crop), `cutout` (Phase 10 LOCAL,
- * experimental background removal — see `lib/image/garmentCutout.ts`), and
- * `product-reference` (a user-entered/local-demo reference image). There is still
- * **no** real product search/recognition, no cloud AI, and no 3D — the cutout is
- * a local, on-device edge flood fill whose quality varies with the photo.
+ * (the raw photo), `cropped` (a manual crop), `cutout` (LOCAL, experimental
+ * background removal — see `lib/image/garmentCutout.ts`), and
+ * `product-reference` (a user-entered/local-demo reference image).
+ *
+ * Every mode here is produced **on-device**: the cutout is a local edge flood
+ * fill whose quality varies with the photo, not ML segmentation, and the
+ * reference match is a local demo, not real product recognition. The optional
+ * cloud paths (vision metadata, product lookup) are env-gated and never write
+ * to these image fields; the experimental proxy-3D preview is metadata-only and
+ * lives on `GarmentItem.proxy3dPreview`, not in this asset bundle.
  *
  * `displayImageUrl` is what every UI surface renders (always via
  * `getGarmentDisplayImage`); it holds the user's latest intentional choice in
  * lockstep with `assetMode`, so a stored cutout never shadows a chosen reference.
- * The remaining foundation work (higher-quality ML/WASM cutouts, 3D assets) is
- * not built.
+ * Higher-quality ML/WASM cutouts are not built; the seams for them are in
+ * `lib/image/garmentCutout.ts` and `lib/storage/assetBlobStore.ts`.
  */
 export interface GarmentAsset {
   /** The user's uploaded photo (downscaled data URL). */

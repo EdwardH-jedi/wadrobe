@@ -31,7 +31,12 @@ export function GarmentCard({
   onDetails,
 }: GarmentCardProps) {
   const meta = CATEGORY_META[garment.category]
-  const hasPreview = Boolean(garment.proxy3dPreview)
+  // The 3D badge and the 3D action appear together: a surface that cannot open
+  // the Proxy 3D Lab (no `onProxy3d`) must not advertise a preview the visitor
+  // has no way to reach. That is how the experimental-3D opt-in reaches this
+  // card — the app simply withholds the callback. The saved preview metadata on
+  // the piece is untouched either way.
+  const hasPreview = Boolean(garment.proxy3dPreview) && Boolean(onProxy3d)
 
   return (
     <article

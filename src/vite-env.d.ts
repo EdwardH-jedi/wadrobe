@@ -22,6 +22,13 @@ interface ImportMetaEnv {
    * calls.
    */
   readonly VITE_CANDIDATES?: string
+  /**
+   * OPTIONAL opt-in for the experimental Proxy 3D Lab (Track B). Unset (the
+   * default) hides the lab's navigation entry and the closet's 3D affordances,
+   * and three.js is never loaded. Set to `'true'` to expose it; it also needs
+   * the local FastAPI backend running (see `backend/README.md`).
+   */
+  readonly VITE_ENABLE_EXPERIMENTAL_3D?: string
   readonly MODE: string
   readonly DEV: boolean
   readonly PROD: boolean

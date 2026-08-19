@@ -1,11 +1,20 @@
-"""AvatarWardrobe backend — Track B2 feasibility spike: PNG -> proxy-3D GLB.
+"""The Archive — EXPERIMENTAL local backend (Track B). Not part of the web app.
 
-Why synchronous generation (no job queue): the whole pipeline is
+Two independent API surfaces live here:
+
+* ``/api/proxy-3d`` — PNG -> proxy-3D GLB, generated synchronously. The web
+  app's Proxy 3D Lab is the only consumer, and only when the build opts in via
+  ``VITE_ENABLE_EXPERIMENTAL_3D``.
+* ``/api/jobs`` — an async avatar-build surface. **No frontend consumes it.**
+
+Why the proxy-3D route is synchronous (no job queue): the whole pipeline is
 deterministic CPU work on a downscaled image and completes well under a
-second, so a queue would only add states and race conditions to a spike.
-The API still speaks in job terms — POST returns a persisted record with a
-``job_id`` and the GET endpoints read from disk — so a future async
-implementation can keep the exact same surface.
+second, so a queue would only add states and race conditions. The API still
+speaks in job terms — POST returns a persisted record with a ``job_id`` and the
+GET endpoints read from disk — so a future async implementation can keep the
+exact same surface.
+
+Nothing here is real virtual try-on, body reconstruction, or accurate fitting.
 """
 
 from __future__ import annotations
@@ -157,10 +166,16 @@ async def get_proxy_3d_result(job_id: str) -> FileResponse:
     return FileResponse(path, media_type="model/gltf-binary", filename="result.glb")
 
 
-# --- Avatar jobs API (Track B, Phase B4a) ------------------------------------
+# --- Avatar jobs API (Track B) -----------------------------------------------
 # Additive async job surface for the (heavier) avatar build. Mirrors the
-# proxy-3D error/handler pattern. The B4a avatar is a PLACEHOLDER box, not a real
-# avatar / body scan / accurate fit — provenance is recorded honestly in notes.
+# proxy-3D error/handler pattern.
+#
+# EXPERIMENTAL, and no frontend consumes it: the web app talks only to
+# /api/proxy-3d. The default pipeline assembles a procedural trimesh mannequin
+# and bbox-fits an outfit GLB onto it — an honest PROXY, not a real avatar, a
+# body scan, or an accurate fit. Body estimation and texture projection are
+# still deterministic stubs. Every stage records what actually ran in the job's
+# `notes`, so a result never overstates itself.
 
 
 class JobError(Exception):
