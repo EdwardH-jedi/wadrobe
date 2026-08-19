@@ -18,9 +18,14 @@ timestamps, and events through its action payloads rather than calling
 `Date.now()` or `crypto` itself, which means it has no ambient platform
 dependency at all.
 
-Verified against the current tree: **no file in `src/domain/` touches a browser
-API.** The only cross-layer import in the whole directory is
-`fitCheck.ts → lib/color`, and `lib/color.ts` is itself pure arithmetic.
+Verified against the current tree, two ways: a static scan finds **no browser
+API used in any file under `src/domain/`** (the only matches are the words
+"Blob" and "Image" inside comments and a function name), and every domain module
+imports and evaluates cleanly with `window`, `document`, `localStorage`,
+`sessionStorage`, `indexedDB`, `fetch`, `FileReader`, `Image` and `URL` all
+deleted from the global object. The one cross-layer import in the whole
+directory is `fitCheck.ts → lib/color`, and `lib/color.ts` is itself pure
+arithmetic.
 
 That is the asset. The liability is that the *adapters* are not behind
 interfaces uniformly — storage is (`ArchiveStorageAdapter`), image processing
@@ -127,8 +132,13 @@ Honest list, in order of cost:
 
 ## The one thing worth doing now
 
-Not a monorepo. The single highest-value preparatory step is to keep the domain
-layer's purity from eroding — for instance with a lint rule forbidding
-`src/domain/**` from importing anything outside `src/domain/` and `src/lib/color`.
-That preserves the property this whole document depends on, at the cost of a few
-lines of ESLint config, and is useful even if a mobile client is never built.
+Not a monorepo. The single highest-value preparatory step is to stop the domain
+layer's purity from eroding, since this entire document depends on it. Two cheap
+options, either of which would do:
+
+- an ESLint rule forbidding `src/domain/**` from importing anything outside
+  `src/domain/` and `src/lib/color`; or
+- a test that imports every domain module with the browser globals deleted —
+  the check described above, made permanent.
+
+Both cost a few lines and are useful even if a mobile client is never built.
