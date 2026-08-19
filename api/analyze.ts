@@ -7,10 +7,11 @@
 // live in the unit-tested `src/lib/ai/visionAnalysis.ts`; this file only does the
 // HTTP. Off by default — the front end calls it only when VITE_ANALYZER=vision.
 //
-// Raw fetch (no SDK) is deliberate: this file is outside tsc/build/test (only
-// eslint sees it), so the SDK's compile-time safety wouldn't apply here, and the
-// repo's "justify every dependency" rule favors not bundling it. The Anthropic
-// Messages API shape below is the documented one.
+// Raw fetch (no SDK) is deliberate: the repo's "justify every dependency" rule
+// favors not adding one for a single documented HTTP call. The Anthropic
+// Messages API shape below is the documented one. This file IS type-checked --
+// `npm run typecheck` runs `tsconfig.api.json` over `api/` as its own
+// compilation unit (it targets a server runtime, not the browser bundle).
 import {
   VISION_GUESS_SCHEMA,
   buildVisionInstruction,

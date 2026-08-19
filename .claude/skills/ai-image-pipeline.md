@@ -40,6 +40,9 @@ sending photos.
   photo goes to a server.
 - Any failure — no image, network error, unusable result — falls back to the
   mock and keeps `source: 'mock'`, so a broken backend never blocks an upload.
+- On brand: the mock never produces one; the vision path may draft a brand only
+  from clearly legible logo/brand text, and is prompted not to guess. Exact
+  product identification is not implemented by either path.
 - The confirmation step is unchanged: the guess is still a draft.
 
 To add a *different* provider, implement `GarmentAnalyzer` and add a case to
@@ -47,7 +50,8 @@ To add a *different* provider, implement `GarmentAnalyzer` and add a case to
 
 ## Guardrails
 
-- Never fabricate a brand in the mock (real brand recognition is future).
+- Never fabricate a brand. The mock must not produce one at all; the vision
+  path may draft one only from clearly legible branding.
 - Never store full-resolution images in localStorage (quota). Thumbnails stay in
   metadata; heavier cropped/cutout images of new uploads go to the IndexedDB asset
   blob store (`lib/storage/assetBlobStore.ts`, Phase 11) with data-URL fallback.

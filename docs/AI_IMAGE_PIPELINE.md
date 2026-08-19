@@ -88,13 +88,22 @@ provider (Phase 4, env-gated) is the one exception: when explicitly enabled it
 sends the thumbnail to the backend and the scan copy says so. It still produces a
 non-binding draft the user confirms, and never fabricates a brand.
 
-## Product / reference matching (Phase 8 — mock/demo only)
+## Product / reference matching — local demo by default
 
-The upload flow has an optional **reference step** (`mockProductMatch` in
-`src/lib/productMatch/`). It returns local **demo reference candidates** from the
-draft's category/color/tags — it does **not** search the internet, recognize the
-product, scrape images, or return real source candidates. A manual-entry
-candidate is always offered first; the user confirms or edits everything.
+The upload flow has an optional **reference step**. It has two sources, and the
+default is local:
+
+- **Default:** `mockProductMatch` (`src/lib/productMatch/`) returns local **demo
+  reference candidates** derived from the draft's category/color/tags. It does
+  not touch the network, recognize the product, or scrape anything.
+- **Opt-in:** with `VITE_API_BASE` **and** `VITE_CANDIDATES=search`, the live
+  provider queries the eBay Browse API via `api/candidate-search.ts` and returns
+  real listings as candidates. A search failure or zero results falls back to the
+  mock.
+
+Neither source is a **verified match**. Both produce candidates the user picks
+from, a manual-entry candidate is always offered first, and everything is
+confirmed or edited before it is saved.
 
 Each garment carries a **`GarmentAsset`** (`src/domain/garmentTypes.ts`):
 `originalImageUrl` (uploaded photo), `displayImageUrl` (what renders — via
@@ -174,39 +183,45 @@ File
 - **ML/WASM segmentation** for higher-quality cutouts. The `CutoutDeps` and
   `assetBlobStore` seams are ready for it; the model is not there.
 - **Full-resolution image storage.** Only the downscaled thumbnail is kept.
-- **Brand / logo recognition.** The vision analyzer fills brand only when a logo
-  is unambiguous, and the mock never fabricates one.
+- **Exact product identification.** Nothing here tells you *which* product a
+  photo shows. On brand specifically: the mock **never** produces one, and the
+  optional vision path may draft a brand only when a logo or brand text is
+  clearly legible — the prompt forbids guessing (`buildVisionInstruction` in
+  `visionAnalysis.ts`). Either way it is a draft the user confirms.
 - **A 3D / GLB room.** A React Three Fiber scene would replace the CSS studio;
   the experimental proxy-3D lab is a separate opt-in track
   (`AVATAR_TRACK.md`), not this.
 - **Genuine virtual try-on.** No fitting, draping, or cloth simulation exists.
 
-## How to add a real Vision API
+## How to add a *different* analysis provider
 
-1. Implement the `GarmentAnalyzer` interface:
+The vision path already exists; this is the recipe for swapping in another one.
+The seam is `GarmentAnalyzer`, and nothing downstream depends on the provider.
 
-   ```ts
-   class VisionAnalyzer implements GarmentAnalyzer {
-     async analyze(input: GarmentAnalysisInput): Promise<GarmentAnalysisGuess> {
-       // POST the image bytes to your provider, map the response to the guess.
-       // Return { category, color, colorHex, styleTags, brand?, confidence,
-       //          source: 'vision-api' }
-     }
-   }
-   ```
+1. Implement `GarmentAnalyzer.analyze()` — POST the image bytes to your provider
+   and map the response to a `GarmentAnalysisGuess`
+   (`{ category, color, colorHex, styleTags, brand?, confidence, source }`).
+   `parseVisionGuess` in `visionAnalysis.ts` is the existing example of the
+   mapping-and-validating half.
+2. Add a case to `createAnalyzer.ts`. The call site in `UploadGarmentModal`
+   already passes the downscaled data URL, so nothing there changes.
+3. Keep the fallback: on any failure, return the mock guess with
+   `source: 'mock'`, so a broken provider never blocks an upload.
+4. Keep the confirmation step and surface `confidence`. The guess stays
+   non-binding.
 
-2. The analyzer needs the image bytes, so extend the call site in
-   `UploadGarmentModal` to pass the (downscaled) data URL / Blob in addition to
-   the filename hints already provided.
+**The UI and storage contracts do not change** — they depend only on
+`GarmentAnalysisGuess`.
 
-3. Swap the analyzer behind `runGarmentAnalysis` (e.g. choose by an env flag /
-   feature toggle). **The UI and storage contracts do not change** — they only
-   depend on `GarmentAnalysisGuess`.
+## Privacy
 
-4. Keep the confirmation step. Surface `confidence` and let the user correct any
-   field before the piece is archived.
+Any off-device analysis sends a user's photo to a third party, so the consent
+machinery is already in place and a new provider must reuse it, not bypass it:
 
-## Privacy note for future phases
-
-Real analysis sends user photos to a third party. Before enabling it, add clear
-consent and a local-only fallback. The mock path keeps everything on-device.
+- The path is AND-gated on `VITE_API_BASE` **and** `VITE_ANALYZER=vision`, so
+  configuring a backend for URL lookups cannot enable it.
+- `lib/ai/visionConsent.ts` holds a session-scoped consent gate in
+  `sessionStorage`; it resets when the tab closes.
+- The upload scan copy switches to wording that states the photo goes to a
+  server, guarded by a unit test.
+- The mock path remains available and keeps everything on-device.

@@ -4,7 +4,9 @@
 // metadata (schema.org Product JSON-LD / OpenGraph). It performs NO recognition
 // and stores nothing; the user confirms every field before saving. THIN WRAPPER:
 // all parsing + URL validation live in the unit-tested `src` modules, so this
-// file stays trivial (it is verified only by `eslint`, not tsc/build/tests).
+// file stays trivial. It is covered by `eslint` and by `npm run typecheck`
+// (via `tsconfig.api.json`), but not by the Vitest suite -- the logic it wraps
+// is what the unit tests exercise.
 //
 // Safety: http(s) only, public hosts only, every redirect hop re-validated
 // (SSRF), a request timeout and a response-size cap.
