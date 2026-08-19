@@ -182,7 +182,7 @@ Full setup, including the optional backend and every environment variable, is in
 ```bash
 npm run typecheck    # tsc --noEmit, strict
 npm run lint         # eslint, flat config
-npm test             # vitest — 443 tests across 58 files
+npm test             # vitest — 445 tests across 59 files
 npm run build        # typecheck + production build
 ```
 

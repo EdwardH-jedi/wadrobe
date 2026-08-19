@@ -88,8 +88,11 @@ as of this commit it is **opt-in**:
 
 The flag changes only what is **reachable**. It never reads, writes, or clears
 the `proxy3dPreview` metadata already saved on an archived piece, so toggling it
-in either direction is lossless. That is asserted in
-`src/components/closet/GarmentCard.test.tsx`.
+in either direction is lossless. Both halves are tested: the default build in
+`src/app/App.test.tsx`, `components/studio/SidebarNav.test.tsx` and
+`views.test.ts`; the enabled build in `src/app/App.experimental3d.test.tsx`,
+which drives the real env variable through a full `<App/>` mount. That the
+metadata survives is asserted in `src/components/closet/GarmentCard.test.tsx`.
 
 Implementation: `src/lib/featureFlags.ts` (a pure function over an injected env
 slice, matching the existing `resolveApiBase` / `selectAnalyzerKind` seams),
@@ -132,7 +135,7 @@ reset) and **Python 3.12.13**.
 | --- | --- | --- |
 | Types | `npm run typecheck` | Pass (strict, exit 0) |
 | Lint | `npm run lint` | Pass (exit 0) |
-| Web tests | `npm test` | **443 passed** across **58 files** |
+| Web tests | `npm test` | **445 passed** across **59 files** |
 | Build | `npm run build` | Pass — main chunk 282.91 kB, three.js 732.83 kB as a separate lazy chunk |
 | Backend tests | `python -m pytest backend` | **65 passed**, 1 warning |
 
