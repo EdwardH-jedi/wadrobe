@@ -1,7 +1,9 @@
 # Current state — The Archive
 
 **Last verified: 2026-08-19**
-**Verified against commit: `fcc939a` (branch `chore/career-ready-rehabilitation`)**
+**Verified against commit: `fcc939a`** — the most recent commit that changed
+behaviour, on branch `chore/career-ready-rehabilitation`. Commits after it are
+documentation and CI only, so the results below still hold.
 
 This is the **single source of truth** for what this repository contains. Every
 other status claim — in `docs/archive/`, in a commit message, in a code comment —
