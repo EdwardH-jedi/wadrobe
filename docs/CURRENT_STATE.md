@@ -1,9 +1,10 @@
 # Current state — The Archive
 
 **Last verified: 2026-08-19**
-**Verified against commit: `a4c005d`** — the most recent commit that touched
+**Verified against commit: `c827f56`** — the most recent commit that touched
 code, on branch `chore/career-ready-rehabilitation`. Every gate result below was
-produced against that tree.
+produced against that tree, and re-confirmed by cloning the branch to a clean
+checkout and running both CI jobs there.
 
 This is the **single source of truth** for what this repository contains. Every
 other status claim — in `docs/archive/`, in a commit message, in a code comment —
