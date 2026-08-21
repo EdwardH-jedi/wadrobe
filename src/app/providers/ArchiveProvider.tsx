@@ -30,6 +30,11 @@ import {
 } from '../../domain/outfitTypes'
 import { createId } from '../../lib/id'
 import {
+  decideWrite,
+  openArchiveChannel,
+  type ArchiveChannel,
+} from '../../lib/storage/archiveRevision'
+import {
   initialPersistenceState,
   persistenceReducer,
   type PersistenceSlice,
@@ -87,6 +92,17 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
     initialPersistenceState,
   )
 
+  // Multi-tab write safety. `revisionRef` is the revision this tab loaded or
+  // last wrote; a garments write is refused if the store has moved past it.
+  const revisionRef = useRef<number>(0)
+  // Serialized form of what this tab last persisted (or hydrated). Lets the
+  // effect skip a write when nothing actually changed — without it, merely
+  // opening a tab consumes a revision and makes every other tab look stale.
+  const lastWrittenGarmentsRef = useRef<string | null>(null)
+  const channelRef = useRef<ArchiveChannel | null>(null)
+  const tabIdRef = useRef<string>(createId())
+  const [conflict, setConflict] = useState(false)
+
   const [storageBackend, setStorageBackend] = useState<
     StorageBackend | 'pending'
   >('pending')
@@ -102,6 +118,7 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
         if (!active) return
         adapterRef.current = adapter
         dispatchPersistence({ type: 'BACKEND_RESOLVED', backend: adapter.backend })
+        revisionRef.current = await adapter.loadRevision()
         blobStoreRef.current = blobStore
         setStorageBackend(adapter.backend)
         const [garmentsResult, savedOutfits, currentOutfit] = await Promise.all([
@@ -125,6 +142,12 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
           garmentsRaw.map((g) => hydrateGarmentForRuntime(g, blobStore)),
         )
         if (!active) return
+        // Baseline for the change-detection guard below: what we just loaded is
+        // by definition already persisted, so the first post-hydrate effect run
+        // must not write it back (and must not burn a revision doing so).
+        lastWrittenGarmentsRef.current = JSON.stringify(
+          garments.map(dehydrateGarmentForStorage),
+        )
         dispatch({ type: 'HYDRATE', garments, savedOutfits, currentOutfit })
 
         // Fire-and-forget orphan sweep (Phase 12) — the candidate snapshot began
@@ -147,6 +170,20 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
     )
     return () => {
       active = false
+    }
+  }, [])
+
+  // Learn about other tabs' writes as they happen, rather than only at our own
+  // next save. Purely an optimisation: the revision check above is what
+  // actually prevents the overwrite, and it works with no channel at all.
+  useEffect(() => {
+    const channel = openArchiveChannel(tabIdRef.current, (notice) => {
+      if (notice.revision > revisionRef.current) setConflict(true)
+    })
+    channelRef.current = channel
+    return () => {
+      channel.close()
+      channelRef.current = null
     }
   }, [])
 
@@ -177,9 +214,34 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const adapter = adapterRef.current
     if (!state.hydrated || !adapter) return
-    trackSave('garments', () =>
-      adapter.saveGarments(state.garments.map(dehydrateGarmentForStorage)),
-    )
+    const payload = state.garments.map(dehydrateGarmentForStorage)
+    const serialized = JSON.stringify(payload)
+    // No change since we last wrote or hydrated: nothing to persist. Skipping
+    // keeps the revision counter meaningful — it counts real archive edits, not
+    // mounts — so a freshly opened tab does not make its siblings stale.
+    if (lastWrittenGarmentsRef.current === serialized) return
+
+    trackSave('garments', async () => {
+      // Re-read the stored revision immediately before writing: if another tab
+      // has written since this one loaded, our whole-array write would silently
+      // destroy their work, so refuse it and tell the user instead.
+      const stored = await adapter.loadRevision()
+      const decision = decideWrite(revisionRef.current, stored)
+      if (!decision.ok) {
+        setConflict(true)
+        throw new Error(
+          'Another tab updated this archive — reload before saving again.',
+        )
+      }
+      await adapter.saveGarments(payload)
+      await adapter.saveRevision(decision.revision)
+      revisionRef.current = decision.revision
+      lastWrittenGarmentsRef.current = serialized
+      channelRef.current?.post({
+        revision: decision.revision,
+        senderId: tabIdRef.current,
+      })
+    })
   }, [state.garments, state.hydrated, trackSave])
 
   useEffect(() => {
@@ -212,6 +274,7 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
       hydrated: state.hydrated,
       storageBackend,
       persistence,
+      archiveConflict: conflict,
       lastEvent: state.lastEvent,
 
       getGarment,
@@ -413,7 +476,7 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
         void blobStoreRef.current?.clear()
       },
     }
-  }, [state, storageBackend])
+  }, [state, storageBackend, persistence, conflict, trackSave])
 
   return (
     <ArchiveContext.Provider value={value}>{children}</ArchiveContext.Provider>

@@ -28,6 +28,10 @@ export interface ArchiveContextValue {
    *  Writes are optimistic, so this is how the UI reports a rejected save
    *  rather than silently implying everything landed. */
   persistence: PersistenceState
+  /** True when another tab has written the archive since this one loaded it.
+   *  This tab's writes are refused while set, so its view cannot clobber the
+   *  newer archive; reloading clears it. */
+  archiveConflict: boolean
   lastEvent: ArchiveEvent | null
 
   // --- Derived ---

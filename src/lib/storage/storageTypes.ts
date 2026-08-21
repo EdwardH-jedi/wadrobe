@@ -41,6 +41,10 @@ export interface ArchiveStorageAdapter {
   saveSavedOutfits(items: SavedOutfit[]): Promise<void>
   loadCurrentOutfit(): Promise<OutfitSelection | null>
   saveCurrentOutfit(selection: OutfitSelection): Promise<void>
+  /** Monotonic archive revision, for multi-tab write safety. A store that has
+   *  never been written by a revision-aware tab reads as 0. */
+  loadRevision(): Promise<number>
+  saveRevision(revision: number): Promise<void>
   clearAll(): Promise<void>
 }
 
@@ -48,7 +52,14 @@ export const STORAGE_KEYS = {
   garments: 'fitarchive:garments',
   savedOutfits: 'fitarchive:savedOutfits',
   currentOutfit: 'fitarchive:currentOutfit',
+  revision: 'fitarchive:revision',
 } as const
+
+/** Parse a stored revision defensively; anything unusable means "unversioned". */
+export function parseRevision(value: unknown): number {
+  const n = typeof value === 'string' ? Number(value) : value
+  return typeof n === 'number' && Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0
+}
 
 // --- Defensive parsers ----------------------------------------------------
 // Persisted data may be partial or corrupt (older versions, manual edits).

@@ -44,6 +44,8 @@ function makeAdapter(
     saveSavedOutfits: async () => {},
     loadCurrentOutfit: async () => createEmptyOutfit(),
     saveCurrentOutfit: async () => {},
+    loadRevision: async () => 0,
+    saveRevision: async () => {},
     clearAll: async () => {},
     ...overrides,
   }
