@@ -36,6 +36,85 @@ export interface CreateProxy3dOptions {
  * @throws Proxy3dApiError with the backend's `detail` message on HTTP errors,
  *   or a reachability message (status null) when the request itself fails.
  */
+
+// --- Runtime validation -----------------------------------------------------
+
+/**
+ * The backend is a separate process on a different runtime; its response is
+ * untrusted input like any other. `as Proxy3dRecord` asserted a shape TypeScript
+ * never checked, so a version skew or an error page served with a 200 surfaced
+ * as `undefined is not an object` deep in the viewer, far from the cause.
+ *
+ * This is a hand-written guard rather than a schema library: one shape, checked
+ * once, is not worth a dependency. It validates what the UI actually reads.
+ */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+const METHODS = new Set([
+  'extruded-alpha-contour',
+  'extruded-alpha-contour-dual',
+  'textured-plane',
+])
+
+function isInputInfo(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.width === 'number' &&
+    typeof value.height === 'number' &&
+    typeof value.has_alpha === 'boolean'
+  )
+}
+
+export function parseProxy3dRecord(value: unknown): Proxy3dRecord | null {
+  if (!isRecord(value)) return null
+  if (typeof value.job_id !== 'string' || value.job_id.length === 0) return null
+  if (value.status !== 'done') return null
+  if (typeof value.method !== 'string' || !METHODS.has(value.method)) return null
+  if (typeof value.alpha_mask_used !== 'boolean') return null
+  if (!isInputInfo(value.input)) return null
+  if (!isRecord(value.mesh)) return null
+  if (
+    typeof value.mesh.vertices !== 'number' ||
+    typeof value.mesh.faces !== 'number'
+  ) {
+    return null
+  }
+  if (typeof value.result_url !== 'string') return null
+  // `limitations` is shown verbatim to the user; a missing one would silently
+  // drop the honesty copy, so it is required rather than defaulted.
+  if (typeof value.limitations !== 'string') return null
+  if (typeof value.created_at !== 'number') return null
+  return value as unknown as Proxy3dRecord
+}
+
+
+/** Read a JSON body, turning a non-JSON response into an honest error. */
+async function readJson(response: Response): Promise<unknown> {
+  try {
+    return await response.json()
+  } catch {
+    throw new Proxy3dApiError(
+      'The backend returned a response that was not JSON.',
+      response.status,
+    )
+  }
+}
+
+/** Validate a record or fail with a message that names the real problem. */
+function parseOrThrow(body: unknown): Proxy3dRecord {
+  const record = parseProxy3dRecord(body)
+  if (!record) {
+    throw new Proxy3dApiError(
+      'The backend returned a proxy-3D record this app does not understand — ' +
+        'it may be running a different version.',
+      null,
+    )
+  }
+  return record
+}
+
 export async function createProxy3d(
   file: Blob,
   fileName: string,
@@ -101,7 +180,7 @@ export async function createProxy3d(
     )
   }
 
-  return (await response.json()) as Proxy3dRecord
+  return parseOrThrow(await readJson(response))
 }
 
 /**
@@ -131,5 +210,5 @@ export async function getProxy3d(
       response.status,
     )
   }
-  return (await response.json()) as Proxy3dRecord
+  return parseOrThrow(await readJson(response))
 }

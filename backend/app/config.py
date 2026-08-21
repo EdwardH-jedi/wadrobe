@@ -26,3 +26,12 @@ ALPHA_SOLID_THRESHOLD = 128
 # If every alpha value is at or above this, the channel is effectively
 # opaque and there is no usable silhouette mask.
 OPAQUE_ALPHA_MIN = 250
+
+# --- Avatar jobs surface (EXPERIMENTAL, unconsumed by any frontend) ----------
+# Bounds rather than infrastructure: this is a research endpoint, so the goal is
+# that it cannot be used to exhaust memory or disk, not that it scales.
+MAX_OUTFIT_GLB_BYTES = 25 * 1024 * 1024
+MAX_ACTIVE_JOBS = 4
+# Generated artifacts are disposable; anything older than this is swept on the
+# next job creation so the data directory cannot grow without bound.
+JOB_ARTIFACT_TTL_SECONDS = 60 * 60

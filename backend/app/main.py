@@ -27,7 +27,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from typing import Literal
 
-from app import jobs, storage
+from app import config, jobs, storage
 from app.pipeline.interfaces import AvatarInputs
 from app.proxy3d import pipeline
 
@@ -191,6 +191,34 @@ async def job_error_handler(_request, exc: JobError):
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
+async def _read_bounded(
+    upload: UploadFile | None, field: str, limit: int
+) -> bytes | None:
+    """Read an upload, refusing anything over ``limit``.
+
+    ``await upload.read()`` with no argument reads the WHOLE body into memory,
+    so a single large request could exhaust the process. This reads in chunks
+    and gives up as soon as the cap is passed, so the ceiling is enforced on
+    what is actually held.
+    """
+    if upload is None:
+        return None
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await upload.read(64 * 1024)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > limit:
+            raise JobError(
+                413,
+                f"{field} is larger than the {limit // (1024 * 1024)} MB limit.",
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 class JobRecord(BaseModel):
     id: str
     state: Literal["queued", "processing", "done", "failed"]
@@ -204,11 +232,29 @@ async def create_job(
     face_file: UploadFile | None = File(default=None),
     outfit_file: UploadFile | None = File(default=None),
 ) -> JobRecord:
+    # EXPERIMENTAL surface, but it still has to be bounded: these reads used to
+    # be unbounded, so one request could pull an arbitrarily large body into
+    # memory. See config.MAX_UPLOAD_BYTES.
+    body = await _read_bounded(body_file, "body_file", config.MAX_UPLOAD_BYTES)
+    if body is None:
+        raise JobError(400, "body_file is required.")
     inputs = AvatarInputs(
-        body_image=await body_file.read(),
-        face_image=await face_file.read() if face_file is not None else None,
-        outfit_glb=await outfit_file.read() if outfit_file is not None else None,
+        body_image=body,
+        face_image=await _read_bounded(
+            face_file, "face_file", config.MAX_UPLOAD_BYTES
+        ),
+        outfit_glb=await _read_bounded(
+            outfit_file, "outfit_file", config.MAX_OUTFIT_GLB_BYTES
+        ),
     )
+
+    # Bound how many jobs can be in flight. Without this an unattended loop can
+    # fill the disk and saturate the worker pool; this is a research surface,
+    # so a small ceiling with an honest 503 is the right trade.
+    if jobs.store.active_count() >= config.MAX_ACTIVE_JOBS:
+        raise JobError(503, "Too many jobs in flight; try again shortly.")
+
+    jobs.sweep_expired()
     job = jobs.store.create()
     background_tasks.add_task(jobs.store.process, job.id, inputs)
     return JobRecord(id=job.id, state=job.state.value)
