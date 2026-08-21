@@ -38,7 +38,7 @@ editorial feel, without overbuilding? See `CLAUDE.md` and `docs/` for detail.
 
 ## Working here
 
-`docs/CURRENT_STATE.md` is the source of truth for what exists — read it first.
+`docs/PROJECT_STATUS.md` is the source of truth for what exists — read it first.
 Keep changes small and verified (typecheck / lint / test / build), and write code
 comments in **English**. Historical plans live in `docs/archive/` and are not
 status.

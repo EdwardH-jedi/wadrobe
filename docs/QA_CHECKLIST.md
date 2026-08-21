@@ -5,7 +5,7 @@ Run `npm run dev` and walk through these. (Automated coverage:
 
 > This checklist covers the **default build**, which is the wardrobe archive
 > only. Section headings carry historical phase numbers; current status is in
-> [`CURRENT_STATE.md`](CURRENT_STATE.md).
+> [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
 
 ## Core / experimental boundary (default build)
 

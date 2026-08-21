@@ -2,7 +2,7 @@
 
 Everything needed to go from a fresh clone to a running app and a green test
 suite. For *what the code currently does*, see
-[`CURRENT_STATE.md`](CURRENT_STATE.md).
+[`PROJECT_STATUS.md`](PROJECT_STATUS.md).
 
 ---
 
@@ -20,7 +20,7 @@ it (`TypeError: localStorage.clear is not a function`). Verified failing on
 v25.8.0 and passing on v20.20.2; the versions between were not tested.
 
 Node 20 is past its LTS maintenance window, so this pin is debt, not a
-destination — see [`CURRENT_STATE.md`](CURRENT_STATE.md#known-technical-debt).
+destination — see [`PROJECT_STATUS.md`](PROJECT_STATUS.md#10-technical-debt).
 Moving off it means fixing the storage setup first, then bumping the pin.
 
 `.nvmrc` pins the version for any version manager that reads it (nvm, fnm,
@@ -121,7 +121,7 @@ what you want; with none of it set, the app is local-only and network-free.
 
 | Variable | Default | Effect |
 | --- | --- | --- |
-| `VITE_API_BASE` | unset | Base URL of the optional Vercel Edge API. Unset ⇒ no network calls at all. Use your deployment origin so calls are same-origin. |
+| `VITE_API_BASE` | unset | Base URL of the optional Vercel Edge API. Unset ⇒ the app makes no application API calls (the page still fetches Google Fonts). Use your deployment origin so calls are same-origin. |
 | `VITE_ANALYZER` | unset | `vision` ⇒ route uploads through the backend vision analyzer. **Also requires `VITE_API_BASE`.** |
 | `VITE_CANDIDATES` | unset | `search` ⇒ use the live eBay Browse candidate search. **Also requires `VITE_API_BASE`.** |
 | `VITE_ENABLE_EXPERIMENTAL_3D` | unset | `true` ⇒ expose the experimental Proxy 3D Lab. Also needs the local FastAPI backend running. |
@@ -143,14 +143,14 @@ Set these in your Vercel project settings, not in a file you commit.
 > **Before deploying `api/`:** the three Edge functions currently send
 > `Access-Control-Allow-Origin: *` with no auth, rate limit, or request-size cap,
 > while spending the keys above on every call. See the technical-debt section of
-> [`CURRENT_STATE.md`](CURRENT_STATE.md#known-technical-debt).
+> [`PROJECT_STATUS.md`](PROJECT_STATUS.md#10-technical-debt).
 
 ---
 
 ## Runtime matrix — which server answers what
 
 Three runtimes, two of which serve paths under `/api`. They are unrelated;
-[`ARCHITECTURE.md`](ARCHITECTURE.md#api-routing--three-runtimes-one-prefix) has
+[`ARCHITECTURE.md`](ARCHITECTURE.md#4-backend-architecture) has
 the full table.
 
 | Route | `npm run dev` | `vercel dev` / deployment | FastAPI running |

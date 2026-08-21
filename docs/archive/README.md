@@ -1,6 +1,6 @@
 > **Historical document — not current implementation status.**
 > For what the repository actually contains today, see
-> [`docs/CURRENT_STATE.md`](../CURRENT_STATE.md).
+> [`docs/PROJECT_STATUS.md`](../PROJECT_STATUS.md).
 
 ---
 
@@ -17,10 +17,10 @@ Nothing here is loaded by the app, referenced by a test, or maintained.
 
 | Document | What it was | Why it is here |
 | --- | --- | --- |
-| `PLAN.md` | Phase-by-phase implementation plan for the wardrobe app (partly written in Korean). | Superseded as a status source by `docs/CURRENT_STATE.md`. |
+| `PLAN.md` | Phase-by-phase implementation plan for the wardrobe app (partly written in Korean). | Superseded as a status source by `docs/PROJECT_STATUS.md`. |
 | `PROGRESS_REPORT.md` | A point-in-time progress snapshot. | Stale by construction. |
 | `MASTER_SCOPE_ROADMAP.md` | Long-range scope sketch across both tracks. | Aspirational; describes work that was never started. |
-| `AVATAR_VISUAL_PLAN.md` | Visual plan for the experimental avatar work. | Belongs to the experimental track; see `docs/AVATAR_TRACK.md`. |
+| `AVATAR_VISUAL_PLAN.md` | **PLANNED / CONCEPT.** A three-step product concept (cutout → size fit → 3D avatar rotation). | The user-facing avatar experience it describes does not exist, and no sizing/fit logic exists at all. Generic backend foundations do exist (a procedural mannequin mesh and a bbox outfit fitter), but nothing personalised and nothing any frontend consumes. See its header for per-step status. |
 | `track-b4a-jobs-api.md` | Design note for the async avatar jobs API. | The backend surface it describes exists; no frontend consumes it. |
 | `vision-api-integration.md` | Design note for the optional vision analyzer. | The integration it plans is implemented (`api/analyze.ts`). |
 | `vision-step2-consent-gate.md` | Design note for the vision consent gate. | Implemented (`src/lib/ai/visionConsent.ts`). |

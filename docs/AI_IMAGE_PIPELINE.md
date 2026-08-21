@@ -28,7 +28,7 @@ falls back to the mock. The default (env unset) remains mock-only with no upload
 > and this document both use the phrase and mean different things — that
 > roadmap's "Phase 3" is a UX transition ritual, not this document's *future*
 > "Phase 3 (real Vision provider)". Current status lives in
-> [`CURRENT_STATE.md`](CURRENT_STATE.md), not in either numbering.
+> [`PROJECT_STATUS.md`](PROJECT_STATUS.md), not in either numbering.
 
 ## Current pipeline (mock, on-device)
 
@@ -86,7 +86,9 @@ identification, or vision-model inference** — it is a local deterministic mock
 plus on-device canvas work, and no photo leaves the device. The optional vision
 provider (Phase 4, env-gated) is the one exception: when explicitly enabled it
 sends the thumbnail to the backend and the scan copy says so. It still produces a
-non-binding draft the user confirms, and never fabricates a brand.
+non-binding draft the user confirms. The prompt instructs the model not to guess
+a brand unless logo or brand text is legible, but a model's compliance cannot be
+guaranteed by the parser — one more reason the guess stays a draft.
 
 ## Product / reference matching — local demo by default
 
@@ -183,8 +185,11 @@ File
 - **ML/WASM segmentation** for higher-quality cutouts. The `CutoutDeps` and
   `assetBlobStore` seams are ready for it; the model is not there.
 - **Full-resolution image storage.** Only the downscaled thumbnail is kept.
-- **Exact product identification.** Nothing here tells you *which* product a
-  photo shows. On brand specifically: the mock **never** produces one, and the
+- **Exact / verified product identification.** Nothing here tells you *which*
+  product a photo shows. (Distinct from candidates: with
+  `VITE_CANDIDATES=search`, the opt-in provider does return **real eBay
+  listings** — but as candidates the user picks from, never as a verified
+  match.) On brand specifically: the mock **never** produces one, and the
   optional vision path may draft a brand only when a logo or brand text is
   clearly legible — the prompt forbids guessing (`buildVisionInstruction` in
   `visionAnalysis.ts`). Either way it is a draft the user confirms.

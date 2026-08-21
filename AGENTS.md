@@ -3,10 +3,10 @@
 Guidance for any Codex CLI session working in this repository. Read this
 first. User instructions always take precedence over this file.
 
-> **Implementation status source of truth: [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md).**
+> **Implementation status source of truth: [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md).**
 > This file holds the project's *rules and constraints*. It deliberately does not
 > track what is built. If a status claim here ever contradicts
-> `docs/CURRENT_STATE.md`, that file wins and this one should be corrected.
+> `docs/PROJECT_STATUS.md`, that file wins and this one should be corrected.
 > Historical planning documents live in `docs/archive/` and are **not** status.
 
 ---
@@ -17,13 +17,13 @@ AvatarWardrobe contains two explicitly separated tracks:
 
 - **Track A — Fit Archive closet layer (BUILT).** Everything described in the
   rest of this file: the local-first 2.5D fashion archive (Vite + React, no
-  backend). The wardrobe loop is complete; see `docs/CURRENT_STATE.md`.
+  backend). The wardrobe loop is complete; see `docs/PROJECT_STATUS.md`.
 - **Track B — Avatar Lab (EXPERIMENTAL, opt-in).** A user-authorized, additive
   research track: a local FastAPI service in `backend/` plus a frontend
   "Proxy 3D Lab" view (`'lab'` in `views.ts`, `src/components/avatar/`) that
   turns a PNG into an honest **proxy 3D** GLB. It is **not** real try-on. What
   is built and what is not lives in `docs/AVATAR_TRACK.md` and
-  `docs/CURRENT_STATE.md` — not here.
+  `docs/PROJECT_STATUS.md` — not here.
 
   Three rules bind any work on it:
   1. It is **hidden unless `VITE_ENABLE_EXPERIMENTAL_3D` is set.** Track A must
@@ -198,7 +198,7 @@ canvas (decode validation is tested via a stubbed `Image`).
 an instruction file is worse than none.
 
 - What exists, what is experimental, what is incomplete, and the current
-  technical debt: **`docs/CURRENT_STATE.md`**.
+  technical debt: **`docs/PROJECT_STATUS.md`**.
 - How it is put together: `docs/ARCHITECTURE.md`.
 - How to run and verify it: `docs/DEVELOPMENT.md`.
 - The experimental 3D track: `docs/AVATAR_TRACK.md`.
@@ -232,9 +232,10 @@ src/
   data/           seedGarments (procedural SVG sample set)
   styles/         globals.css, archive-theme.css
   test/           setup, factories
-docs/             CURRENT_STATE (status source of truth), ARCHITECTURE,
-                  DEVELOPMENT, MOBILE_MIGRATION, AVATAR_TRACK,
-                  AI_IMAGE_PIPELINE, QA_CHECKLIST
+docs/             PROJECT_STATUS (status source of truth), ARCHITECTURE,
+                  PORTFOLIO_FACTS (approved external claims), DEVELOPMENT,
+                  MOBILE_MIGRATION, AVATAR_TRACK, AI_IMAGE_PIPELINE,
+                  QA_CHECKLIST
 docs/archive/     historical planning docs — NOT current status
 api/              optional Vercel Edge functions (analyze, product-meta,
                   candidate-search) — inert unless VITE_API_BASE is set
@@ -248,7 +249,7 @@ backend/          Track B, EXPERIMENTAL (FastAPI): app/ (main, config, storage,
 
 ## 10. Phase discipline & review
 
-- **`docs/CURRENT_STATE.md` is the source of truth.** Read it first. When a
+- **`docs/PROJECT_STATUS.md` is the source of truth.** Read it first. When a
   change lands that alters what exists, update it — including its
   "Last verified" date and commit — as part of the same change.
 - Track B (the experimental 3D lab) phases live in `docs/AVATAR_TRACK.md` and

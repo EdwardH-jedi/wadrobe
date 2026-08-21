@@ -1,7 +1,22 @@
-> **Historical document — not current implementation status.**
-> Kept for the reasoning it records. It was accurate when written and has not
-> been maintained since. For what the repository actually contains today, see
-> [`docs/CURRENT_STATE.md`](../CURRENT_STATE.md).
+> # ⚠️ PLANNED / CONCEPT — NOT IMPLEMENTED
+>
+> **No avatar feature exists in this repository.** This document is a product
+> concept, written in Korean, proposing three steps for the Studio/Mirror
+> mannequin. Their real status:
+>
+> | Proposed step | Actual status |
+> | --- | --- |
+> | 1. Background removal (cutout) | **PARTIAL** — the local flood-fill cutout exists (`lib/image/garmentCutout.ts`) but is used in the upload flow and the experimental Lab. It was never promoted to the Studio/Mirror mannequin as this document proposes. |
+> | 2. Accurate size/foot fit | **NOT IMPLEMENTED.** No sizing, fitting, or measurement logic exists anywhere. |
+> | 3. 3D avatar with front/back rotation | **CONCEPT ONLY** as a user-facing feature. No personalised avatar exists and nothing in the frontend renders one. What *does* exist is generic backend scaffolding: a procedural, primitive-assembled mannequin mesh (`backend/app/pipeline/mannequin.py`) and a bounding-box outfit fitter, reachable only through the unconsumed `/api/jobs` surface. The `src/components/avatar/` directory is the experimental *Proxy 3D Lab* (image-to-3D of a garment photo), not an avatar of a person. |
+>
+> The shipped mannequin is a **2.5D layered photo composition** in CSS. It is not
+> an avatar, not 3D, and performs no fitting.
+>
+> **Historical document — not current implementation status.** Kept for the
+> reasoning it records. For what the repository actually contains today, see
+> [`docs/PROJECT_STATUS.md`](../PROJECT_STATUS.md) and
+> [`docs/AVATAR_TRACK.md`](../AVATAR_TRACK.md).
 
 ---
 

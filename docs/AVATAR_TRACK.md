@@ -28,7 +28,7 @@
 > Nothing here is real try-on, body reconstruction, or accurate fit. The avatar
 > pipeline is an honest proxy.
 >
-> For repository-wide status see [`CURRENT_STATE.md`](CURRENT_STATE.md).
+> For repository-wide status see [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
 
 ---
 
@@ -46,7 +46,7 @@ fit-archive closet layer (a local-first 2.5D fashion archive, Vite + React).
 Track A **is** the product; Track B was authorized as a separate, additive track
 that must never rewrite, rename, or degrade it.
 
-Current test counts live in [`CURRENT_STATE.md`](CURRENT_STATE.md); the numbers
+Current test counts live in [`PROJECT_STATUS.md`](PROJECT_STATUS.md); the numbers
 quoted in the phase table below are historical per-phase figures.
 
 ## 2. Relationship to Track A (hard rules)
@@ -58,7 +58,7 @@ quoted in the phase table below are historical per-phase figures.
 - Track A's test suite must remain green after every Track B change. A Track B
   phase that breaks a Track A test is not done.
 - Track B work happens **only when the user explicitly starts a Track B
-  phase**. Default sessions continue Track A per `docs/CURRENT_STATE.md`.
+  phase**. Default sessions continue Track A per `docs/PROJECT_STATUS.md`.
 
 ## 3. Intended architecture (target, not current state)
 
