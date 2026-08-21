@@ -18,6 +18,7 @@ import {
   dataUrlToImageSource,
   parseVisionGuess,
 } from '../src/lib/ai/visionAnalysis'
+import { gateRequest, jsonResponse, type RateLimitRule } from './_lib/http'
 
 export const config = { runtime: 'edge' }
 
@@ -25,18 +26,10 @@ const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 const DEFAULT_MODEL = 'claude-opus-4-8'
 const TIMEOUT_MS = 20000
 
-const CORS: Record<string, string> = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-}
-
-function json(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...CORS },
-  })
-}
+// The most expensive endpoint here: every allowed call is a billed vision
+// request. A real user archives pieces one photo at a time, so a low ceiling
+// costs nothing legitimate.
+const RATE_LIMIT: RateLimitRule = { name: 'analyze', max: 10 }
 
 function extractText(content: unknown): string {
   if (!Array.isArray(content)) return ''
@@ -54,12 +47,9 @@ function extractText(content: unknown): string {
 }
 
 export default async function handler(req: Request): Promise<Response> {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: CORS })
-  }
-  if (req.method !== 'POST') {
-    return json({ error: 'Method not allowed' }, 405)
-  }
+  const gate = gateRequest(req, RATE_LIMIT)
+  if (!gate.ok) return gate.response
+  const json = (body: unknown, status: number) => jsonResponse(body, status, gate.cors)
 
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
