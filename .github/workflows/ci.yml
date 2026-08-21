@@ -5,23 +5,21 @@ on:
     branches: [main]
   pull_request:
 
-# Cancel a superseded run on the same branch instead of paying for both.
+# Cancel a superseded run on the same ref instead of paying for both.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   web:
-    name: Web app (Node 20)
+    name: Web app (Node 24 LTS)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # Node 20 is pinned in .nvmrc and package.json engines: the Vitest suite
-      # relies on jsdom's localStorage, which newer Node shadows with a native
-      # implementation the tests cannot reset. Node 20 is past LTS maintenance,
-      # so this is tracked as debt in docs/PROJECT_STATUS.md — moving off it
-      # needs the test storage setup fixed first, not just a version bump.
+      # Node 22 is the floor: the jsdom storage fix needs
+      # --no-experimental-webstorage, which Node 20 and earlier reject. The
+      # version itself comes from .nvmrc so there is one place to change it.
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
@@ -29,11 +27,38 @@ jobs:
 
       - run: npm ci
 
-      # Run each gate separately so a failure names itself.
+      # Separate steps so a failure names itself.
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
       - run: npm run build
+
+  browser:
+    name: Browser tests (Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # Chromium only — the suite covers browser-only behaviour (IndexedDB,
+      # real reloads, downloads, multi-tab), not cross-engine rendering.
+      - run: npx playwright install --with-deps chromium
+
+      # Builds and serves the production bundle itself (see playwright.config).
+      - run: npm run test:e2e
+
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
 
   backend:
     name: Experimental backend (Python 3.12)

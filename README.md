@@ -33,6 +33,20 @@ that degrades through three tiers instead of failing, image bytes stored apart
 from metadata across two IndexedDB databases, and every network path gated behind
 independent environment flags.
 
+## What is product, and what is experiment
+
+The repository contains research alongside the product. The boundary is
+explicit, so nothing here has to be guessed at:
+
+| | Scope | Status |
+| --- | --- | --- |
+| **Core product** | The wardrobe archive: upload, image preparation, local persistence, backup/restore, filtering, outfit composition, Fit Check | **IMPLEMENTED** |
+| **Optional integrations** (`api/`) | Product-metadata prefill, vision metadata drafting, listing search | **OPTIONAL PROTOTYPE** — off by default, and 404 unless `ENABLE_OPTIONAL_APIS=true` |
+| **Connected experiment** | Proxy 3D Lab + `/api/proxy-3d` | **EXPERIMENTAL** — hidden unless `VITE_ENABLE_EXPERIMENTAL_3D`, needs the local Python service |
+| **Isolated experiments** | `/api/jobs` avatar pipeline, `eval/` cutout benchmark | **EXPERIMENTAL / INCOMPLETE** — no frontend consumes either; see [`backend/EXPERIMENT.md`](backend/EXPERIMENT.md) and [`eval/README.md`](eval/README.md) |
+
+Everything under "core product" works from a clean clone with no configuration.
+
 ## Key Features
 
 Everything here works with the repository as cloned, with no configuration.
@@ -52,7 +66,13 @@ Everything here works with the repository as cloned, with no configuration.
 - **Manual market-value history** — timestamped estimates *you* type, with trend
   math against the purchase price. Nothing is fetched.
 - **Local persistence** — IndexedDB, falling back to localStorage, falling back
-  to in-memory.
+  to in-memory — and it *tells you which*: writes are acknowledged, so a failed
+  or non-durable save is reported rather than silently assumed.
+- **Backup and restore** — export the whole archive, images included, to a
+  versioned JSON file; import it back with a merge-or-replace choice and a
+  preview of exactly what will change.
+- **Multi-tab safe** — a second tab cannot silently overwrite an archive the
+  first one has changed.
 
 Three **optional** integrations are off unless configured: product-metadata
 prefill, consent-gated vision metadata drafting, and reference-candidate search.
@@ -86,7 +106,8 @@ See [Architecture](docs/ARCHITECTURE.md).
 ## Current Status
 
 **Functional MVP (web).** The core loop is complete end to end and covered by
-445 frontend and 65 backend tests. It has never been deployed and has no users.
+551 unit, 12 browser and 71 backend tests. It has never been deployed and has
+no users.
 
 See [Project Status](docs/PROJECT_STATUS.md) — the single source of truth for
 what exists, what is partial, and what is not built.
@@ -94,6 +115,7 @@ what exists, what is partial, and what is not built.
 ## Running Locally
 
 Requires **Node 22 or newer** (`.nvmrc` pins 24 LTS). Verified on 24, 25 and 26.
+Node 20 and earlier cannot run the test suite — it needs a flag they reject.
 
 ```bash
 npm ci
@@ -108,8 +130,15 @@ Verification:
 ```bash
 npm run typecheck    # strict; covers src/ and the api/ Edge functions
 npm run lint
-npm test             # 445 tests across 59 files
+npm test             # 551 unit + component tests
 npm run build
+npm run test:e2e     # 6 Playwright specs, desktop + mobile
+```
+
+The experimental backend has its own suite:
+
+```bash
+python -m pytest backend    # 71 tests
 ```
 
 Full setup, including the optional backend and every environment variable, is in
@@ -129,7 +158,8 @@ api/              optional Vercel Edge functions
 backend/          experimental FastAPI service + pytest suite
 docs/             current documentation
 docs/archive/     historical planning documents (not current status)
-eval/             cutout benchmark scaffolding (stub; no results; not in CI)
+e2e/              Playwright browser tests
+eval/             ISOLATED EXPERIMENT — cutout benchmark scaffolding, no results
 ```
 
 ## Planned Direction
@@ -146,8 +176,8 @@ Experimental 3D work is tracked separately in
 
 - **Not deployed.** No deployment configuration or live URL exists in the
   repository — no live demo, no users.
-- **Browser-only storage, and no export yet** — clearing browser storage clears
-  the archive.
+- **Browser-only storage.** No accounts, no sync, no multi-device. Export a
+  backup to move an archive or guard against clearing site data.
 - **The page fetches Google Fonts by default** — typefaces only, with a system
   fallback. No wardrobe data or photo is sent.
 - **No authentication or accounts**, by design. No sync, no multi-device.
@@ -160,7 +190,11 @@ Experimental 3D work is tracked separately in
   flat-lay backgrounds, poor on busy ones.
 - **Market values are numbers you typed.** Nothing is fetched or appraised.
 - **The 3D lab is experimental**, hidden by default, and produces a proxy — not a
-  garment reconstruction.
+  garment reconstruction. The `/api/jobs` avatar pipeline has **no frontend at
+  all** and is not on the product path.
+- **The optional `api/` routes are prototypes.** They are 404 unless
+  `ENABLE_OPTIONAL_APIS=true`, and there is no authentication in front of them —
+  they are intended for local or private use, not a public deployment.
 - **Requires Node 22+.** Node 20 and earlier cannot run the test suite: it needs
   `--no-experimental-webstorage`, a flag those versions reject.
 
@@ -176,6 +210,7 @@ Experimental 3D work is tracked separately in
 | [Avatar Track](docs/AVATAR_TRACK.md) | The experimental 3D research track |
 | [AI Image Pipeline](docs/AI_IMAGE_PIPELINE.md) | How image analysis is wired |
 | [QA Checklist](docs/QA_CHECKLIST.md) | Manual test pass |
+| [`backend/EXPERIMENT.md`](backend/EXPERIMENT.md) | What in the backend is connected vs isolated |
 | [`docs/archive/`](docs/archive/README.md) | Historical planning documents — **not** status |
 
 `CLAUDE.md` and `AGENTS.md` are AI-agent working instructions, not product

@@ -193,14 +193,14 @@ Run on **Node 24.19.0** (also verified on 25.8.0 and 26.7.0) and **Python
 | Install | `npm ci` | **PASS** |
 | Typecheck | `npm run typecheck` | **PASS** — covers `src/` *and* the `api/` Edge functions (two tsconfigs) |
 | Lint | `npm run lint` | **PASS** |
-| Unit / component tests | `npm test` | **PASS** — 445 tests, 59 files |
+| Unit / component tests | `npm test` | **PASS** — 551 tests, 69 files |
 | Build | `npm run build` | **PASS** — 283 kB main chunk; 733 kB three.js in a separate lazy chunk |
-| Backend tests | `python -m pytest backend` | **PASS** — 65 passed, 1 warning |
+| Backend tests | `python -m pytest backend` | **PASS** — 71 passed, 1 warning |
 | Backend startup | `python -m uvicorn app.main:app --app-dir backend --port 8000` | **PASS** — "Application startup complete" |
 | API smoke test | `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/openapi.json` | **PASS** — HTTP 200, six routes; unknown job id correctly returns 404 |
 | CI workflow | `.github/workflows/ci.yml` | **NOT VERIFIED remotely** — YAML parsed and both jobs replicated locally in a clean clone, but CI has never run because nothing has been pushed |
-| Integration / E2E tests | — | **NOT CONFIGURED** — no Playwright/Cypress suite. The `<App/>` mount tests are the closest thing. |
-| Mobile build | — | **NOT APPLICABLE** — this is a web application. |
+| Browser tests | `npm run test:e2e` | **PASS** — 12 (6 Playwright specs × desktop chromium + Pixel 7) |
+| Mobile build | — | **NOT APPLICABLE** — a web application. There is no Swift, SwiftUI, React Native or other native mobile code anywhere in this repository. |
 
 The single remaining backend warning is third-party (`StarletteDeprecationWarning`
 about `httpx` in `starlette.testclient`), not this project's code.
@@ -242,7 +242,10 @@ is contacted in the default configuration.
   reopening one needs that service running.
 - **Backend job output** is written to `backend/data/` (gitignored).
 
-Clearing browser storage clears the archive. **There is no export.**
+Clearing browser storage clears the archive, so **export a backup** — a
+versioned JSON file with image bytes inlined, importable with a merge or replace
+choice. That is the only recovery path, and the only way to move an archive to
+another browser.
 
 ## 9. Known Issues
 
@@ -289,8 +292,11 @@ Ordered by what actually costs something.
    install pulls trimesh **5.0.0** and FastAPI **0.141.1**, two majors past the
    checked-in virtualenv. The suite passes on both, but backend CI is not
    reproducible.
-6. **No end-to-end tests.** Component and integration coverage is strong; no
-   browser-driven suite exercises the real canvas or IndexedDB paths.
+6. **The canvas/image path has no browser coverage.** The Playwright suite
+   covers persistence, backup, multi-tab and the experimental boundary, but the
+   upload flow's canvas work is still only exercised through stubs in jsdom.
+   Driving a real file picker plus canvas decode is the brittle path that suite
+   deliberately avoided; it remains the largest untested surface.
 7. **`IMG_0198.jpg` remains in git history.** Removed from the working tree; a
    genuine purge needs `git filter-repo` and a force-push — an owner's decision.
    Recover with `git show 319b673:IMG_0198.jpg` if ever wanted.

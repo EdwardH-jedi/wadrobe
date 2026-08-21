@@ -167,8 +167,8 @@ deployed.
 
 | Evidence | Value |
 | --- | --- |
-| Web tests | 445 passing, across 59 files |
-| Backend tests | 65 passing (pytest) |
+| Unit / component tests | 551 passing, across 69 files |
+| Backend tests | 71 passing (pytest) |
 | Typecheck | Strict, across two compilation units (`src/` and `api/`) |
 | Build | Passing; 283 kB main chunk, three.js split into a 733 kB lazy chunk |
 | CI | GitHub Actions — web (Node 24 LTS), Playwright, and backend (Python 3.12) jobs |
@@ -231,8 +231,8 @@ Run on Node 24.19.0 (also verified on 25.8.0 and 26.7.0) and Python 3.12.13.
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Tests (web) | `npm test` | **PASS** — 445 tests, 59 files |
-| Tests (backend) | `python -m pytest backend` | **PASS** — 65 tests |
+| Tests (web) | `npm test` | **PASS** — 551 tests, 69 files |
+| Tests (backend) | `python -m pytest backend` | **PASS** — 71 tests |
 | Lint | `npm run lint` | **PASS** |
 | Typecheck | `npm run typecheck` | **PASS** (strict, `src/` + `api/`) |
 | Build | `npm run build` | **PASS** |
@@ -246,8 +246,8 @@ State these plainly — they are not disqualifying, and hiding them is.
 - **Not deployed.** No deployment configuration, live URL, or deployment
   evidence exists in the repository — no production environment, no live demo,
   no users.
-- **Browser-only storage.** No sync, no multi-device, and **no export yet** —
-  clearing browser storage clears the archive.
+- **Browser-only storage.** No sync and no multi-device; a backup file is the
+  only way to move or recover an archive.
 - **The default page fetches Google Fonts** — the one external request made with
   no configuration. Typefaces only; no wardrobe data or photo is involved, and it
   falls back to a system serif. "Local-first" describes wardrobe data, not a
@@ -264,8 +264,11 @@ State these plainly — they are not disqualifying, and hiding them is.
   an extruded silhouette, not a garment reconstruction.
 - **The async avatar jobs API has no frontend.** Backend only, deliberately.
 - **Market values are numbers the user typed.** Nothing is fetched or appraised.
-- **No end-to-end test suite.**
+- **The canvas upload path has no real-browser coverage** — the Playwright suite
+  deliberately avoids driving a file picker plus canvas decode.
 - **Requires Node 22+** — the test suite needs a flag older Node rejects.
+- **The optional `api/` routes are prototypes**, 404 by default, with no
+  authentication; intended for local or private use, not public deployment.
 
 ## 14. Safe Portfolio Claims
 
