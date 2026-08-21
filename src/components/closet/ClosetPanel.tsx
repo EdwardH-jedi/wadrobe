@@ -87,7 +87,12 @@ export function ClosetPanel({
   return (
     <div className="closet">
       <div className="closet__bar">
-        <CategoryTabs active={category} counts={counts} onChange={setCategory} />
+        <CategoryTabs
+          active={category}
+          counts={counts}
+          onChange={setCategory}
+          panelId="garment-grid"
+        />
         <Button variant="ghost" size="sm" onClick={onUpload}>
           <Icon name="plus" size={15} />
           Add piece
@@ -135,7 +140,7 @@ export function ClosetPanel({
           }
         />
       ) : (
-        <div className="garment-grid">
+        <div className="garment-grid" id="garment-grid" role="tabpanel">
           {filtered.map((garment, index) => (
             <GarmentCard
               key={garment.id}
