@@ -70,6 +70,12 @@ export function SidebarNav({
               className={cx('navbtn', view === id && 'navbtn--active')}
               onClick={() => onView(id)}
               aria-current={view === id ? 'page' : undefined}
+              // Below 860px the visual label is display:none and the button
+              // becomes icon-only. Without this it has no accessible name at
+              // all on a phone — unreachable by screen reader and by name.
+              aria-label={
+                count !== null ? `${meta.label} (${count})` : meta.label
+              }
             >
               <Icon name={meta.icon} className="navbtn__icon" />
               <span className="navbtn__label">{meta.label}</span>
@@ -82,6 +88,7 @@ export function SidebarNav({
           className="navbtn navbtn--accent"
           disabled={uploadDisabled}
           onClick={onUpload}
+          aria-label="Upload"
         >
           <Icon name="upload" className="navbtn__icon" />
           <span className="navbtn__label">Upload</span>
@@ -94,6 +101,13 @@ export function SidebarNav({
             'storage-badge',
             persistence?.status === 'failed' && 'storage-badge--alert',
           )}
+          // The text is hidden at narrow widths, so name the badge explicitly
+          // or its status is announced as an empty region.
+          aria-label={`Storage: ${
+            persistence && persistence.status !== 'idle'
+              ? persistenceLabel(persistence)
+              : BACKEND_LABEL[storageBackend]
+          }`}
           // Announce durability changes: a failed save is something the user
           // needs to learn about without watching the corner of the screen.
           role="status"
