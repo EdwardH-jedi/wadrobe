@@ -1,3 +1,10 @@
+> **Historical document — not current implementation status.**
+> Kept for the reasoning it records. It was accurate when written and has not
+> been maintained since. For what the repository actually contains today, see
+> [`docs/PROJECT_STATUS.md`](../PROJECT_STATUS.md).
+
+---
+
 # Roadmap — The Archive
 
 The Archive is a **premium interactive fashion archive MVP**: upload real clothing

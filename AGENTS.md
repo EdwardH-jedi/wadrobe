@@ -3,6 +3,12 @@
 Guidance for any Codex CLI session working in this repository. Read this
 first. User instructions always take precedence over this file.
 
+> **Implementation status source of truth: [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md).**
+> This file holds the project's *rules and constraints*. It deliberately does not
+> track what is built. If a status claim here ever contradicts
+> `docs/PROJECT_STATUS.md`, that file wins and this one should be corrected.
+> Historical planning documents live in `docs/archive/` and are **not** status.
+
 ---
 
 ## 0. Project tracks (read this before anything else)
@@ -11,24 +17,25 @@ AvatarWardrobe contains two explicitly separated tracks:
 
 - **Track A — Fit Archive closet layer (BUILT).** Everything described in the
   rest of this file: the local-first 2.5D fashion archive (Vite + React, no
-  backend). Phases 1–12.5 are complete per `PLAN.md`.
-- **Track B — Avatar Lab (B2–B3.9 done).** A user-authorized, additive track
-  toward an optional FastAPI job backend + 3D/GLB avatar try-on pipeline. As
-  of 2026-06-10: **B2** — a backend spike in `backend/` (FastAPI, local-only,
-  pytest-covered) that turns a PNG into an honest **proxy 3D** GLB (a
-  textured, lightly extruded silhouette card, explicitly NOT real try-on);
-  **B3–B3.8** — an additive frontend "Proxy 3D Lab" view (`'lab'` in
-  `views.ts`, `src/components/avatar/`) with per-side cutout-first flows,
-  dual-sided front/back generation, cutout tuning, and manual back
-  alignment; **B3.9** — the closet bridge: `GarmentItem.proxy3dPreview?`
-  (optional, parser-tolerant, metadata-only — NO blob-store bytes, so it is
-  intentionally NOT in `garmentBlobKeys`) links a piece to its generated
-  preview. `three` is a dependency but is loaded ONLY via dynamic import
-  inside the lab's GLB viewer — Track A's bundle and startup are unaffected;
-  keep it that way. See `docs/AVATAR_TRACK.md`.
+  backend). The wardrobe loop is complete; see `docs/PROJECT_STATUS.md`.
+- **Track B — Avatar Lab (EXPERIMENTAL, opt-in).** A user-authorized, additive
+  research track: a local FastAPI service in `backend/` plus a frontend
+  "Proxy 3D Lab" view (`'lab'` in `views.ts`, `src/components/avatar/`) that
+  turns a PNG into an honest **proxy 3D** GLB. It is **not** real try-on. What
+  is built and what is not lives in `docs/AVATAR_TRACK.md` and
+  `docs/PROJECT_STATUS.md` — not here.
+
+  Three rules bind any work on it:
+  1. It is **hidden unless `VITE_ENABLE_EXPERIMENTAL_3D` is set.** Track A must
+     stay fully functional, and three.js unloaded, with the flag off.
+  2. `three` is loaded **ONLY via dynamic import** inside the lab's GLB viewer,
+     so Track A's bundle and startup are unaffected. Keep it that way.
+  3. `GarmentItem.proxy3dPreview?` is optional, parser-tolerant, and
+     **metadata-only** — it owns NO blob-store bytes, so it is intentionally NOT
+     in `garmentBlobKeys`.
 
 Track B may add a backend and 3D dependencies **inside its own explicitly
-started phases only** (see `docs/AVATAR_TRACK.md`); until then, every "What
+started phases only** (see `docs/AVATAR_TRACK.md`); outside them, every "What
 NOT to build" rule below stands. Track B must never rewrite, rename, or
 degrade Track A code.
 
@@ -73,9 +80,14 @@ visual focus.
 - ❌ NO claim — in UI, copy, comments, or docs — that the app performs **real
   3D virtual try-on**. It does not. It is a 2.5D layered composition.
 - ❌ NO heavy dependency bloat. Justify every new dependency.
+- ❌ NO making the experimental Proxy 3D Lab reachable by default. It is gated by
+  `VITE_ENABLE_EXPERIMENTAL_3D` (unset = off), which keeps three.js out of a
+  default visitor's session. Adding a new 3D entry point means gating it too. The
+  flag governs reachability ONLY — never read, write, or clear stored
+  `proxy3dPreview` metadata based on it.
 
 **Honest wording.** The analyzer is a local deterministic mock by default (an
-optional env-gated cloud vision provider exists — Phase 4 — with its own honest
+optional env-gated cloud vision provider exists, with its own honest
 "sent to a server" scan copy); the preview is 2.5D. User-facing copy MAY say: "demo style scan", "draft metadata suggestion",
 "local preview", "2.5D layered preview", "mirror composition", "manual crop",
 "prepare display asset", "2D garment asset", "future cutout support". It must NOT
@@ -180,29 +192,21 @@ canvas (decode validation is tested via a stubbed `Image`).
   "perfect cutout", or "real try-on". Product/reference matching stays a **local
   demo** (`mockProductMatch`) the user confirms.
 
-## 8. Roadmap (summary)
+## 8. Status and roadmap
 
-See `docs/ROADMAP.md` for detail. Phase numbers match `PLAN.md`.
+**Do not restate implementation status here.** It goes stale, and stale status in
+an instruction file is worse than none.
 
-- **Phases 1–12 (done):** core data flow → clothes central → upload ritual →
-  mannequin/mirror preview → saved board → architecture/docs hardening → Codex
-  review prep → product-match & `GarmentAsset` pipeline → garment asset compiler
-  (manual crop + layer presets) → real local background removal / cutout
-  (`garmentCutout.ts`, edge flood fill; opt-in, non-blocking, not ML/cloud) →
-  asset storage hardening (IndexedDB blob store for heavy cropped/cutout images;
-  lightweight metadata; backwards-compatible, precedence-preserving) →
-  storage-consistency hardening (fail-closed orphan-blob sweep, object-URL
-  lifecycle) → **cross-tab sweep safety** (blob-age gate + explicit metadata-read
-  status).
-- **Future (NOT built — do not imply these exist):** ML/WASM segmentation for
-  higher-quality cutouts (the `CutoutDeps` + `assetBlobStore` seams are ready),
-  real Vision API / product recognition, Three.js / R3F room, virtual try-on
-  research.
-- **Track B — Avatar Lab (B2–B3 done):** optional FastAPI backend + 3D/GLB
-  proxy viewer, a separate additive track. B2 (PNG → proxy-3D GLB spike,
-  `backend/`) and B3 (frontend Proxy 3D Lab view + lazy three.js GLB viewer)
-  are implemented; pipeline interfaces, `/api/jobs`, and avatar composition
-  are not. Scope and phases live in `docs/AVATAR_TRACK.md`, not here.
+- What exists, what is experimental, what is incomplete, and the current
+  technical debt: **`docs/PROJECT_STATUS.md`**.
+- How it is put together: `docs/ARCHITECTURE.md`.
+- How to run and verify it: `docs/DEVELOPMENT.md`.
+- The experimental 3D track: `docs/AVATAR_TRACK.md`.
+- A future mobile port's seams: `docs/MOBILE_MIGRATION.md`.
+- Historical plans and progress snapshots: `docs/archive/` (not status).
+
+Historical phase numbering, where you still meet it in comments, matches
+`docs/archive/PLAN.md`. Treat those numbers as archaeology, not as a plan.
 
 Extension points are documented inline in `mockGarmentAnalysis.ts`,
 `indexedDbStorage.ts`, `MannequinPreview.tsx`, and `lib/image/garmentCutout.ts`,
@@ -228,21 +232,31 @@ src/
   data/           seedGarments (procedural SVG sample set)
   styles/         globals.css, archive-theme.css
   test/           setup, factories
-docs/             ARCHITECTURE, ROADMAP, AI_IMAGE_PIPELINE, QA_CHECKLIST,
-                  CODEX_REVIEW, AVATAR_TRACK
-backend/          Track B spike (FastAPI): app/ (main, config, storage,
-                  proxy3d pipeline + meshbuild), tests/ (pytest), scripts/
+docs/             PROJECT_STATUS (status source of truth), ARCHITECTURE,
+                  PORTFOLIO_FACTS (approved external claims), DEVELOPMENT,
+                  MOBILE_MIGRATION, AVATAR_TRACK, AI_IMAGE_PIPELINE,
+                  QA_CHECKLIST
+docs/archive/     historical planning docs — NOT current status
+api/              optional Vercel Edge functions (analyze, product-meta,
+                  candidate-search) — inert unless VITE_API_BASE is set
+backend/          Track B, EXPERIMENTAL (FastAPI): app/ (main, config, storage,
+                  proxy3d pipeline + meshbuild, jobs + pipeline stages),
+                  tests/ (pytest), scripts/
+.github/workflows/ci.yml   web (Node 24 LTS) + backend (Python 3.12) gates
 .Codex/skills/   product-vision, ui-style-guide, testing-harness,
                   ai-image-pipeline
 ```
 
 ## 10. Phase discipline & review
 
-- **`PLAN.md` is the source of truth for Track A.** Read it first; implement
-  only the **next incomplete phase** unless the user says otherwise. After each
-  phase: update PLAN.md status, run typecheck/test/lint/build, and report real
-  output. Track B (avatar lab) phases live in `docs/AVATAR_TRACK.md` and only
-  proceed when the user explicitly asks for them.
-- Keep changes **small, incremental, and verified**. Don't rewrite the app.
-- **Codex** is used for external review between phases; keep honest handoff notes
-  in `docs/CODEX_REVIEW.md`.
+- **`docs/PROJECT_STATUS.md` is the source of truth.** Read it first. When a
+  change lands that alters what exists, update it — including its
+  "Last verified" date and commit — as part of the same change.
+- Track B (the experimental 3D lab) phases live in `docs/AVATAR_TRACK.md` and
+  only proceed when the user explicitly asks for them.
+- Keep changes **small, incremental, and verified**: run typecheck / lint / test
+  / build (and `python -m pytest backend` when the backend is touched) and report
+  the real output. CI runs the same gates.
+- **Codex** is used for external review; keep honest handoff notes.
+- Historical planning docs in `docs/archive/` are read-only context. Do not
+  update them, and do not cite them as status.

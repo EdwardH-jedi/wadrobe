@@ -15,6 +15,12 @@ import type {
   SavedOutfit,
 } from '../../domain/outfitTypes'
 import type { StorageBackend } from '../../lib/storage/storageTypes'
+import type { PersistenceState } from './persistenceStatus'
+import type {
+  ArchiveImportMode,
+  ArchiveImportReview,
+  ArchiveImportSummary,
+} from '../../lib/storage/archiveImport'
 
 export interface ArchiveContextValue {
   // --- State ---
@@ -23,6 +29,14 @@ export interface ArchiveContextValue {
   savedOutfits: SavedOutfit[]
   hydrated: boolean
   storageBackend: StorageBackend | 'pending'
+  /** Durability of the local archive: whether the last write was acknowledged.
+   *  Writes are optimistic, so this is how the UI reports a rejected save
+   *  rather than silently implying everything landed. */
+  persistence: PersistenceState
+  /** True when another tab has written the archive since this one loaded it.
+   *  This tab's writes are refused while set, so its view cannot clobber the
+   *  newer archive; reloading clears it. */
+  archiveConflict: boolean
   lastEvent: ArchiveEvent | null
 
   // --- Derived ---
@@ -53,6 +67,12 @@ export interface ArchiveContextValue {
     preview: GarmentProxy3dPreview | null,
   ) => void
   removeGarment: (id: string) => void
+  /** Apply a validated backup. `merge` keeps existing pieces; `replace` swaps
+   *  the archive wholesale. Returns a summary of what changed. */
+  importArchive: (
+    review: ArchiveImportReview,
+    mode: ArchiveImportMode,
+  ) => ArchiveImportSummary
   /** Select a garment into its category slot (replaces any current pick). */
   selectGarment: (garmentId: string) => void
   clearSlot: (slot: OutfitSlot) => void

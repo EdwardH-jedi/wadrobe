@@ -4,6 +4,7 @@ import {
   createProxy3d,
   getProxy3d,
   PROXY3D_ENDPOINT,
+  parseProxy3dRecord,
 } from './proxy3dApi'
 import type { Proxy3dRecord } from './proxy3dFlow'
 
@@ -196,5 +197,61 @@ describe('getProxy3d (B3.9)', () => {
     const error = await getProxy3d('x', fetchFn).catch((e: unknown) => e)
     expect(error).toBeInstanceOf(Proxy3dApiError)
     expect((error as Proxy3dApiError).status).toBeNull()
+  })
+})
+
+describe('parseProxy3dRecord — the backend is untrusted input', () => {
+  const valid = {
+    job_id: 'a'.repeat(32),
+    status: 'done',
+    method: 'extruded-alpha-contour',
+    alpha_mask_used: true,
+    input: { width: 512, height: 512, has_alpha: true },
+    mesh: { vertices: 2552, faces: 5100 },
+    result_url: '/api/proxy-3d/x/result.glb',
+    limitations: 'Proxy 3D preview only.',
+    created_at: 1_750_000_000,
+  }
+
+  it('accepts a well-formed record', () => {
+    expect(parseProxy3dRecord(valid)).not.toBeNull()
+  })
+
+  it('rejects anything that is not an object', () => {
+    for (const bad of [null, undefined, 'ok', 42, [], true]) {
+      expect(parseProxy3dRecord(bad)).toBeNull()
+    }
+  })
+
+  it('rejects a record missing a field the UI reads', () => {
+    for (const key of [
+      'job_id',
+      'status',
+      'method',
+      'alpha_mask_used',
+      'input',
+      'mesh',
+      'result_url',
+      'limitations',
+      'created_at',
+    ]) {
+      const partial: Record<string, unknown> = { ...valid }
+      delete partial[key]
+      expect(parseProxy3dRecord(partial)).toBeNull()
+    }
+  })
+
+  it('rejects an unknown method rather than rendering an unknown artifact', () => {
+    expect(parseProxy3dRecord({ ...valid, method: 'neural-reconstruction' })).toBeNull()
+  })
+
+  it('rejects a malformed nested shape', () => {
+    expect(parseProxy3dRecord({ ...valid, input: { width: 1 } })).toBeNull()
+    expect(parseProxy3dRecord({ ...valid, mesh: { vertices: 'lots' } })).toBeNull()
+  })
+
+  it('requires the limitations copy, which is shown verbatim', () => {
+    // Defaulting it would silently drop the product's honesty wording.
+    expect(parseProxy3dRecord({ ...valid, limitations: undefined })).toBeNull()
   })
 })

@@ -8,6 +8,7 @@ import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
 import { EmptyState } from '../ui/EmptyState'
 import { GarmentCard } from './GarmentCard'
+import { BackupPanel } from './BackupPanel'
 import { CategoryTabs, type CategoryFilter } from './CategoryTabs'
 
 export interface ClosetPanelProps {
@@ -86,7 +87,12 @@ export function ClosetPanel({
   return (
     <div className="closet">
       <div className="closet__bar">
-        <CategoryTabs active={category} counts={counts} onChange={setCategory} />
+        <CategoryTabs
+          active={category}
+          counts={counts}
+          onChange={setCategory}
+          panelId="garment-grid"
+        />
         <Button variant="ghost" size="sm" onClick={onUpload}>
           <Icon name="plus" size={15} />
           Add piece
@@ -134,7 +140,7 @@ export function ClosetPanel({
           }
         />
       ) : (
-        <div className="garment-grid">
+        <div className="garment-grid" id="garment-grid" role="tabpanel">
           {filtered.map((garment, index) => (
             <GarmentCard
               key={garment.id}
@@ -150,6 +156,11 @@ export function ClosetPanel({
           ))}
         </div>
       )}
+
+      <details className="backup-details">
+        <summary>Backup &amp; restore</summary>
+        <BackupPanel />
+      </details>
     </div>
   )
 }

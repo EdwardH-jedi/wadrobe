@@ -6,6 +6,7 @@
 // the classic bug where the persist effect fires with the initial empty state
 // and clobbers stored data before the async load resolves.
 import {
+  useCallback,
   useEffect,
   useMemo,
   useReducer,
@@ -28,6 +29,22 @@ import {
   type SavedOutfit,
 } from '../../domain/outfitTypes'
 import { createId } from '../../lib/id'
+import {
+  summarizeArchiveImport,
+  type ArchiveImportMode,
+  type ArchiveImportReview,
+  type ArchiveImportSummary,
+} from '../../lib/storage/archiveImport'
+import {
+  decideWrite,
+  openArchiveChannel,
+  type ArchiveChannel,
+} from '../../lib/storage/archiveRevision'
+import {
+  initialPersistenceState,
+  persistenceReducer,
+  type PersistenceSlice,
+} from './persistenceStatus'
 import {
   getArchiveStorage,
   type ArchiveStorageAdapter,
@@ -73,6 +90,25 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
   // that becomes referenced while its frozen candidate snapshot is processed.
   const garmentsRef = useRef<GarmentItem[]>(state.garments)
   garmentsRef.current = state.garments
+  // Persistence acknowledgement. Writes are optimistic — the UI updates
+  // immediately — but their OUTCOME is tracked, so a rejected write surfaces
+  // instead of leaving the user believing an archive is safe.
+  const [persistence, dispatchPersistence] = useReducer(
+    persistenceReducer,
+    initialPersistenceState,
+  )
+
+  // Multi-tab write safety. `revisionRef` is the revision this tab loaded or
+  // last wrote; a garments write is refused if the store has moved past it.
+  const revisionRef = useRef<number>(0)
+  // Serialized form of what this tab last persisted (or hydrated). Lets the
+  // effect skip a write when nothing actually changed — without it, merely
+  // opening a tab consumes a revision and makes every other tab look stale.
+  const lastWrittenGarmentsRef = useRef<string | null>(null)
+  const channelRef = useRef<ArchiveChannel | null>(null)
+  const tabIdRef = useRef<string>(createId())
+  const [conflict, setConflict] = useState(false)
+
   const [storageBackend, setStorageBackend] = useState<
     StorageBackend | 'pending'
   >('pending')
@@ -87,6 +123,8 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
       async ([adapter, blobStore]) => {
         if (!active) return
         adapterRef.current = adapter
+        dispatchPersistence({ type: 'BACKEND_RESOLVED', backend: adapter.backend })
+        revisionRef.current = await adapter.loadRevision()
         blobStoreRef.current = blobStore
         setStorageBackend(adapter.backend)
         const [garmentsResult, savedOutfits, currentOutfit] = await Promise.all([
@@ -110,6 +148,12 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
           garmentsRaw.map((g) => hydrateGarmentForRuntime(g, blobStore)),
         )
         if (!active) return
+        // Baseline for the change-detection guard below: what we just loaded is
+        // by definition already persisted, so the first post-hydrate effect run
+        // must not write it back (and must not burn a revision doing so).
+        lastWrittenGarmentsRef.current = JSON.stringify(
+          garments.map(dehydrateGarmentForStorage),
+        )
         dispatch({ type: 'HYDRATE', garments, savedOutfits, currentOutfit })
 
         // Fire-and-forget orphan sweep (Phase 12) — the candidate snapshot began
@@ -135,25 +179,90 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  // Learn about other tabs' writes as they happen, rather than only at our own
+  // next save. Purely an optimisation: the revision check above is what
+  // actually prevents the overwrite, and it works with no channel at all.
+  useEffect(() => {
+    const channel = openArchiveChannel(tabIdRef.current, (notice) => {
+      if (notice.revision > revisionRef.current) setConflict(true)
+    })
+    channelRef.current = channel
+    return () => {
+      channel.close()
+      channelRef.current = null
+    }
+  }, [])
+
   // Persist — gated on `hydrated` so we never overwrite before loading. Heavy
   // image bytes of blob-backed garments are dropped here (kept in the blob
   // store); legacy/data-URL garments serialize unchanged.
+  // Every write reports its outcome. `trackSave` is stable, so the three
+  // effects below keep their existing dependency arrays and firing behaviour —
+  // the only change is that a rejection is no longer swallowed.
+  const trackSave = useCallback(
+    (slice: PersistenceSlice, run: () => Promise<void>): void => {
+      dispatchPersistence({ type: 'SAVE_STARTED', slice })
+      run().then(
+        () =>
+          dispatchPersistence({ type: 'SAVE_SUCCEEDED', slice, at: Date.now() }),
+        (error: unknown) =>
+          dispatchPersistence({
+            type: 'SAVE_FAILED',
+            slice,
+            at: Date.now(),
+            error: error instanceof Error ? error.message : String(error),
+          }),
+      )
+    },
+    [],
+  )
+
   useEffect(() => {
-    if (!state.hydrated || !adapterRef.current) return
-    void adapterRef.current.saveGarments(
-      state.garments.map(dehydrateGarmentForStorage),
+    const adapter = adapterRef.current
+    if (!state.hydrated || !adapter) return
+    const payload = state.garments.map(dehydrateGarmentForStorage)
+    const serialized = JSON.stringify(payload)
+    // No change since we last wrote or hydrated: nothing to persist. Skipping
+    // keeps the revision counter meaningful — it counts real archive edits, not
+    // mounts — so a freshly opened tab does not make its siblings stale.
+    if (lastWrittenGarmentsRef.current === serialized) return
+
+    trackSave('garments', async () => {
+      // Re-read the stored revision immediately before writing: if another tab
+      // has written since this one loaded, our whole-array write would silently
+      // destroy their work, so refuse it and tell the user instead.
+      const stored = await adapter.loadRevision()
+      const decision = decideWrite(revisionRef.current, stored)
+      if (!decision.ok) {
+        setConflict(true)
+        throw new Error(
+          'Another tab updated this archive — reload before saving again.',
+        )
+      }
+      await adapter.saveGarments(payload)
+      await adapter.saveRevision(decision.revision)
+      revisionRef.current = decision.revision
+      lastWrittenGarmentsRef.current = serialized
+      channelRef.current?.post({
+        revision: decision.revision,
+        senderId: tabIdRef.current,
+      })
+    })
+  }, [state.garments, state.hydrated, trackSave])
+
+  useEffect(() => {
+    const adapter = adapterRef.current
+    if (!state.hydrated || !adapter) return
+    trackSave('savedOutfits', () => adapter.saveSavedOutfits(state.savedOutfits))
+  }, [state.savedOutfits, state.hydrated, trackSave])
+
+  useEffect(() => {
+    const adapter = adapterRef.current
+    if (!state.hydrated || !adapter) return
+    trackSave('currentOutfit', () =>
+      adapter.saveCurrentOutfit(state.currentOutfit),
     )
-  }, [state.garments, state.hydrated])
-
-  useEffect(() => {
-    if (!state.hydrated || !adapterRef.current) return
-    void adapterRef.current.saveSavedOutfits(state.savedOutfits)
-  }, [state.savedOutfits, state.hydrated])
-
-  useEffect(() => {
-    if (!state.hydrated || !adapterRef.current) return
-    void adapterRef.current.saveCurrentOutfit(state.currentOutfit)
-  }, [state.currentOutfit, state.hydrated])
+  }, [state.currentOutfit, state.hydrated, trackSave])
 
   const value = useMemo<ArchiveContextValue>(() => {
     const getGarment = (id: string): GarmentItem | undefined =>
@@ -170,6 +279,8 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
       savedOutfits: state.savedOutfits,
       hydrated: state.hydrated,
       storageBackend,
+      persistence,
+      archiveConflict: conflict,
       lastEvent: state.lastEvent,
 
       getGarment,
@@ -365,13 +476,35 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
         })
       },
 
+      /** Apply a backup file that has already been validated by
+       *  `reviewArchiveImport`. Returns what changed so the UI can report it. */
+      importArchive: (
+        review: ArchiveImportReview,
+        mode: ArchiveImportMode,
+      ): ArchiveImportSummary => {
+        const summary = summarizeArchiveImport(review, state, mode)
+        dispatch({
+          type: 'IMPORT_ARCHIVE',
+          mode,
+          garments: review.garments,
+          savedOutfits: review.savedOutfits,
+          event: makeEvent(
+            'garment_added',
+            mode === 'replace'
+              ? 'Replaced the archive from a backup'
+              : 'Merged a backup into the archive',
+          ),
+        })
+        return summary
+      },
+
       resetArchive: (): void => {
         dispatch({ type: 'RESET' })
         void adapterRef.current?.clearAll()
         void blobStoreRef.current?.clear()
       },
     }
-  }, [state, storageBackend])
+  }, [state, storageBackend, persistence, conflict])
 
   return (
     <ArchiveContext.Provider value={value}>{children}</ArchiveContext.Provider>

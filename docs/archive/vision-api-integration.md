@@ -1,3 +1,10 @@
+> **Historical document — not current implementation status.**
+> Kept for the reasoning it records. It was accurate when written and has not
+> been maintained since. For what the repository actually contains today, see
+> [`docs/PROJECT_STATUS.md`](../PROJECT_STATUS.md).
+
+---
+
 # The Archive — Vision API 통합 (Step 1)
 
 목표: 3번 "옷 분석" seam의 `runGarmentAnalysis`를 **flag로 분기**해서, 켜지면 Claude vision으로

@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
+import time
 import re
 import threading
 import uuid
@@ -74,6 +76,15 @@ class JobStore:
             self._jobs[job.id] = job
         return job
 
+    def active_count(self) -> int:
+        """Jobs not yet finished. Used to bound how many can run at once."""
+        with self._lock:
+            return sum(
+                1
+                for job in self._jobs.values()
+                if job.state in (JobState.QUEUED, JobState.PROCESSING)
+            )
+
     def get(self, job_id: str) -> Job | None:
         with self._lock:
             return self._jobs.get(job_id)
@@ -124,3 +135,38 @@ class JobStore:
 
 # Module singleton (mirrors proxy-3d's module-level storage usage).
 store = JobStore()
+
+
+def sweep_expired(ttl_seconds: int | None = None) -> int:
+    """Delete generated artifacts older than the TTL.
+
+    Job output is disposable — the GLB can always be regenerated — but nothing
+    used to remove it, so the data directory grew for the life of the process.
+    Swept on job creation rather than on a timer: no scheduler, no background
+    thread, and the cost lands on whoever is adding more files.
+
+    Returns the number of job directories removed. Never raises: a failed sweep
+    must not fail the request that triggered it.
+    """
+    from app import config
+
+    ttl = config.JOB_ARTIFACT_TTL_SECONDS if ttl_seconds is None else ttl_seconds
+    root = jobs_root()
+    removed = 0
+    try:
+        if not root.exists():
+            return 0
+        cutoff = time.time() - ttl
+        for entry in root.iterdir():
+            if not entry.is_dir() or not is_valid_job_id(entry.name):
+                continue
+            try:
+                if entry.stat().st_mtime >= cutoff:
+                    continue
+                shutil.rmtree(entry, ignore_errors=True)
+                removed += 1
+            except OSError:
+                continue
+    except OSError:
+        return removed
+    return removed

@@ -12,9 +12,17 @@ coverage/
 *.log
 npm-debug.log*
 
-# Python (Track B backend)
+# Environment / secrets (the template is the ONLY committed env file)
+.env
+.env.*
+!.env.example
+
+# Python (Track B backend + eval harnesses)
+.venv/
 backend/.venv/
 backend/data/
+eval/**/.venv/
+eval/**/out/
 __pycache__/
 *.pyc
 .pytest_cache/
@@ -29,3 +37,7 @@ __pycache__/
 .vscode/*
 !.vscode/extensions.json
 .idea/
+
+# Playwright
+playwright-report/
+test-results/

@@ -1,8 +1,13 @@
-"""Honest dummy stage implementations (Track B, Phase B4a).
+"""Honest stub stage implementations (Track B — experimental).
 
-Every stage is a deterministic placeholder. The avatar is a single box at body
-scale — explicitly NOT a real body, a body scan, or an accurate fit. Each stage
-records an honest note so the job's provenance trail says exactly what ran.
+Every stage here is a deterministic placeholder. ``DummyBodyEstimator`` and
+``DummyTextureProjector`` are what ``default_pipeline()`` still runs;
+``DummyAvatarBuilder`` and ``DummyOutfitFitter`` have been superseded there by
+``mannequin.ProceduralMannequinBuilder`` and ``fitter.BboxOutfitFitter`` and are
+kept as cheap test doubles.
+
+Nothing here is a real body, a body scan, or an accurate fit. Each stage records
+an honest note so the job's provenance trail says exactly what ran.
 """
 
 from __future__ import annotations
@@ -18,12 +23,13 @@ from app.pipeline.interfaces import (
 
 class DummyBodyEstimator:
     def estimate(self, inputs: AvatarInputs) -> BodyProportions:
-        return BodyProportions()  # canned; B4b may scale from image aspect
+        return BodyProportions()  # canned defaults; the image is not measured
 
 
 class DummyAvatarBuilder:
-    """B4a placeholder: a single box at body scale. B4b replaces this with a
-    procedural trimesh mannequin. The mesh is intentionally NOT a real body."""
+    """A single box at body scale — the cheapest stand-in, kept for tests.
+    ``mannequin.ProceduralMannequinBuilder`` is what the default pipeline runs.
+    Neither is a real body."""
 
     def build(self, proportions: BodyProportions) -> AvatarMesh:
         box = trimesh.creation.box(
@@ -45,10 +51,13 @@ class DummyTextureProjector:
 
 
 class DummyOutfitFitter:
+    """No-op fitter kept as a test double; ``fitter.BboxOutfitFitter`` is what
+    the default pipeline runs."""
+
     def fit(self, mesh: AvatarMesh, inputs: AvatarInputs) -> AvatarMesh:
         if inputs.outfit_glb is not None:
-            mesh.notes.append("outfit-fit: deferred to B5")
-        return mesh  # B5 implements real bbox merge
+            mesh.notes.append("outfit-fit: not applied (stub fitter)")
+        return mesh
 
 
 class DummyExporter:

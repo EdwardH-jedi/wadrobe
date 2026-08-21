@@ -21,6 +21,7 @@ import {
   parseSavedOutfits,
   type ArchiveStorageAdapter,
   type GarmentsReadResult,
+  parseRevision,
 } from './storageTypes'
 
 const DB_NAME = 'fit-archive'
@@ -95,11 +96,18 @@ export function createIndexedDbAdapter(db: IDBDatabase): ArchiveStorageAdapter {
       return null
     }
   }
-  async function safeSet(key: string, value: unknown): Promise<void> {
+  // Writes PROPAGATE: a swallowed write leaves the caller believing the archive
+  // is stored when it is not. Reads stay tolerant (`safeGet`) because a missing
+  // or corrupt key is a recoverable "empty archive", but a failed write is not
+  // recoverable and the user has to be told. See persistenceStatus.ts.
+  async function set(key: string, value: unknown): Promise<void> {
     try {
       await idbSet(db, key, value)
     } catch (error) {
       console.warn(`[archive] IndexedDB write failed for "${key}"`, error)
+      throw error instanceof Error
+        ? error
+        : new Error(`IndexedDB write failed for "${key}"`)
     }
   }
   // A read that surfaces failure (vs the swallowing `safeGet`) so the orphan
@@ -119,19 +127,25 @@ export function createIndexedDbAdapter(db: IDBDatabase): ArchiveStorageAdapter {
       return (await loadGarmentsResult()).garments // single source of truth
     },
     async saveGarments(items: GarmentItem[]): Promise<void> {
-      await safeSet(STORAGE_KEYS.garments, items)
+      await set(STORAGE_KEYS.garments, items)
     },
     async loadSavedOutfits(): Promise<SavedOutfit[]> {
       return parseSavedOutfits(await safeGet(STORAGE_KEYS.savedOutfits))
     },
     async saveSavedOutfits(items: SavedOutfit[]): Promise<void> {
-      await safeSet(STORAGE_KEYS.savedOutfits, items)
+      await set(STORAGE_KEYS.savedOutfits, items)
     },
     async loadCurrentOutfit(): Promise<OutfitSelection | null> {
       return parseCurrentOutfit(await safeGet(STORAGE_KEYS.currentOutfit))
     },
     async saveCurrentOutfit(selection: OutfitSelection): Promise<void> {
-      await safeSet(STORAGE_KEYS.currentOutfit, selection)
+      await set(STORAGE_KEYS.currentOutfit, selection)
+    },
+    async loadRevision(): Promise<number> {
+      return parseRevision(await safeGet(STORAGE_KEYS.revision))
+    },
+    async saveRevision(revision: number): Promise<void> {
+      await set(STORAGE_KEYS.revision, revision)
     },
     async clearAll(): Promise<void> {
       try {
