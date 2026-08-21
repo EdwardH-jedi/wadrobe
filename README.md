@@ -93,8 +93,7 @@ what exists, what is partial, and what is not built.
 
 ## Running Locally
 
-Requires **Node 20** (`.nvmrc`). The test suite fails on newer Node — jsdom's
-`localStorage` is shadowed by a native implementation the tests cannot reset.
+Requires **Node 22 or newer** (`.nvmrc` pins 24 LTS). Verified on 24, 25 and 26.
 
 ```bash
 npm ci
@@ -162,7 +161,8 @@ Experimental 3D work is tracked separately in
 - **Market values are numbers you typed.** Nothing is fetched or appraised.
 - **The 3D lab is experimental**, hidden by default, and produces a proxy — not a
   garment reconstruction.
-- **Node 20 only.**
+- **Requires Node 22+.** Node 20 and earlier cannot run the test suite: it needs
+  `--no-experimental-webstorage`, a flag those versions reject.
 
 ## Documentation
 

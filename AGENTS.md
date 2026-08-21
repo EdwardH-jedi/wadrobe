@@ -242,7 +242,7 @@ api/              optional Vercel Edge functions (analyze, product-meta,
 backend/          Track B, EXPERIMENTAL (FastAPI): app/ (main, config, storage,
                   proxy3d pipeline + meshbuild, jobs + pipeline stages),
                   tests/ (pytest), scripts/
-.github/workflows/ci.yml   web (Node 20) + backend (Python 3.12) gates
+.github/workflows/ci.yml   web (Node 24 LTS) + backend (Python 3.12) gates
 .Codex/skills/   product-vision, ui-style-guide, testing-harness,
                   ai-image-pipeline
 ```

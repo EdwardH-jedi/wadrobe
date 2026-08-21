@@ -116,7 +116,8 @@ cannot start claiming AI recognition, virtual try-on, or exact product matching
 without a test failing.
 
 ### CI
-`.github/workflows/ci.yml` — a web job (Node 20) and a backend job (Python 3.12).
+`.github/workflows/ci.yml` — a web job (Node 24 LTS), a Playwright browser job,
+and a backend job (Python 3.12).
 See [§6](#6-validation).
 
 ## 4. Partially Implemented
@@ -184,7 +185,8 @@ section exists so none of it is mistaken for capability. Two distinct kinds:
 
 ## 6. Validation
 
-Run on **Node 20.20.2** and **Python 3.12.13** on 2026-08-21.
+Run on **Node 24.19.0** (also verified on 25.8.0 and 26.7.0) and **Python
+3.12.13**.
 
 | Check | Command | Result |
 | --- | --- | --- |
@@ -279,11 +281,9 @@ Ordered by what actually costs something.
 3. **No `LICENSE`.** A public repository without one is legally "all rights
    reserved", which discourages the reading a portfolio wants. A legal choice,
    left to the owner.
-4. **Node 20 is pinned and is past LTS maintenance.** The pin is not preference:
-   newer Node provides a native `localStorage` that shadows jsdom's, and the
-   tests cannot reset it (verified failing on v25.8.0, passing on v20.20.2;
-   versions between untested). Moving off it means making the test storage setup
-   deterministic first — real work, not a version bump.
+4. **The test suite requires Node 22+.** Not debt so much as a stated floor:
+   the jsdom storage fix relies on `--no-experimental-webstorage`, which Node 20
+   and earlier reject outright. Verified on 24, 25 and 26.
 5. **`backend/requirements.txt` has no upper bounds.** Every entry is a `>=`
    floor, so a fresh install resolves whatever is newest — verified: a clean
    install pulls trimesh **5.0.0** and FastAPI **0.141.1**, two majors past the

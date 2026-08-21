@@ -171,7 +171,7 @@ deployed.
 | Backend tests | 65 passing (pytest) |
 | Typecheck | Strict, across two compilation units (`src/` and `api/`) |
 | Build | Passing; 283 kB main chunk, three.js split into a 733 kB lazy chunk |
-| CI | GitHub Actions — web (Node 20) and backend (Python 3.12) jobs |
+| CI | GitHub Actions — web (Node 24 LTS), Playwright, and backend (Python 3.12) jobs |
 | Serverless endpoints | 3 (`analyze`, `product-meta`, `candidate-search`) |
 | Experimental API routes | 6 (proxy-3D generate/status/result; jobs create/status/result) |
 | Garment metadata fields | 15+ user-facing, plus analysis-provenance fields |
@@ -227,7 +227,7 @@ No adoption, performance, or user numbers are claimed, because none exist.
 
 ## 12. Validation Evidence
 
-Run 2026-08-21 on Node 20.20.2 and Python 3.12.13.
+Run on Node 24.19.0 (also verified on 25.8.0 and 26.7.0) and Python 3.12.13.
 
 | Check | Command | Result |
 | --- | --- | --- |
@@ -265,7 +265,7 @@ State these plainly — they are not disqualifying, and hiding them is.
 - **The async avatar jobs API has no frontend.** Backend only, deliberately.
 - **Market values are numbers the user typed.** Nothing is fetched or appraised.
 - **No end-to-end test suite.**
-- **Node 20 only** — the test suite fails on newer Node.
+- **Requires Node 22+** — the test suite needs a flag older Node rejects.
 
 ## 14. Safe Portfolio Claims
 

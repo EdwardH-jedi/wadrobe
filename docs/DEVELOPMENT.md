@@ -11,21 +11,28 @@ suite. For *what the code currently does*, see
 | Tool | Version | Required for |
 | --- | --- | --- |
 | Node | **20.x** | The web app. Pinned in `.nvmrc` and `package.json` `engines`. |
-| npm | 10.x (ships with Node 20) | — |
+| npm | ships with Node | — |
 | Python | **3.12** | Only the experimental backend. |
 
-**Node 20 is not a preference.** The Vitest suite fails on Node 25: newer Node
-provides a native `localStorage` that shadows jsdom's, and the tests cannot reset
-it (`TypeError: localStorage.clear is not a function`). Verified failing on
-v25.8.0 and passing on v20.20.2; the versions between were not tested.
+**Node 22 is the floor, and it is a hard one.** Node 22 shipped a built-in Web
+Storage implementation and Node 25 enables it by default. It exists before jsdom
+installs its own, and jsdom cannot replace a global Node already owns — so
+`localStorage` resolves to Node's object, which is not a `Storage` (no `clear`,
+no `setItem`) and every storage test dies with
+`TypeError: localStorage.clear is not a function`.
 
-Node 20 is past its LTS maintenance window, so this pin is debt, not a
-destination — see [`PROJECT_STATUS.md`](PROJECT_STATUS.md#10-technical-debt).
-Moving off it means fixing the storage setup first, then bumping the pin.
+The fix is `--no-experimental-webstorage`, passed from
+`test.poolOptions.{forks,threads}.execArgv` in `vite.config.ts` so that
+`npm test`, `npx vitest` and an IDE runner all get it. `src/test/setup.ts`
+asserts it worked and fails loudly, once, if it ever stops.
 
-`.nvmrc` pins the version for any version manager that reads it (nvm, fnm,
-volta, asdf). Without one, install Node 20 directly — e.g.
-`brew install node@20` and put `$(brew --prefix node@20)/bin` first on `PATH`.
+**Node 20 and earlier reject that flag** (`bad option`), which is why 22 is the
+floor rather than a preference. Verified passing on **24.19.0, 25.8.0 and
+26.7.0**.
+
+`.nvmrc` pins 24 (current LTS) for any version manager that reads it (nvm, fnm,
+volta, asdf). Without one, install it directly — e.g. `brew install node@24` and
+put `$(brew --prefix node@24)/bin` first on `PATH`.
 
 ```bash
 node -v          # expect v20.x
@@ -170,8 +177,9 @@ opposite: local only.
 
 `.github/workflows/ci.yml` runs on every pull request and on pushes to `main`:
 
-- **Web (Node 20)** — `npm ci`, then typecheck, lint, test, build as separate
-  steps.
+- **Web (Node 24 LTS)** — `npm ci`, then typecheck, lint, test, build as
+  separate steps.
+- **Browser (Playwright, chromium)** — `npm run test:e2e`.
 - **Backend (Python 3.12)** — install `backend/requirements.txt`, then
   `python -m pytest backend`.
 

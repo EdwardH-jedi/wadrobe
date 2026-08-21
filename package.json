@@ -5,7 +5,7 @@
   "type": "module",
   "description": "The Archive — a local-first digital wardrobe and fashion archive web app.",
   "engines": {
-    "node": ">=20 <21"
+    "node": ">=22"
   },
   "scripts": {
     "dev": "vite",
