@@ -29,6 +29,7 @@ export function ArchiveStudio() {
     garments,
     savedOutfits,
     storageBackend,
+    persistence,
     hydrated,
     loadSampleArchive,
     setGarmentProxy3dPreview,
@@ -148,6 +149,7 @@ export function ArchiveStudio() {
         garmentCount={garments.length}
         outfitCount={savedOutfits.length}
         storageBackend={storageBackend}
+        persistence={persistence}
         uploadDisabled={!hydrated}
       />
 

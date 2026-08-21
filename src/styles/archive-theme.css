@@ -2973,3 +2973,14 @@
   gap: 18px;
   align-items: start;
 }
+
+/* Persistence acknowledgement: a failed local save must be visible without
+   being alarming enough to interrupt work. */
+.storage-badge--alert {
+  border-color: color-mix(in srgb, var(--danger, #c2554d) 55%, transparent);
+  color: var(--danger, #c2554d);
+}
+.storage-badge__dot--failed {
+  background: var(--danger, #c2554d);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger, #c2554d) 22%, transparent);
+}

@@ -15,6 +15,7 @@ import type {
   SavedOutfit,
 } from '../../domain/outfitTypes'
 import type { StorageBackend } from '../../lib/storage/storageTypes'
+import type { PersistenceState } from './persistenceStatus'
 
 export interface ArchiveContextValue {
   // --- State ---
@@ -23,6 +24,10 @@ export interface ArchiveContextValue {
   savedOutfits: SavedOutfit[]
   hydrated: boolean
   storageBackend: StorageBackend | 'pending'
+  /** Durability of the local archive: whether the last write was acknowledged.
+   *  Writes are optimistic, so this is how the UI reports a rejected save
+   *  rather than silently implying everything landed. */
+  persistence: PersistenceState
   lastEvent: ArchiveEvent | null
 
   // --- Derived ---

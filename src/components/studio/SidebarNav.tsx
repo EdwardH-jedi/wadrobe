@@ -1,5 +1,9 @@
 import type { StorageBackend } from '../../lib/storage/storageTypes'
 import { cx } from '../../lib/cx'
+import {
+  persistenceLabel,
+  type PersistenceState,
+} from '../../app/providers/persistenceStatus'
 import { Icon } from '../ui/Icon'
 import { VIEW_META, VIEW_ORDER, type StudioView } from './views'
 
@@ -17,6 +21,9 @@ export interface SidebarNavProps {
    * without this component knowing why (see `visibleViewOrder`).
    */
   views?: StudioView[]
+  /** Durability of the local archive. Optional so other callers/tests can omit
+   *  it; when absent the badge falls back to naming the backend. */
+  persistence?: PersistenceState
 }
 
 const BACKEND_LABEL: Record<StorageBackend | 'pending', string> = {
@@ -35,6 +42,7 @@ export function SidebarNav({
   storageBackend,
   uploadDisabled = false,
   views = VIEW_ORDER,
+  persistence,
 }: SidebarNavProps) {
   const countFor = (id: StudioView): number | null => {
     if (id === 'closet') return garmentCount
@@ -81,14 +89,29 @@ export function SidebarNav({
       </div>
 
       <div className="sidebar__foot">
-        <div className="storage-badge">
+        <div
+          className={cx(
+            'storage-badge',
+            persistence?.status === 'failed' && 'storage-badge--alert',
+          )}
+          // Announce durability changes: a failed save is something the user
+          // needs to learn about without watching the corner of the screen.
+          role="status"
+          aria-live="polite"
+          title={persistence?.lastError ?? BACKEND_LABEL[storageBackend]}
+        >
           <span
             className={cx(
               'storage-badge__dot',
               storageBackend === 'memory' && 'storage-badge__dot--memory',
+              persistence?.status === 'failed' && 'storage-badge__dot--failed',
             )}
           />
-          <span>{BACKEND_LABEL[storageBackend]}</span>
+          <span>
+            {persistence && persistence.status !== 'idle'
+              ? persistenceLabel(persistence)
+              : BACKEND_LABEL[storageBackend]}
+          </span>
         </div>
       </div>
     </nav>

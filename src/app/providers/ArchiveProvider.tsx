@@ -6,6 +6,7 @@
 // the classic bug where the persist effect fires with the initial empty state
 // and clobbers stored data before the async load resolves.
 import {
+  useCallback,
   useEffect,
   useMemo,
   useReducer,
@@ -28,6 +29,11 @@ import {
   type SavedOutfit,
 } from '../../domain/outfitTypes'
 import { createId } from '../../lib/id'
+import {
+  initialPersistenceState,
+  persistenceReducer,
+  type PersistenceSlice,
+} from './persistenceStatus'
 import {
   getArchiveStorage,
   type ArchiveStorageAdapter,
@@ -73,6 +79,14 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
   // that becomes referenced while its frozen candidate snapshot is processed.
   const garmentsRef = useRef<GarmentItem[]>(state.garments)
   garmentsRef.current = state.garments
+  // Persistence acknowledgement. Writes are optimistic — the UI updates
+  // immediately — but their OUTCOME is tracked, so a rejected write surfaces
+  // instead of leaving the user believing an archive is safe.
+  const [persistence, dispatchPersistence] = useReducer(
+    persistenceReducer,
+    initialPersistenceState,
+  )
+
   const [storageBackend, setStorageBackend] = useState<
     StorageBackend | 'pending'
   >('pending')
@@ -87,6 +101,7 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
       async ([adapter, blobStore]) => {
         if (!active) return
         adapterRef.current = adapter
+        dispatchPersistence({ type: 'BACKEND_RESOLVED', backend: adapter.backend })
         blobStoreRef.current = blobStore
         setStorageBackend(adapter.backend)
         const [garmentsResult, savedOutfits, currentOutfit] = await Promise.all([
@@ -138,22 +153,48 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
   // Persist — gated on `hydrated` so we never overwrite before loading. Heavy
   // image bytes of blob-backed garments are dropped here (kept in the blob
   // store); legacy/data-URL garments serialize unchanged.
+  // Every write reports its outcome. `trackSave` is stable, so the three
+  // effects below keep their existing dependency arrays and firing behaviour —
+  // the only change is that a rejection is no longer swallowed.
+  const trackSave = useCallback(
+    (slice: PersistenceSlice, run: () => Promise<void>): void => {
+      dispatchPersistence({ type: 'SAVE_STARTED', slice })
+      run().then(
+        () =>
+          dispatchPersistence({ type: 'SAVE_SUCCEEDED', slice, at: Date.now() }),
+        (error: unknown) =>
+          dispatchPersistence({
+            type: 'SAVE_FAILED',
+            slice,
+            at: Date.now(),
+            error: error instanceof Error ? error.message : String(error),
+          }),
+      )
+    },
+    [],
+  )
+
   useEffect(() => {
-    if (!state.hydrated || !adapterRef.current) return
-    void adapterRef.current.saveGarments(
-      state.garments.map(dehydrateGarmentForStorage),
+    const adapter = adapterRef.current
+    if (!state.hydrated || !adapter) return
+    trackSave('garments', () =>
+      adapter.saveGarments(state.garments.map(dehydrateGarmentForStorage)),
     )
-  }, [state.garments, state.hydrated])
+  }, [state.garments, state.hydrated, trackSave])
 
   useEffect(() => {
-    if (!state.hydrated || !adapterRef.current) return
-    void adapterRef.current.saveSavedOutfits(state.savedOutfits)
-  }, [state.savedOutfits, state.hydrated])
+    const adapter = adapterRef.current
+    if (!state.hydrated || !adapter) return
+    trackSave('savedOutfits', () => adapter.saveSavedOutfits(state.savedOutfits))
+  }, [state.savedOutfits, state.hydrated, trackSave])
 
   useEffect(() => {
-    if (!state.hydrated || !adapterRef.current) return
-    void adapterRef.current.saveCurrentOutfit(state.currentOutfit)
-  }, [state.currentOutfit, state.hydrated])
+    const adapter = adapterRef.current
+    if (!state.hydrated || !adapter) return
+    trackSave('currentOutfit', () =>
+      adapter.saveCurrentOutfit(state.currentOutfit),
+    )
+  }, [state.currentOutfit, state.hydrated, trackSave])
 
   const value = useMemo<ArchiveContextValue>(() => {
     const getGarment = (id: string): GarmentItem | undefined =>
@@ -170,6 +211,7 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
       savedOutfits: state.savedOutfits,
       hydrated: state.hydrated,
       storageBackend,
+      persistence,
       lastEvent: state.lastEvent,
 
       getGarment,
