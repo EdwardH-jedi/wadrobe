@@ -184,6 +184,75 @@ export function jsonResponse(
   })
 }
 
+// --- Deployment kill switch -------------------------------------------------
+
+/**
+ * These routes are OPTIONAL PROTOTYPES. They have no authentication, and two of
+ * them spend a paid API key per call. Deploying the repository must therefore
+ * not, by itself, put them on the public internet — so they are **off unless
+ * explicitly enabled**.
+ *
+ * Set `ENABLE_OPTIONAL_APIS=true` in the deployment environment to turn them on,
+ * and set `ALLOWED_ORIGINS` at the same time. With the flag unset every route
+ * answers 404: indistinguishable from "not deployed", which is the correct
+ * amount of information to give an unauthenticated caller.
+ */
+export function optionalApisEnabled(): boolean {
+  const raw = process.env.ENABLE_OPTIONAL_APIS
+  return typeof raw === 'string' && raw.trim().toLowerCase() === 'true'
+}
+
+// --- Bounded response reading -----------------------------------------------
+
+/**
+ * Read a response body as text, refusing to buffer more than `maxBytes`.
+ *
+ * `await res.text()` buffers the WHOLE body before anything can truncate it, so
+ * a hostile or merely broken upstream can exhaust memory no matter what cap is
+ * applied afterwards. This streams instead and stops at the cap, so the ceiling
+ * is enforced on what is actually held in memory.
+ *
+ * Returns `null` when the cap is exceeded, so the caller can reject rather than
+ * silently parse a half-document.
+ */
+export async function readCappedText(
+  res: Response,
+  maxBytes: number,
+): Promise<string | null> {
+  // Cheap pre-check: an honest upstream announces an oversized body up front.
+  const declared = Number(res.headers.get('content-length') ?? '')
+  if (Number.isFinite(declared) && declared > maxBytes) return null
+
+  const body = res.body
+  if (!body) {
+    // No stream available (some runtimes/mocks): fall back to text() but only
+    // after the content-length check above, and re-check the result.
+    const text = await res.text()
+    return text.length > maxBytes ? null : text
+  }
+
+  const reader = body.getReader()
+  const decoder = new TextDecoder()
+  const chunks: string[] = []
+  let total = 0
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      total += value.byteLength
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => {})
+        return null
+      }
+      chunks.push(decoder.decode(value, { stream: true }))
+    }
+    chunks.push(decoder.decode())
+    return chunks.join('')
+  } finally {
+    reader.releaseLock?.()
+  }
+}
+
 export type RequestGate =
   /** Respond with this and stop: preflight, bad method, blocked origin, throttled. */
   | { ok: false; response: Response }

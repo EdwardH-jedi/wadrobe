@@ -13,7 +13,13 @@
 // a request timeout and a response-size cap.
 import { parseProductMeta } from '../src/lib/productMatch/productMetaParse'
 import { validateFetchTarget } from '../src/lib/productMatch/urlGuard'
-import { gateRequest, jsonResponse, type RateLimitRule } from './_lib/http'
+import {
+  gateRequest,
+  jsonResponse,
+  optionalApisEnabled,
+  readCappedText,
+  type RateLimitRule,
+} from './_lib/http'
 
 export const config = { runtime: 'edge' }
 
@@ -26,6 +32,9 @@ const MAX_REDIRECTS = 3
 const RATE_LIMIT: RateLimitRule = { name: 'product-meta', max: 20 }
 
 export default async function handler(req: Request): Promise<Response> {
+  // Off unless the deployment explicitly opts in (see `optionalApisEnabled`).
+  if (!optionalApisEnabled()) return new Response('Not found', { status: 404 })
+
   const gate = gateRequest(req, RATE_LIMIT)
   if (!gate.ok) return gate.response
   const json = (body: unknown, status: number) => jsonResponse(body, status, gate.cors)
@@ -68,9 +77,11 @@ export default async function handler(req: Request): Promise<Response> {
 
       if (!res.ok) return json({ error: `Upstream responded ${res.status}` }, 502)
 
-      const html = await res.text()
-      const capped = html.length > MAX_BYTES ? html.slice(0, MAX_BYTES) : html
-      return json(parseProductMeta(capped, current), 200)
+      // Streamed, not buffered-then-sliced: `res.text()` would hold the whole
+      // body in memory before any cap could apply.
+      const html = await readCappedText(res, MAX_BYTES)
+      if (html === null) return json({ error: 'Product page is too large' }, 502)
+      return json(parseProductMeta(html, current), 200)
     }
     return json({ error: 'Too many redirects' }, 502)
   } catch {

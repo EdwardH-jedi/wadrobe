@@ -18,7 +18,12 @@ import {
   mapEbayItemsToCandidates,
 } from '../src/lib/candidates/ebaySearch'
 import type { ProductMatchInput } from '../src/lib/productMatch/productMatchTypes'
-import { gateRequest, jsonResponse, type RateLimitRule } from './_lib/http'
+import {
+  type RateLimitRule,
+  gateRequest,
+  jsonResponse,
+  optionalApisEnabled,
+} from './_lib/http'
 
 export const config = { runtime: 'edge' }
 
@@ -87,6 +92,9 @@ async function getEbayToken(
 }
 
 export default async function handler(req: Request): Promise<Response> {
+  // Off unless the deployment explicitly opts in (see `optionalApisEnabled`).
+  if (!optionalApisEnabled()) return new Response('Not found', { status: 404 })
+
   const gate = gateRequest(req, RATE_LIMIT)
   if (!gate.ok) return gate.response
   const json = (body: unknown, status: number) => jsonResponse(body, status, gate.cors)
