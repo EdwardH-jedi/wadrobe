@@ -8,6 +8,7 @@ import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
 import { EmptyState } from '../ui/EmptyState'
 import { GarmentCard } from './GarmentCard'
+import { BackupPanel } from './BackupPanel'
 import { CategoryTabs, type CategoryFilter } from './CategoryTabs'
 
 export interface ClosetPanelProps {
@@ -150,6 +151,11 @@ export function ClosetPanel({
           ))}
         </div>
       )}
+
+      <details className="backup-details">
+        <summary>Backup &amp; restore</summary>
+        <BackupPanel />
+      </details>
     </div>
   )
 }

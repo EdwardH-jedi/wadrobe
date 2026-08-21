@@ -30,6 +30,12 @@ import {
 } from '../../domain/outfitTypes'
 import { createId } from '../../lib/id'
 import {
+  summarizeArchiveImport,
+  type ArchiveImportMode,
+  type ArchiveImportReview,
+  type ArchiveImportSummary,
+} from '../../lib/storage/archiveImport'
+import {
   decideWrite,
   openArchiveChannel,
   type ArchiveChannel,
@@ -470,13 +476,35 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
         })
       },
 
+      /** Apply a backup file that has already been validated by
+       *  `reviewArchiveImport`. Returns what changed so the UI can report it. */
+      importArchive: (
+        review: ArchiveImportReview,
+        mode: ArchiveImportMode,
+      ): ArchiveImportSummary => {
+        const summary = summarizeArchiveImport(review, state, mode)
+        dispatch({
+          type: 'IMPORT_ARCHIVE',
+          mode,
+          garments: review.garments,
+          savedOutfits: review.savedOutfits,
+          event: makeEvent(
+            'garment_added',
+            mode === 'replace'
+              ? 'Replaced the archive from a backup'
+              : 'Merged a backup into the archive',
+          ),
+        })
+        return summary
+      },
+
       resetArchive: (): void => {
         dispatch({ type: 'RESET' })
         void adapterRef.current?.clearAll()
         void blobStoreRef.current?.clear()
       },
     }
-  }, [state, storageBackend, persistence, conflict, trackSave])
+  }, [state, storageBackend, persistence, conflict])
 
   return (
     <ArchiveContext.Provider value={value}>{children}</ArchiveContext.Provider>

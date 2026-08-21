@@ -16,6 +16,11 @@ import type {
 } from '../../domain/outfitTypes'
 import type { StorageBackend } from '../../lib/storage/storageTypes'
 import type { PersistenceState } from './persistenceStatus'
+import type {
+  ArchiveImportMode,
+  ArchiveImportReview,
+  ArchiveImportSummary,
+} from '../../lib/storage/archiveImport'
 
 export interface ArchiveContextValue {
   // --- State ---
@@ -62,6 +67,12 @@ export interface ArchiveContextValue {
     preview: GarmentProxy3dPreview | null,
   ) => void
   removeGarment: (id: string) => void
+  /** Apply a validated backup. `merge` keeps existing pieces; `replace` swaps
+   *  the archive wholesale. Returns a summary of what changed. */
+  importArchive: (
+    review: ArchiveImportReview,
+    mode: ArchiveImportMode,
+  ) => ArchiveImportSummary
   /** Select a garment into its category slot (replaces any current pick). */
   selectGarment: (garmentId: string) => void
   clearSlot: (slot: OutfitSlot) => void

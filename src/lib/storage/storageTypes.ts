@@ -69,6 +69,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
+/**
+ * `isRecord`, minus arrays.
+ *
+ * `typeof [] === 'object'`, so `isRecord` accepts a JSON array wherever a JSON
+ * object is required. Harmless for a garment (an array has none of the required
+ * fields, so it fails validation anyway) and NOT harmless for a saved outfit's
+ * `selection`, which is only ever read by key: an array passed the shape check
+ * and was then normalized to an empty selection, so a look silently lost
+ * everything it was styling and nothing was reported.
+ */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return isRecord(value) && !Array.isArray(value)
+}
+
 const CLOTHING_CATEGORIES = new Set([
   'outerwear',
   'top',
@@ -101,7 +115,7 @@ function isSavedOutfit(value: unknown): value is SavedOutfit {
   return (
     typeof value.id === 'string' &&
     typeof value.name === 'string' &&
-    isRecord(value.selection) &&
+    isPlainObject(value.selection) &&
     typeof value.createdAt === 'number' &&
     Number.isFinite(value.createdAt) &&
     typeof value.coverHex === 'string'
@@ -160,9 +174,22 @@ function sanitizeGarment(garment: GarmentItem): GarmentItem {
     drop('proxy3dPreview')
   }
 
+  // The image bundle must be a plain object. A non-object (or an array) is
+  // dropped outright: the garment still renders from `imageDataUrl`, which is
+  // required. Fields *inside* a well-shaped asset are left alone — the display
+  // chain in `getGarmentDisplayImage` already ignores non-string urls.
+  if (
+    garment.asset !== undefined &&
+    (!isRecord(garment.asset) || Array.isArray(garment.asset))
+  ) {
+    drop('asset')
+  }
+
   // Phase 1 purchase metadata + analysis provenance: keep only well-typed
   // values; drop anything malformed (older/hand-edited data) rather than throw.
   const strFields = [
+    'brand',
+    'notes',
     'material',
     'size',
     'currency',
@@ -235,7 +262,9 @@ export function parseSavedOutfits(raw: unknown): SavedOutfit[] {
 }
 
 export function parseCurrentOutfit(raw: unknown): OutfitSelection | null {
-  if (!isRecord(raw)) return null
+  // An array is not a selection; returning `null` is what lets the caller
+  // report it rather than hand back a silently emptied rail.
+  if (!isPlainObject(raw)) return null
   const result = createEmptyOutfit()
   for (const slot of OUTFIT_SLOT_ORDER) {
     const value = raw[slot]

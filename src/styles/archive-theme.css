@@ -2984,3 +2984,21 @@
   background: var(--danger, #c2554d);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger, #c2554d) 22%, transparent);
 }
+
+/* Backup & restore lives behind a disclosure: important to have, not something
+   to put in front of the wardrobe every time the closet opens. */
+.backup-details {
+  margin-top: 28px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+.backup-details > summary {
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.backup-details > summary:hover { color: var(--text); }
+.backup-details[open] > summary { margin-bottom: 14px; }
