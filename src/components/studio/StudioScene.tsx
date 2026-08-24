@@ -110,7 +110,7 @@ export function StudioScene({ onOpen, onUpload }: StudioSceneProps) {
 
         {garments.length === 0 && (
           <div className="studio__empty">
-            <span className="eyebrow">The Archive</span>
+            <span className="eyebrow">Wardrobe</span>
             <h2 className="display">Your studio is empty</h2>
             <p>
               Upload a clothing photo to archive your first piece — or load the

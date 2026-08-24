@@ -1,6 +1,6 @@
-# The Archive — Fit Archive
+# Wardrobe
 
-A premium, interactive **fashion archive** web app. Upload photos of clothes you
+Wardrobe is an interactive **fashion archive** web app. Upload photos of clothes you
 own, archive them with a **local demo** classification (a draft metadata
 suggestion) you confirm, browse your digital closet, style a tall faceless
 mannequin, run a **Fit Check**, and save looks to an editorial board — all in a

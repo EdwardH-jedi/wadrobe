@@ -40,7 +40,7 @@ export function SidebarNav({
       <div className="sidebar__brand">
         <div className="sidebar__mark">A</div>
         <div className="sidebar__wordmark">
-          <b>The Archive</b>
+          <b>Wardrobe</b>
           <span>Fit OS</span>
         </div>
       </div>

@@ -14,7 +14,7 @@ describe('<App />', () => {
   it('renders the studio shell and hydrates the room', async () => {
     render(<App />)
 
-    expect(screen.getByText('The Archive')).toBeInTheDocument()
+    expect(screen.getByText('Wardrobe')).toBeInTheDocument()
     expect(screen.getByText('Archive Studio')).toBeInTheDocument()
 
     // The scene only renders once the store has hydrated.
