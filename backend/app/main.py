@@ -1,11 +1,20 @@
-"""AvatarWardrobe backend — Track B2 feasibility spike: PNG -> proxy-3D GLB.
+"""The Archive — EXPERIMENTAL local backend (Track B). Not part of the web app.
 
-Why synchronous generation (no job queue): the whole pipeline is
+Two independent API surfaces live here:
+
+* ``/api/proxy-3d`` — PNG -> proxy-3D GLB, generated synchronously. The web
+  app's Proxy 3D Lab is the only consumer, and only when the build opts in via
+  ``VITE_ENABLE_EXPERIMENTAL_3D``.
+* ``/api/jobs`` — an async avatar-build surface. **No frontend consumes it.**
+
+Why the proxy-3D route is synchronous (no job queue): the whole pipeline is
 deterministic CPU work on a downscaled image and completes well under a
-second, so a queue would only add states and race conditions to a spike.
-The API still speaks in job terms — POST returns a persisted record with a
-``job_id`` and the GET endpoints read from disk — so a future async
-implementation can keep the exact same surface.
+second, so a queue would only add states and race conditions. The API still
+speaks in job terms — POST returns a persisted record with a ``job_id`` and the
+GET endpoints read from disk — so a future async implementation can keep the
+exact same surface.
+
+Nothing here is real virtual try-on, body reconstruction, or accurate fitting.
 """
 
 from __future__ import annotations
@@ -18,16 +27,18 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from typing import Literal
 
-from app import jobs, storage
+from app import config, jobs, storage
 from app.pipeline.interfaces import AvatarInputs
 from app.proxy3d import pipeline
 
 app = FastAPI(
-    title="AvatarWardrobe backend — proxy-3D spike",
+    title="The Archive — experimental backend",
     description=(
-        "Track B2 feasibility spike. Generates an honest proxy 3D preview "
-        "(textured, lightly extruded silhouette card) from a PNG. Not real "
-        "virtual try-on."
+        "EXPERIMENTAL, local-only. Two surfaces: /api/proxy-3d generates an "
+        "honest proxy 3D preview (a textured, lightly extruded silhouette "
+        "card) from a PNG, synchronously; /api/jobs is an async avatar-build "
+        "surface that no frontend consumes. Neither is real virtual try-on, "
+        "body reconstruction, or accurate fitting."
     ),
     version="0.1.0",
 )
@@ -157,10 +168,16 @@ async def get_proxy_3d_result(job_id: str) -> FileResponse:
     return FileResponse(path, media_type="model/gltf-binary", filename="result.glb")
 
 
-# --- Avatar jobs API (Track B, Phase B4a) ------------------------------------
+# --- Avatar jobs API (Track B) -----------------------------------------------
 # Additive async job surface for the (heavier) avatar build. Mirrors the
-# proxy-3D error/handler pattern. The B4a avatar is a PLACEHOLDER box, not a real
-# avatar / body scan / accurate fit — provenance is recorded honestly in notes.
+# proxy-3D error/handler pattern.
+#
+# EXPERIMENTAL, and no frontend consumes it: the web app talks only to
+# /api/proxy-3d. The default pipeline assembles a procedural trimesh mannequin
+# and bbox-fits an outfit GLB onto it — an honest PROXY, not a real avatar, a
+# body scan, or an accurate fit. Body estimation and texture projection are
+# still deterministic stubs. Every stage records what actually ran in the job's
+# `notes`, so a result never overstates itself.
 
 
 class JobError(Exception):
@@ -172,6 +189,34 @@ class JobError(Exception):
 @app.exception_handler(JobError)
 async def job_error_handler(_request, exc: JobError):
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+
+async def _read_bounded(
+    upload: UploadFile | None, field: str, limit: int
+) -> bytes | None:
+    """Read an upload, refusing anything over ``limit``.
+
+    ``await upload.read()`` with no argument reads the WHOLE body into memory,
+    so a single large request could exhaust the process. This reads in chunks
+    and gives up as soon as the cap is passed, so the ceiling is enforced on
+    what is actually held.
+    """
+    if upload is None:
+        return None
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await upload.read(64 * 1024)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > limit:
+            raise JobError(
+                413,
+                f"{field} is larger than the {limit // (1024 * 1024)} MB limit.",
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 class JobRecord(BaseModel):
@@ -187,11 +232,29 @@ async def create_job(
     face_file: UploadFile | None = File(default=None),
     outfit_file: UploadFile | None = File(default=None),
 ) -> JobRecord:
+    # EXPERIMENTAL surface, but it still has to be bounded: these reads used to
+    # be unbounded, so one request could pull an arbitrarily large body into
+    # memory. See config.MAX_UPLOAD_BYTES.
+    body = await _read_bounded(body_file, "body_file", config.MAX_UPLOAD_BYTES)
+    if body is None:
+        raise JobError(400, "body_file is required.")
     inputs = AvatarInputs(
-        body_image=await body_file.read(),
-        face_image=await face_file.read() if face_file is not None else None,
-        outfit_glb=await outfit_file.read() if outfit_file is not None else None,
+        body_image=body,
+        face_image=await _read_bounded(
+            face_file, "face_file", config.MAX_UPLOAD_BYTES
+        ),
+        outfit_glb=await _read_bounded(
+            outfit_file, "outfit_file", config.MAX_OUTFIT_GLB_BYTES
+        ),
     )
+
+    # Bound how many jobs can be in flight. Without this an unattended loop can
+    # fill the disk and saturate the worker pool; this is a research surface,
+    # so a small ceiling with an honest 503 is the right trade.
+    if jobs.store.active_count() >= config.MAX_ACTIVE_JOBS:
+        raise JobError(503, "Too many jobs in flight; try again shortly.")
+
+    jobs.sweep_expired()
     job = jobs.store.create()
     background_tasks.add_task(jobs.store.process, job.id, inputs)
     return JobRecord(id=job.id, state=job.state.value)

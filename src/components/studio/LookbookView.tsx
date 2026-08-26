@@ -54,7 +54,12 @@ export function LookbookView({ garments, onUpload }: LookbookViewProps) {
   return (
     <div className="lookbook">
       <div className="closet__bar">
-        <CategoryTabs active={category} counts={counts} onChange={setCategory} />
+        <CategoryTabs
+          active={category}
+          counts={counts}
+          onChange={setCategory}
+          panelId="garment-grid"
+        />
       </div>
 
       {filtered.length === 0 ? (

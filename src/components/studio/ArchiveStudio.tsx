@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { GarmentItem } from '../../domain/garmentTypes'
 import { useArchive } from '../../app/providers/useArchive'
+import { isExperimental3dEnabled } from '../../lib/featureFlags'
 import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
 import { Panel } from '../ui/Panel'
@@ -21,17 +22,25 @@ import { StudioFitRail } from './StudioFitRail'
 import { MirrorPreview } from './MirrorPreview'
 import { OutfitWallBoard } from './OutfitWallBoard'
 import { LookbookView } from './LookbookView'
-import { VIEW_META, type StudioView } from './views'
+import { VIEW_META, visibleViewOrder, type StudioView } from './views'
 
 export function ArchiveStudio() {
   const {
     garments,
     savedOutfits,
     storageBackend,
+    persistence,
     hydrated,
     loadSampleArchive,
     setGarmentProxy3dPreview,
   } = useArchive()
+
+  // Track B (Proxy 3D Lab) is opt-in. When off, its view is not listed, the
+  // closet offers no 3D affordances, and the lab is never mounted — so three.js
+  // (dynamically imported inside the GLB viewer) is never loaded. Already-saved
+  // `proxy3dPreview` metadata on a piece is left untouched either way.
+  const experimental3d = isExperimental3dEnabled()
+  const navViews = visibleViewOrder(experimental3d)
 
   const [view, setView] = useState<StudioView>('studio')
   const [uploadOpen, setUploadOpen] = useState(false)
@@ -89,7 +98,7 @@ export function ArchiveStudio() {
           <ClosetPanel
             onUpload={openUpload}
             onEdit={setEditGarment}
-            onProxy3d={openProxy3d}
+            onProxy3d={experimental3d ? openProxy3d : undefined}
             onDetails={(g) => setDetailGarmentId(g.id)}
           />
         )
@@ -110,6 +119,9 @@ export function ArchiveStudio() {
       case 'outfits':
         return <OutfitWallBoard onOpenMirror={() => setView('mirror')} />
       case 'lab':
+        // Defensive: unreachable while the flag is off, since the view is not
+        // listed and nothing else sets it.
+        if (!experimental3d) return null
         return (
           <Proxy3DLab
             linkedGarment={labGarment}
@@ -131,11 +143,13 @@ export function ArchiveStudio() {
     <div className="app">
       <SidebarNav
         view={view}
+        views={navViews}
         onView={setView}
         onUpload={openUpload}
         garmentCount={garments.length}
         outfitCount={savedOutfits.length}
         storageBackend={storageBackend}
+        persistence={persistence}
         uploadDisabled={!hydrated}
       />
 

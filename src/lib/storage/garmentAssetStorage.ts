@@ -15,7 +15,6 @@
 import type {
   AssetImageRef,
   GarmentAsset,
-  GarmentDraft,
   GarmentItem,
 } from '../../domain/garmentTypes'
 import { parseBlobCreatedAt, type AssetBlobStore } from './assetBlobStore'
@@ -214,10 +213,9 @@ export function dataUrlToBlob(dataUrl: string): Blob | null {
  * upload always succeeds. The uploaded thumbnail and product-reference URLs are
  * intentionally never blob-backed.
  */
-export async function blobBackDraftAsset(
-  draft: GarmentDraft,
-  store: AssetBlobStore,
-): Promise<GarmentDraft> {
+export async function blobBackDraftAsset<
+  T extends { asset?: GarmentAsset },
+>(draft: T, store: AssetBlobStore): Promise<Omit<T, 'asset'> & { asset?: GarmentAsset }> {
   if (!store.durable || !draft.asset) return draft
   const asset = { ...draft.asset }
 

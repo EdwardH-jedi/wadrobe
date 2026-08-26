@@ -9,6 +9,7 @@ import {
   parseSavedOutfits,
   type ArchiveStorageAdapter,
   type GarmentsReadResult,
+  parseRevision,
 } from './storageTypes'
 
 /** Probe whether localStorage can actually be written to (private mode blocks it). */
@@ -37,9 +38,15 @@ function writeJson(key: string, value: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(value))
   } catch (error) {
-    // Most likely a quota error. We swallow it so the app keeps running, but
-    // surface it for debugging.
+    // PROPAGATE. This used to be swallowed with a console.warn so the app kept
+    // running — but the caller then had no way to know the archive had not been
+    // stored, and told the user it was saved. The provider now catches this and
+    // reports it (see app/providers/persistenceStatus.ts); the app still keeps
+    // running, it just stops claiming a failed write succeeded.
     console.warn(`[archive] localStorage write failed for "${key}"`, error)
+    throw error instanceof Error
+      ? error
+      : new Error(`localStorage write failed for "${key}"`)
   }
 }
 
@@ -76,11 +83,22 @@ export function createLocalStorageAdapter(): ArchiveStorageAdapter {
     async saveCurrentOutfit(selection: OutfitSelection): Promise<void> {
       writeJson(STORAGE_KEYS.currentOutfit, selection)
     },
+    async loadRevision(): Promise<number> {
+      try {
+        return parseRevision(localStorage.getItem(STORAGE_KEYS.revision))
+      } catch {
+        return 0
+      }
+    },
+    async saveRevision(revision: number): Promise<void> {
+      writeJson(STORAGE_KEYS.revision, revision)
+    },
     async clearAll(): Promise<void> {
       try {
         localStorage.removeItem(STORAGE_KEYS.garments)
         localStorage.removeItem(STORAGE_KEYS.savedOutfits)
         localStorage.removeItem(STORAGE_KEYS.currentOutfit)
+        localStorage.removeItem(STORAGE_KEYS.revision)
       } catch (error) {
         console.warn('[archive] localStorage clear failed', error)
       }

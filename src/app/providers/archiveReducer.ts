@@ -40,6 +40,15 @@ export type ArchiveAction =
   | { type: 'SAVE_OUTFIT'; outfit: SavedOutfit; event?: ArchiveEvent }
   | { type: 'REMOVE_OUTFIT'; id: string; event?: ArchiveEvent }
   | { type: 'RESTORE_OUTFIT'; selection: OutfitSelection; event?: ArchiveEvent }
+  /** Apply a validated backup file. `replace` swaps the archive wholesale;
+   *  `merge` adds only ids that are not already present (existing wins). */
+  | {
+      type: 'IMPORT_ARCHIVE'
+      mode: 'merge' | 'replace'
+      garments: GarmentItem[]
+      savedOutfits: SavedOutfit[]
+      event?: ArchiveEvent
+    }
   | { type: 'RESET' }
 
 export const initialArchiveState: ArchiveState = {
@@ -182,6 +191,36 @@ export function archiveReducer(
       return {
         ...state,
         currentOutfit: sanitizeOutfit(action.selection, state.garments),
+        ...applyEvent(state, action.event),
+      }
+    }
+
+    case 'IMPORT_ARCHIVE': {
+      // `replace` is a wholesale swap; `merge` keeps everything already here
+      // and adds only ids the archive does not have, so importing a backup can
+      // never overwrite a piece the user edited since taking it.
+      const existingGarmentIds = new Set(state.garments.map((g) => g.id))
+      const existingOutfitIds = new Set(state.savedOutfits.map((o) => o.id))
+      const garments =
+        action.mode === 'replace'
+          ? action.garments
+          : [
+              ...state.garments,
+              ...action.garments.filter((g) => !existingGarmentIds.has(g.id)),
+            ]
+      const savedOutfits =
+        action.mode === 'replace'
+          ? action.savedOutfits
+          : [
+              ...state.savedOutfits,
+              ...action.savedOutfits.filter((o) => !existingOutfitIds.has(o.id)),
+            ]
+      return {
+        ...state,
+        garments,
+        savedOutfits,
+        // The rail may reference a piece that a `replace` just removed.
+        currentOutfit: sanitizeOutfit(state.currentOutfit, garments),
         ...applyEvent(state, action.event),
       }
     }

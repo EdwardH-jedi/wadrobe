@@ -7,16 +7,23 @@
 // live in the unit-tested `src/lib/ai/visionAnalysis.ts`; this file only does the
 // HTTP. Off by default — the front end calls it only when VITE_ANALYZER=vision.
 //
-// Raw fetch (no SDK) is deliberate: this file is outside tsc/build/test (only
-// eslint sees it), so the SDK's compile-time safety wouldn't apply here, and the
-// repo's "justify every dependency" rule favors not bundling it. The Anthropic
-// Messages API shape below is the documented one.
+// Raw fetch (no SDK) is deliberate: the repo's "justify every dependency" rule
+// favors not adding one for a single documented HTTP call. The Anthropic
+// Messages API shape below is the documented one. This file IS type-checked --
+// `npm run typecheck` runs `tsconfig.api.json` over `api/` as its own
+// compilation unit (it targets a server runtime, not the browser bundle).
 import {
   VISION_GUESS_SCHEMA,
   buildVisionInstruction,
   dataUrlToImageSource,
   parseVisionGuess,
 } from '../src/lib/ai/visionAnalysis'
+import {
+  type RateLimitRule,
+  gateRequest,
+  jsonResponse,
+  optionalApisEnabled,
+} from './_lib/http'
 
 export const config = { runtime: 'edge' }
 
@@ -24,18 +31,10 @@ const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 const DEFAULT_MODEL = 'claude-opus-4-8'
 const TIMEOUT_MS = 20000
 
-const CORS: Record<string, string> = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-}
-
-function json(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...CORS },
-  })
-}
+// The most expensive endpoint here: every allowed call is a billed vision
+// request. A real user archives pieces one photo at a time, so a low ceiling
+// costs nothing legitimate.
+const RATE_LIMIT: RateLimitRule = { name: 'analyze', max: 10 }
 
 function extractText(content: unknown): string {
   if (!Array.isArray(content)) return ''
@@ -53,12 +52,12 @@ function extractText(content: unknown): string {
 }
 
 export default async function handler(req: Request): Promise<Response> {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: CORS })
-  }
-  if (req.method !== 'POST') {
-    return json({ error: 'Method not allowed' }, 405)
-  }
+  // Off unless the deployment explicitly opts in (see `optionalApisEnabled`).
+  if (!optionalApisEnabled()) return new Response('Not found', { status: 404 })
+
+  const gate = gateRequest(req, RATE_LIMIT)
+  if (!gate.ok) return gate.response
+  const json = (body: unknown, status: number) => jsonResponse(body, status, gate.cors)
 
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {

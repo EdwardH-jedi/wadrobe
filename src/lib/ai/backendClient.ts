@@ -1,13 +1,15 @@
-// Optional backend HTTP client (Track A, Phase 2A — Vercel serverless).
+// Optional backend HTTP client for the serverless routes in `api/` (Track A).
 //
-// SKELETON ONLY. This phase wires the *seam*: it resolves whether a backend is
-// configured (via `VITE_API_BASE`) and exposes a typed JSON transport for later
-// use. No concrete endpoint is called yet — the real routes attach in Phase 3
-// (`/api/product-meta`) and Phase 4 (vision analysis). By default `VITE_API_BASE`
-// is unset, so `available` is false and the app stays mock-only (no network).
+// It resolves whether a backend is configured (via `VITE_API_BASE`) and exposes
+// one typed JSON transport shared by every optional integration:
+// `api/product-meta` (product-page metadata), `api/analyze` (vision metadata
+// draft), and `api/candidate-search` (reference-candidate lookup). By default
+// `VITE_API_BASE` is unset, so `available` is false and the app stays local-only
+// and makes no network calls.
 //
-// Honest scope: configuring a base URL does NOT enable any recognition today;
-// the analyzer's backend path remains a stub until Phase 4 (see createAnalyzer).
+// Honest scope: configuring a base URL alone enables only the URL-driven
+// lookups. Sending an uploaded photo for vision analysis needs the separate,
+// explicit `VITE_ANALYZER=vision` opt-in as well (see `createAnalyzer`).
 
 /** The slice of env this module reads (kept minimal for easy test injection). */
 export interface BackendEnv {

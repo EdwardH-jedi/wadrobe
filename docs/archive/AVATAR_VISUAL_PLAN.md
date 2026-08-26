@@ -1,3 +1,25 @@
+> # ⚠️ PLANNED / CONCEPT — NOT IMPLEMENTED
+>
+> **No avatar feature exists in this repository.** This document is a product
+> concept, written in Korean, proposing three steps for the Studio/Mirror
+> mannequin. Their real status:
+>
+> | Proposed step | Actual status |
+> | --- | --- |
+> | 1. Background removal (cutout) | **PARTIAL** — the local flood-fill cutout exists (`lib/image/garmentCutout.ts`) but is used in the upload flow and the experimental Lab. It was never promoted to the Studio/Mirror mannequin as this document proposes. |
+> | 2. Accurate size/foot fit | **NOT IMPLEMENTED.** No sizing, fitting, or measurement logic exists anywhere. |
+> | 3. 3D avatar with front/back rotation | **CONCEPT ONLY** as a user-facing feature. No personalised avatar exists and nothing in the frontend renders one. What *does* exist is generic backend scaffolding: a procedural, primitive-assembled mannequin mesh (`backend/app/pipeline/mannequin.py`) and a bounding-box outfit fitter, reachable only through the unconsumed `/api/jobs` surface. The `src/components/avatar/` directory is the experimental *Proxy 3D Lab* (image-to-3D of a garment photo), not an avatar of a person. |
+>
+> The shipped mannequin is a **2.5D layered photo composition** in CSS. It is not
+> an avatar, not 3D, and performs no fitting.
+>
+> **Historical document — not current implementation status.** Kept for the
+> reasoning it records. For what the repository actually contains today, see
+> [`docs/PROJECT_STATUS.md`](../PROJECT_STATUS.md) and
+> [`docs/AVATAR_TRACK.md`](../AVATAR_TRACK.md).
+
+---
+
 # AVATAR VISUAL PLAN — 배경제거 → 사이즈 fit → 3D 회전
 
 > 목표: Studio/Mirror 마네킹의 "배경 포함 엉성한 사진 카드" 문제를 근본부터 해결.

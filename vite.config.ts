@@ -19,5 +19,23 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     css: false,
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    // Playwright drives the real browser suite; keep it out of the unit run.
+    exclude: ['e2e/**', 'node_modules/**'],
+    poolOptions: {
+      // Node 22 shipped a built-in Web Storage implementation and Node 25 has
+      // it on by default, so `globalThis.localStorage` exists *before* jsdom
+      // installs its own. jsdom cannot replace a global Node already owns, so
+      // `window.localStorage` resolves to Node's object — which is not a
+      // `Storage`: no `clear`, no `setItem`. Every storage test then dies with
+      // `TypeError: localStorage.clear is not a function`, pointing at the test
+      // rather than at the runtime.
+      //
+      // Turning Node's implementation off is what lets jsdom's through. It
+      // lives here, not in an npm script, so `npm test`, `npx vitest` and an
+      // IDE runner all get it — a fix that only works through one entry point
+      // is how this class of bug survives.
+      forks: { execArgv: ['--no-experimental-webstorage'] },
+      threads: { execArgv: ['--no-experimental-webstorage'] },
+    },
   },
 })

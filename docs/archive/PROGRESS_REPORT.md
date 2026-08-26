@@ -1,3 +1,10 @@
+> **Historical document — not current implementation status.**
+> Kept for the reasoning it records. It was accurate when written and has not
+> been maintained since. For what the repository actually contains today, see
+> [`docs/PROJECT_STATUS.md`](../PROJECT_STATUS.md).
+
+---
+
 # AvatarWardrobe — 진행 상황 보고서
 
 > 작성일: 2026-06-27 · 작성 목적: 여러 에이전트/터미널 병렬 작업을 위한 현황 스냅샷

@@ -79,3 +79,14 @@ export const VIEW_ORDER: StudioView[] = [
   'outfits',
   'lab',
 ]
+
+/**
+ * The views a build actually exposes. The experimental Proxy 3D Lab is dropped
+ * unless the build opted in (`VITE_ENABLE_EXPERIMENTAL_3D`); every wardrobe view
+ * is unaffected, so the default navigation is the core product only.
+ */
+export function visibleViewOrder(experimental3dEnabled: boolean): StudioView[] {
+  return experimental3dEnabled
+    ? VIEW_ORDER
+    : VIEW_ORDER.filter((id) => id !== 'lab')
+}

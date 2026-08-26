@@ -24,6 +24,12 @@ describe('<App />', () => {
     // A compact "Current Fit" rail is persistently visible on the Studio view
     // (distinct from the Mirror view's full "Current fit" inspector).
     expect(screen.getByText('Current Fit')).toBeInTheDocument()
+
+    // The default build is the wardrobe archive only: the experimental Proxy 3D
+    // Lab is not reachable (see App.experimental3d.test.tsx for the other half).
+    expect(
+      screen.queryByRole('button', { name: /Proxy 3D/ }),
+    ).not.toBeInTheDocument()
   })
 
   it('shows an in-scene prompt when the studio archive is empty', async () => {

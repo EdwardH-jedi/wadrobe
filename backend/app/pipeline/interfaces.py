@@ -1,8 +1,9 @@
-"""Pipeline contracts (Track B, Phase B4a) — the core deliverable.
+"""Pipeline contracts (Track B — experimental) — the core deliverable.
 
 Five stage Protocols plus the small dataclasses that flow between them. The
-Protocols let B4b/B5 replace one stage (e.g. a real mannequin builder) without
-changing the runner, the job store, or the API surface.
+Protocols let one stage be replaced (as the procedural mannequin builder and the
+bbox outfit fitter already were) without changing the runner, the job store, or
+the API surface.
 """
 
 from __future__ import annotations
@@ -17,13 +18,13 @@ class AvatarInputs:
 
     body_image: bytes
     face_image: bytes | None = None
-    outfit_glb: bytes | None = None  # consumed in B5 (IOutfitFitter)
+    outfit_glb: bytes | None = None  # consumed by IOutfitFitter
 
 
 @dataclass(frozen=True)
 class BodyProportions:
-    """Canned proportions in normalized units. B4b may scale height from the
-    body image's aspect ratio; B4a returns deterministic defaults."""
+    """Proportions in normalized units. The shipped estimator returns
+    deterministic defaults — nothing is measured from the body image."""
 
     height: float = 1.8
     shoulder_width: float = 0.45

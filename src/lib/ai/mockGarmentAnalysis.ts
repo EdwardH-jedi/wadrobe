@@ -242,9 +242,10 @@ export function analyzeGarmentMock(
 /**
  * Async entry point the UI calls. Routes through the analyzer factory
  * (`createAnalyzer`) instead of binding the mock directly, so the provider seam
- * is honored: env unset → mock (the default), `VITE_API_BASE` set → the backend
- * analyzer (a stub until Phase 4). The "scanning" animation duration is owned by
- * the UI, not this function.
+ * is honored: env unset → the mock (the default), `VITE_API_BASE` **and**
+ * `VITE_ANALYZER=vision` → the backend vision analyzer, which falls back to this
+ * mock on any failure. The "scanning" animation duration is owned by the UI, not
+ * this function.
  */
 export function runGarmentAnalysis(
   input: GarmentAnalysisInput,

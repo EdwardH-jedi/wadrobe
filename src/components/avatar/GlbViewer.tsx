@@ -50,7 +50,10 @@ export function GlbViewer({ src }: GlbViewerProps) {
 
         // Throws when WebGL is unavailable -> caught below as a fallback.
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
-        renderer.setPixelRatio(window.devicePixelRatio || 1)
+        // Cap the pixel ratio. On a 3x phone an uncapped ratio renders ~9x the
+        // pixels of a 1x display for no visible gain on a small preview, and it
+        // is the fastest way to make a mid-range device drop frames.
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
         renderer.setSize(width, height)
         host.appendChild(renderer.domElement)
         disposers.push(() => {
@@ -68,6 +71,25 @@ export function GlbViewer({ src }: GlbViewerProps) {
         const controls = new OrbitControls(camera, renderer.domElement)
         controls.enableDamping = true
         disposers.push(() => controls.dispose())
+
+        // The canvas was sized once at mount, so it stretched on any container
+        // change — window resize, sidebar collapse, device rotation. Observe the
+        // host instead of the window: it also catches layout-only changes.
+        const applySize = () => {
+          const w = host.clientWidth || width
+          const h = host.clientHeight || height
+          renderer.setSize(w, h, false)
+          camera.aspect = w / h
+          camera.updateProjectionMatrix()
+        }
+        if (typeof ResizeObserver === 'function') {
+          const observer = new ResizeObserver(applySize)
+          observer.observe(host)
+          disposers.push(() => observer.disconnect())
+        } else {
+          window.addEventListener('resize', applySize)
+          disposers.push(() => window.removeEventListener('resize', applySize))
+        }
 
         const gltf = await new GLTFLoader().loadAsync(src)
         const root = gltf.scene

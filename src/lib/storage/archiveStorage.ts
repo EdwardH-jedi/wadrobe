@@ -20,6 +20,7 @@ export function createMemoryAdapter(): ArchiveStorageAdapter {
   let garments: GarmentItem[] = []
   let savedOutfits: SavedOutfit[] = []
   let currentOutfit: OutfitSelection | null = null
+  let revision = 0
   return {
     backend: 'memory',
     async loadGarmentsResult() {
@@ -43,10 +44,17 @@ export function createMemoryAdapter(): ArchiveStorageAdapter {
     async saveCurrentOutfit(selection) {
       currentOutfit = selection
     },
+    async loadRevision() {
+      return revision
+    },
+    async saveRevision(next) {
+      revision = next
+    },
     async clearAll() {
       garments = []
       savedOutfits = []
       currentOutfit = null
+      revision = 0
     },
   }
 }

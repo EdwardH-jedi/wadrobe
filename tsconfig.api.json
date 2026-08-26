@@ -1,0 +1,27 @@
+{
+  // The Vercel Edge functions in `api/` are a separate compilation unit: they
+  // run on the server, not in the browser bundle, so they are outside the root
+  // tsconfig's `include` and were previously never type-checked. `npm run
+  // typecheck` runs both.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "skipLibCheck": true,
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "types": ["node"]
+  },
+  "include": ["api"]
+}

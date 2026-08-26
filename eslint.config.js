@@ -6,7 +6,9 @@ import tseslint from 'typescript-eslint'
 
 // ESLint 9 flat config for a Vite + React + TypeScript project.
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules', 'coverage'] },
+  // `.remember` holds Claude-session scratch files that are git-ignored and
+  // absent from a clone; linting them produces failures a clone cannot reproduce.
+  { ignores: ['dist', 'node_modules', 'coverage', '.remember', 'eval'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],
