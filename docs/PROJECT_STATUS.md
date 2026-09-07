@@ -14,6 +14,10 @@ Status: **Active**
 > — a README, a comment, anything in `docs/archive/` — disagrees with this file,
 > this file is the one being maintained and the other is the bug. Everything
 > below was checked against source, tests, or a command that was actually run.
+>
+> **Direction** — where the project is going, as opposed to where it is — lives
+> in [`REVIVAL_ROADMAP.md`](REVIVAL_ROADMAP.md). Deferred ideas live in
+> [`REVIVAL_BACKLOG.md`](REVIVAL_BACKLOG.md). Neither is status; this file is.
 
 ---
 

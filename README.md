@@ -164,10 +164,15 @@ eval/             ISOLATED EXPERIMENT — cutout benchmark scaffolding, no resul
 
 ## Planned Direction
 
-**Future work — none of this exists today.** Nearest first: archive
-export/import, an end-to-end test suite, ML/WASM cutout segmentation, and a
-possible React Native client (assessment only —
-[Mobile Migration](docs/MOBILE_MIGRATION.md)).
+Current direction is the **Core v1 revival**: a mobile-first wardrobe archive
+and outfit studio, with the experimental 3D track kept isolated rather than
+promoted. See [Revival Roadmap](docs/REVIVAL_ROADMAP.md) for the phased plan and
+[Revival Backlog](docs/REVIVAL_BACKLOG.md) for what has been deliberately
+deferred.
+
+**Future work — none of this exists today.** Nearest first: ML/WASM cutout
+segmentation, richer filtering and search, and a possible React Native client
+(assessment only — [Mobile Migration](docs/MOBILE_MIGRATION.md)).
 
 Experimental 3D work is tracked separately in
 [Avatar Track](docs/AVATAR_TRACK.md) and is not on the product path.
@@ -203,6 +208,8 @@ Experimental 3D work is tracked separately in
 | Document | Purpose |
 | --- | --- |
 | [Project Status](docs/PROJECT_STATUS.md) | **Source of truth** — what is implemented, partial, and planned |
+| [Revival Roadmap](docs/REVIVAL_ROADMAP.md) | **Source of truth for direction** — Core v1 definition and phases |
+| [Revival Backlog](docs/REVIVAL_BACKLOG.md) | Deferred ideas, and why each was deferred |
 | [Architecture](docs/ARCHITECTURE.md) | How the system is put together |
 | [Development](docs/DEVELOPMENT.md) | Setup, environment variables, runtime matrix |
 | [Portfolio Facts](docs/PORTFOLIO_FACTS.md) | Verified claims approved for external use |
