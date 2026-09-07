@@ -19,6 +19,7 @@
 // `reference` step is also optional/skippable: it defaults to the chosen display
 // image, so confirming without touching it archives with whatever crop/cutout
 // produced.
+import type { NormalizedContentBounds } from '../../domain/contentBounds'
 import type { GarmentDraft, GarmentItem } from '../../domain/garmentTypes'
 import { buildUploadedAsset } from '../../domain/garmentAsset'
 import type { GarmentAnalysisGuess } from '../../lib/ai/garmentAnalysisTypes'
@@ -85,8 +86,15 @@ export type UploadAction =
   /**
    * Leave the cutout step for metadata review. `cutoutImageUrl` is an accepted
    * background-removed cutout, or null to continue without one (skip).
+   * `contentBounds` says where the garment sits inside that cutout; it is
+   * optional because measurement can honestly decline (revival Phase 2), and
+   * the reducer stays pure by receiving it rather than computing it.
    */
-  | { type: 'APPLY_CUTOUT'; cutoutImageUrl: string | null }
+  | {
+      type: 'APPLY_CUTOUT'
+      cutoutImageUrl: string | null
+      contentBounds?: NormalizedContentBounds
+    }
   /** The user edits a metadata or asset field (review or reference). */
   | { type: 'EDIT_DRAFT'; patch: Partial<GarmentDraft> }
   /** Move to the optional product/reference step. */
@@ -163,12 +171,15 @@ export function uploadReducer(
       // Accept: display + assetMode move to the cutout in lockstep, so the
       // accepted cutout is the latest intentional display choice. Skip: keep the
       // current (uploaded/cropped) display asset unchanged.
+      // The bounds belong to the cutout, so they are set and cleared with it —
+      // never left over from an earlier attempt describing a different image.
       const asset = action.cutoutImageUrl
         ? {
             ...base,
             cutoutImageUrl: action.cutoutImageUrl,
             displayImageUrl: action.cutoutImageUrl,
             assetMode: 'cutout' as const,
+            contentBounds: action.contentBounds,
           }
         : base
       return {

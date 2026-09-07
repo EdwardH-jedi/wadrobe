@@ -11,6 +11,8 @@
 // branch logic is unit-testable without a real browser canvas, and (b) a future
 // ML segmentation model could replace the rasterize/segment step (e.g. via a
 // dynamic import) without touching the UI or this result contract.
+import type { NormalizedContentBounds } from '../../domain/contentBounds'
+import { computeContentBounds } from './contentBounds'
 import { loadImageElement } from './imageFileUtils'
 
 /** How a successful cutout was produced. */
@@ -25,6 +27,13 @@ export type CutoutResult =
       maskImageUrl?: string
       warnings?: string[]
       source: CutoutSource
+      /**
+       * Where the garment sits inside the cutout (revival Phase 2), measured
+       * from the raster this function already has in hand — no second canvas
+       * pass. Optional: a subject too small or too faint to trust yields
+       * `undefined`, and the caller falls back to the un-fitted presentation.
+       */
+      contentBounds?: NormalizedContentBounds
     }
   | { status: 'unavailable'; reason: string }
   | { status: 'failed'; reason: string }
@@ -279,10 +288,17 @@ export async function attemptGarmentCutout(
   if (!cutoutImageUrl) {
     return { status: 'unavailable', reason: CUTOUT_REASONS.canvasUnavailable }
   }
+  // Measured from the raster already in hand, AFTER the flood fill has written
+  // its transparency and BEFORE it is handed back — so the bounds describe the
+  // image the caller is about to store, at no extra canvas cost. `null` (a
+  // subject too small or faint to trust) simply means no bounds are attached.
+  const contentBounds = computeContentBounds(raster) ?? undefined
+
   return {
     status: 'success',
     cutoutImageUrl,
     source: 'local-flood-fill',
     warnings: [CUTOUT_WARNING_QUALITY],
+    contentBounds,
   }
 }

@@ -1,10 +1,36 @@
-// The 2.5D mannequin: a tall, faceless silhouette with the current outfit
-// mapped onto body zones as framed, matted garment panels (an editorial
-// collage — NOT a simulated "worn" garment). White flat-lay backgrounds are
-// dropped cheaply via `mix-blend-mode: multiply` against the light panels.
+// The 2.5D mannequin: a tall, faceless silhouette with the current outfit laid
+// over body zones. It is an editorial composition, NOT a simulated "worn"
+// garment — nothing here is draped, fitted to a body, or sized.
+//
+// There are two presentations, and which one a piece gets depends on what its
+// image can honestly support (revival Phase 2):
+//
+//   1. ACCEPTED CUTOUT WITH MEASURED BOUNDS — the garment is placed by
+//      `fitCutoutLayer`: the measured content is scaled to its category's target
+//      size and centred on its anchor, so what lands on the figure is the
+//      clothes rather than the transparent canvas around them. No panel, no
+//      blend; the shape floats.
+//
+//   2. EVERYTHING ELSE — an opaque flat-lay photo, a legacy garment, or a
+//      cutout accepted before bounds existed — keeps the original matted panel:
+//      the image sits in its body-zone box with `mix-blend-mode: multiply`,
+//      which drops a white flat-lay background cheaply against the light paper.
+//      That is deliberate: an opaque photo has no alpha to measure, and pretending
+//      otherwise would make a bad photo look worse, not better.
+//
+// The zone geometry itself comes from `domain/garmentLayout.ts` — one owner for
+// the numbers, so what the maths says and what the screen shows cannot drift.
 import { OUTFIT_SLOT_ORDER } from '../../domain/outfitTypes'
 import { CATEGORY_META } from '../../domain/garmentTaxonomy'
-import { getLayerPreset, getLayerZIndex } from '../../domain/garmentLayout'
+import {
+  ZONE_BOXES,
+  fitCutoutLayer,
+  getLayerGeometry,
+  getLayerPreset,
+  getLayerZIndex,
+  type ZoneBox,
+} from '../../domain/garmentLayout'
+import { isNormalizedContentBounds } from '../../domain/contentBounds'
 import { getGarmentDisplayImage } from '../../domain/garmentAsset'
 import { useArchive } from '../../app/providers/useArchive'
 import { cx } from '../../lib/cx'
@@ -13,7 +39,17 @@ export interface MannequinPreviewProps {
   compact?: boolean
 }
 
-/** Faceless mannequin silhouette. Drawn abstract; garment panels sit on top. */
+/** A zone box as CSS percentages. */
+function zoneStyle(box: ZoneBox) {
+  return {
+    left: `${box.x * 100}%`,
+    top: `${box.y * 100}%`,
+    width: `${box.width * 100}%`,
+    height: `${box.height * 100}%`,
+  }
+}
+
+/** Faceless mannequin silhouette. Drawn abstract; garment layers sit on top. */
 function MannequinFigure() {
   return (
     <svg
@@ -51,15 +87,16 @@ export function MannequinPreview({ compact = false }: MannequinPreviewProps) {
 
       {OUTFIT_SLOT_ORDER.map((slot) => {
         const meta = CATEGORY_META[slot]
+        const box = ZONE_BOXES[meta.zone]
         const id = currentOutfit[slot]
         const garment = id ? getGarment(id) : undefined
-        const zoneClass = `zone-${meta.zone}`
 
         if (!garment) {
           return (
             <div
               key={slot}
-              className={cx('mannequin__empty', zoneClass)}
+              className="mannequin__empty"
+              style={zoneStyle(box)}
               aria-hidden="true"
             >
               {!compact && meta.label}
@@ -67,25 +104,51 @@ export function MannequinPreview({ compact = false }: MannequinPreviewProps) {
           )
         }
 
-        // Category layer preset drives the per-zone presentation (fit + stacking)
-        // on top of the CSS zone geometry. `contain` keeps wide/odd pieces
-        // (shoes, accessories) from being aggressively cropped.
-        const preset = getLayerPreset(slot)
-        // A transparent cutout floats as a collage element: it takes its natural
-        // stacking order (outerwear above the top) and drops the matte paper
-        // panel + multiply blend that exist only to mask opaque flat-lay
-        // backgrounds (Phase 5). `contain` shows the whole garment shape.
-        const isCutout = garment.asset?.assetMode === 'cutout'
+        const asset = garment.asset
+        const isCutout = asset?.assetMode === 'cutout'
+        const zIndex = getLayerZIndex(slot, isCutout)
+        const src = getGarmentDisplayImage(garment)
 
+        // A cutout is only FITTED when its bounds are present and well-formed.
+        // The guard matters: bounds come back from storage, where a truncated
+        // or hand-edited record would otherwise become `NaN%` on screen.
+        const bounds = asset?.contentBounds
+        const fitted =
+          isCutout && isNormalizedContentBounds(bounds)
+            ? fitCutoutLayer(getLayerGeometry(slot), bounds)
+            : null
+
+        if (fitted) {
+          // The image is deliberately drawn larger than its zone and clipped by
+          // nothing — a shoe occupying a fifth of its frame needs the frame
+          // drawn several times over for the shoe itself to come out life-sized.
+          return (
+            <div
+              key={slot}
+              className="mannequin__fitted"
+              style={{
+                left: `${fitted.leftPct}%`,
+                top: `${fitted.topPct}%`,
+                width: `${fitted.widthPct}%`,
+                zIndex,
+              }}
+            >
+              <img className="mannequin__fittedimg" src={src} alt={garment.name} />
+            </div>
+          )
+        }
+
+        // The original matted panel: the honest presentation for anything
+        // without measured transparency.
+        const preset = getLayerPreset(slot)
         return (
           <div
             key={slot}
             className={cx(
               'mannequin__zone',
-              zoneClass,
               isCutout && 'mannequin__zone--cutout',
             )}
-            style={{ zIndex: getLayerZIndex(slot, isCutout) }}
+            style={{ ...zoneStyle(box), zIndex }}
           >
             <span
               className="mannequin__accent"
@@ -93,7 +156,7 @@ export function MannequinPreview({ compact = false }: MannequinPreviewProps) {
             />
             <img
               className={cx('mannequin__img', isCutout && 'mannequin__img--cutout')}
-              src={getGarmentDisplayImage(garment)}
+              src={src}
               alt={garment.name}
               style={{ objectFit: isCutout ? 'contain' : preset.fit }}
             />

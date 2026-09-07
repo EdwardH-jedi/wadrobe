@@ -4,7 +4,9 @@
 // persists whole arrays (garments, saved outfits) plus the current outfit.
 // Garment images are already downscaled thumbnails, so whole-array writes stay
 // well within quota for realistic archive sizes.
+import { isNormalizedContentBounds } from '../../domain/contentBounds'
 import type {
+  GarmentAsset,
   GarmentItem,
   GarmentProxy3dPreview,
   MarketValueEntry,
@@ -186,13 +188,29 @@ function sanitizeGarment(garment: GarmentItem): GarmentItem {
 
   // The image bundle must be a plain object. A non-object (or an array) is
   // dropped outright: the garment still renders from `imageDataUrl`, which is
-  // required. Fields *inside* a well-shaped asset are left alone — the display
-  // chain in `getGarmentDisplayImage` already ignores non-string urls.
+  // required. Fields *inside* a well-shaped asset are otherwise left alone —
+  // the display chain in `getGarmentDisplayImage` already ignores non-string
+  // urls.
   if (
     garment.asset !== undefined &&
     (!isRecord(garment.asset) || Array.isArray(garment.asset))
   ) {
     drop('asset')
+  } else if (
+    // `contentBounds` is the one asset field that CANNOT be ignored when
+    // malformed: unlike a bad url (which simply falls through the display
+    // chain), a bad box is arithmetic, and it would position a garment at
+    // `NaN%` or blow it up off the stage. So it is validated and dropped here,
+    // exactly as `proxy3dPreview` is — the garment itself is always kept, and
+    // it falls back to the un-fitted presentation.
+    isRecord(garment.asset) &&
+    garment.asset.contentBounds !== undefined &&
+    !isNormalizedContentBounds(garment.asset.contentBounds)
+  ) {
+    if (!cleaned) cleaned = { ...garment }
+    const asset = { ...garment.asset } as GarmentAsset
+    delete asset.contentBounds
+    cleaned.asset = asset
   }
 
   // Phase 1 purchase metadata + analysis provenance: keep only well-typed

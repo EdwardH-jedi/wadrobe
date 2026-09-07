@@ -1,6 +1,8 @@
 // Core garment domain types for The Archive.
 // These types are persistence-agnostic and contain no UI concerns.
 
+import type { NormalizedContentBounds } from './contentBounds'
+
 /** The five top-level clothing categories the archive understands. */
 export type ClothingCategory =
   | 'outerwear'
@@ -79,6 +81,19 @@ export interface GarmentAsset {
    * becomes `'cutout'`. Experimental — quality varies with the photo background.
    */
   cutoutImageUrl?: string
+  /**
+   * Where the garment actually sits inside `cutoutImageUrl` (revival Phase 2).
+   *
+   * OPTIONAL and additive: measured once when the user ACCEPTS a cutout, and
+   * absent on every legacy garment, every opaque photo, and every cutout
+   * accepted before this existed — all of which keep rendering exactly as
+   * before. It is metadata only (it owns no blob bytes), so it is deliberately
+   * NOT part of `garmentBlobKeys`, for the same reason `proxy3dPreview` is not.
+   *
+   * It exists because a cutout is mostly transparent canvas: fitting the CANVAS
+   * to a body zone fits the emptiness, not the clothes.
+   */
+  contentBounds?: NormalizedContentBounds
   /** A user-provided reference image URL (e.g. an image from a product page). */
   productReferenceImageUrl?: string
   /** A user-provided source link for the reference. */

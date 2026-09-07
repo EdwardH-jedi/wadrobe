@@ -161,3 +161,63 @@ describe('cutout copy honesty', () => {
     for (const s of strings) expect(s).not.toMatch(FORBIDDEN_CLAIM_TERMS)
   })
 })
+
+describe('attemptGarmentCutout — measured content bounds (revival Phase 2)', () => {
+  it('reports where the garment sits inside the cutout it just made', async () => {
+    // The 24x24 flat-lay has a 10x10 subject at (7,7). After the flood fill,
+    // that subject is the only opaque thing left — so the bounds describe it.
+    const res = await attemptGarmentCutout('img', deps(flatLay()))
+
+    expect(res.status).toBe('success')
+    if (res.status !== 'success') return
+    expect(res.contentBounds).toEqual({
+      x: 7 / 24,
+      y: 7 / 24,
+      width: 10 / 24,
+      height: 10 / 24,
+      sourceAspect: 1,
+    })
+  })
+
+  it('measures the cutout, not the original photo', async () => {
+    // The distinction the whole phase rests on: before the fill the frame is
+    // fully opaque (bounds would be the whole image); after it, only the
+    // garment remains. A subject filling under half the frame proves the
+    // measurement happened on the right side of the fill.
+    const res = await attemptGarmentCutout('img', deps(flatLay()))
+    if (res.status !== 'success') throw new Error('expected success')
+
+    expect(res.contentBounds!.width).toBeLessThan(0.5)
+  })
+
+  it('needs no extra canvas pass to do it', async () => {
+    // Bounds come from the raster already in hand. A second rasterize would be
+    // a wasted decode on every accepted cutout.
+    let rasterizeCalls = 0
+    const counting: CutoutDeps = {
+      rasterize: async () => {
+        rasterizeCalls++
+        return flatLay()
+      },
+      encode: () => 'data:image/webp;base64,FAKECUTOUT',
+    }
+
+    const res = await attemptGarmentCutout('img', counting)
+
+    expect(res.status).toBe('success')
+    expect(rasterizeCalls).toBe(1)
+  })
+
+  it('omits bounds rather than inventing them when nothing is measurable', async () => {
+    // A subject too small to trust. The cutout itself is unaffected; the
+    // mannequin simply falls back to its un-fitted presentation.
+    const speck = makeRaster(200, 200, (x, y) =>
+      x === 100 && y === 100 ? [10, 10, 10] : [W, W, W],
+    )
+    const res = await attemptGarmentCutout('img', deps(speck))
+
+    // One dark pixel in 40,000 is below the flood fill's own floor, so this
+    // honestly fails before it ever reaches the measurement.
+    expect(res.status).toBe('failed')
+  })
+})

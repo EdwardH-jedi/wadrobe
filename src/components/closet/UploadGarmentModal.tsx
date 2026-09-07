@@ -371,7 +371,14 @@ export function UploadGarmentModal({
   const useCutout = () => {
     if (state.status !== 'cutout') return
     if (cutoutResult?.status !== 'success') return
-    dispatch({ type: 'APPLY_CUTOUT', cutoutImageUrl: cutoutResult.cutoutImageUrl })
+    // The bounds were measured from the very raster this cutout was encoded
+    // from, so they travel with it. Absent when measurement declined, which is
+    // an ordinary outcome the mannequin falls back from.
+    dispatch({
+      type: 'APPLY_CUTOUT',
+      cutoutImageUrl: cutoutResult.cutoutImageUrl,
+      contentBounds: cutoutResult.contentBounds,
+    })
   }
 
   const skipCutout = () => {

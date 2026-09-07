@@ -1189,41 +1189,27 @@
   animation: archiveIn 0.55s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
-/* Body-zone placement (percentages over the figure) */
-.zone-accessory {
-  top: 3%;
-  left: 37%;
-  width: 26%;
-  height: 12.5%;
-  z-index: 5;
+/* Body-zone placement lives in `domain/garmentLayout.ts` (ZONE_BOXES) and is
+   applied inline by MannequinPreview. It used to be duplicated here as
+   `.zone-*` percentage rules, which meant the numbers driving the fitting maths
+   and the numbers on screen could drift apart. One owner now. */
+
+/* A fitted cutout (revival Phase 2): positioned by measured content bounds
+   rather than dropped into a zone box. No paper, no vignette, no blend — the
+   garment's own silhouette is the shape, so it must float freely, and the image
+   is routinely drawn WIDER than the stage with the parts outside the frame
+   simply transparent. */
+.mannequin__fitted {
+  position: absolute;
+  pointer-events: none;
 }
-.zone-torsoOuter {
-  top: 19%;
-  left: 15%;
-  width: 70%;
-  height: 34%;
-  z-index: 1;
-}
-.zone-torso {
-  top: 22%;
-  left: 28%;
-  width: 44%;
-  height: 27%;
-  z-index: 2;
-}
-.zone-legs {
-  top: 49%;
-  left: 30%;
-  width: 40%;
-  height: 34%;
-  z-index: 2;
-}
-.zone-feet {
-  top: 82.5%;
-  left: 30%;
-  width: 40%;
-  height: 12%;
-  z-index: 3;
+.mannequin__fittedimg {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* A soft contact shadow so a floating cutout still sits in the scene's light
+     rather than looking stuck to the glass. */
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.45));
 }
 
 /* Empty zone placeholders */
