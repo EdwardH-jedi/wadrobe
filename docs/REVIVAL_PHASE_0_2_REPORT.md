@@ -308,7 +308,8 @@ notable ones:
 
 ## Current gate matrix
 
-All run at commit `6c2e2aa` on Node 26.7.0.
+All run at commit `920dcf0` on Node 26.7.0 — the last commit that changed code.
+(Only this report has changed since.)
 
 | Gate | Command | Result |
 | --- | --- | --- |
