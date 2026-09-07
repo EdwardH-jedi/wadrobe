@@ -1,13 +1,14 @@
 # Project Status
 
-Last verified: 2026-09-05
+Last verified: 2026-09-07
 Repository: EdwardH-jedi/wadrobe
 Default branch: `main` — **local `main` now carries every feature**
 (`chore/career-ready-rehabilitation` is merged at `8ac6d19`), but it is **27
 commits ahead of `origin/main` and none of it is pushed.** From outside, the
 repository still shows "push everything". See [§10](#10-technical-debt).
-Verified against: commit `8ac6d19` plus the uncommitted changes of the
-completion-and-hardening pass of 2026-09-05.
+Verified against: commit `46545fa` on branch `revival/core-v1` (the Phase 0-2
+revival pass of 2026-09-07). All six gates were run and were green at that
+commit — see [§6](#6-validation).
 Status: **Active**
 
 > This is the canonical implementation-state document. Where any other document
@@ -92,20 +93,62 @@ There is no text search and no sort control. See [§5](#5-planned--not-implement
 - A single precedence function, `getGarmentDisplayImage`, decides what every
   surface renders: `displayImageUrl → cutoutImageUrl → croppedImageUrl →
   originalImageUrl → imageDataUrl`.
+- **Content bounds** — when a cutout is accepted, the opaque region is measured
+  from the raster the cutout was encoded from (`lib/image/contentBounds.ts`,
+  pure alpha math, no extra decode) and stored as the optional
+  `asset.contentBounds`. It drives the mannequin's fitting. Optional and
+  parser-validated: a legacy record simply has none, and a malformed one is
+  dropped rather than trusted.
+- **A provider chain** (`lib/image/cutoutProvider.ts`) records the intended
+  fallback order — better segmentation → local flood fill → original image. It
+  holds exactly one provider today (the flood fill), so it changes no behaviour;
+  it exists so a future quality upgrade is a registration, not a rewrite.
 
 ### Outfits
 Select one piece per category slot, layer them over the mannequin, run a Fit
 Check (a deterministic read on palette, tone and completeness — no model
 involved), save the look to a board, restore it, delete it.
 
+The 2.5D preview has **three presentations**, and a garment gets the one its
+image can honestly support (`MannequinPreview.tsx`, geometry in
+`domain/garmentLayout.ts`):
+- An accepted cutout **with measured bounds** is *fitted*: the garment content —
+  not the transparent canvas around it — is scaled to its category's target size
+  and centred on a body anchor. This is what stopped shoes rendering as a sliver
+  above the ankles.
+- A cutout **without** bounds keeps the matted panel it always had.
+- An **opaque photo** keeps the panel and its `mix-blend-mode: multiply`. It has
+  no alpha to measure, and forcing it into the fitted path would make a bad
+  photo look worse.
+
+It remains a layered 2.5D composition. Nothing is draped, simulated, or sized.
+
 ### Market-value history
 Append-only, timestamped estimates **the user types**, with trend math against
 the original purchase price. Nothing is fetched; no value here is market data.
 
 ### Navigation / UI
-Five views — Studio, Closet, Lookbook, Mirror, Outfits — plus a persistent
-garment filmstrip and modal upload/edit flows. Dark editorial theme built on
-plain CSS custom properties. `prefers-reduced-motion` respected globally.
+Five views — **Closet (the landing view), Outfits, Lookbook, Fit Preview,
+Studio** — plus modal upload/edit flows. Dark editorial theme built on plain CSS
+custom properties. `prefers-reduced-motion` respected globally.
+
+The wardrobe leads the hierarchy: Studio is a secondary showroom surface rather
+than the app's home, and the experimental 3D lab is labelled as experimental and
+listed last (still withheld entirely unless `VITE_ENABLE_EXPERIMENTAL_3D`).
+
+**Two navigations, one at a time, chosen by CSS at 860px** — no window-size
+state, and both always mounted so nothing re-mounts on a resize:
+- **Desktop** — the sidebar (`SidebarNav.tsx`) plus the persistent garment
+  filmstrip.
+- **Phone** — a bottom bar (`navigation/MobileBottomNav.tsx`): Closet, Outfits,
+  a prominent **Add**, Lookbook, and a **More** popover holding Fit Preview, the
+  Studio, and the 3D lab when enabled. Its contents are derived from the view
+  order, so a new view cannot become unreachable on a phone. The filmstrip is
+  hidden there — the closet cards already carry a Style action, and two
+  persistent bottom bars would stack.
+
+The closet grid is two columns on a phone and the tag filter is one scrollable
+row, so clothes are visible on the first screen rather than below the filters.
 
 ### Persistence
 Three-tier, chosen by probe at startup: **IndexedDB → localStorage →
@@ -137,8 +180,8 @@ view (`ArchiveAlertBanner.tsx`), never only in a corner badge:
   known to be incomplete.
 
 ### Testing
-597 tests across 73 files (Vitest + Testing Library, jsdom), 75 backend tests
-(pytest), and 16 real-browser tests (Playwright, desktop Chromium + Pixel 7). Includes an unusual guard: `src/test/honesty.ts` exports forbidden-term
+699 tests across 78 files (Vitest + Testing Library, jsdom), 75 backend tests
+(pytest), and 20 real-browser tests (Playwright, desktop Chromium + Pixel 7). Includes an unusual guard: `src/test/honesty.ts` exports forbidden-term
 regexes that seven test files enforce against user-facing copy, so the product
 cannot start claiming AI recognition, virtual try-on, or exact product matching
 without a test failing.

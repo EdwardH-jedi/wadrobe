@@ -65,27 +65,46 @@ export async function hydrateGarmentForRuntime(
   const fallback = garment.imageDataUrl
 
   let displayImageUrl: string
+  // `contentBounds` describes the CUTOUT. If the cutout is not what ends up
+  // rendering, the bounds describe an image nobody is looking at, and using
+  // them would scale and position the wrong picture — so they are dropped
+  // alongside the fallback. This matters for exactly one case: a blob-backed
+  // cutout whose blob is gone, which degrades to the opaque `imageDataUrl`
+  // thumbnail. Fitting an opaque thumbnail by a transparent image's bounds
+  // would blow it up into a misplaced rectangle over the figure; without the
+  // bounds it correctly falls back to the matted panel.
+  let keepContentBounds = true
   switch (asset!.assetMode) {
     case 'product-reference':
       // A stored cutout ref must NOT shadow the chosen reference.
       displayImageUrl = asset!.productReferenceImageUrl || fallback
+      keepContentBounds = false
       break
-    case 'cutout':
-      displayImageUrl =
-        (await resolve(asset!.cutoutImageRef)) || asset!.cutoutImageUrl || fallback
+    case 'cutout': {
+      const cutout =
+        (await resolve(asset!.cutoutImageRef)) || asset!.cutoutImageUrl || null
+      displayImageUrl = cutout || fallback
+      keepContentBounds = cutout !== null
       break
+    }
     case 'cropped':
       displayImageUrl =
         (await resolve(asset!.croppedImageRef)) || asset!.croppedImageUrl || fallback
+      keepContentBounds = false
       break
     default: // 'uploaded'
       displayImageUrl = fallback
+      keepContentBounds = false
   }
 
-  return {
-    ...garment,
-    asset: { ...asset!, originalImageUrl: fallback, displayImageUrl },
+  const hydrated: GarmentAsset = {
+    ...asset!,
+    originalImageUrl: fallback,
+    displayImageUrl,
   }
+  if (!keepContentBounds) delete hydrated.contentBounds
+
+  return { ...garment, asset: hydrated }
 }
 
 /**
