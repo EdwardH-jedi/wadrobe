@@ -8,7 +8,7 @@ import { visibleViewOrder } from './views'
 function renderNav(views: ReturnType<typeof visibleViewOrder>) {
   render(
     <SidebarNav
-      view="studio"
+      view="closet"
       views={views}
       onView={vi.fn()}
       onUpload={vi.fn()}
@@ -20,25 +20,31 @@ function renderNav(views: ReturnType<typeof visibleViewOrder>) {
 }
 
 describe('<SidebarNav /> — experimental 3D navigation', () => {
-  it('offers no Proxy 3D entry when the lab is withheld (default build)', () => {
+  it('offers no experimental 3D entry when the lab is withheld (default build)', () => {
     renderNav(visibleViewOrder(false))
 
     expect(
-      screen.queryByRole('button', { name: /Proxy 3D/ }),
+      screen.queryByRole('button', { name: /Experimental 3D/ }),
     ).not.toBeInTheDocument()
     // The wardrobe navigation is untouched.
     // Counted views ("Closet 0") carry their badge in the accessible name.
-    for (const label of ['Studio', 'Closet', 'Lookbook', 'Mirror', 'Outfits']) {
+    for (const label of [
+      'Closet',
+      'Outfits',
+      'Lookbook',
+      'Fit Preview',
+      'Studio',
+    ]) {
       expect(
         screen.getByRole('button', { name: new RegExp(`^${label}`) }),
       ).toBeInTheDocument()
     }
   })
 
-  it('offers the Proxy 3D entry when the build opted in', () => {
+  it('offers the experimental 3D entry when the build opted in', () => {
     renderNav(visibleViewOrder(true))
     expect(
-      screen.getByRole('button', { name: /Proxy 3D/ }),
+      screen.getByRole('button', { name: /Experimental 3D/ }),
     ).toBeInTheDocument()
   })
 })

@@ -70,9 +70,9 @@ export function SidebarNav({
               className={cx('navbtn', view === id && 'navbtn--active')}
               onClick={() => onView(id)}
               aria-current={view === id ? 'page' : undefined}
-              // Below 860px the visual label is display:none and the button
-              // becomes icon-only. Without this it has no accessible name at
-              // all on a phone — unreachable by screen reader and by name.
+              // The label carries the count for assistive tech, which the
+              // visible badge only shows visually. Kept explicit so the two can
+              // never drift apart.
               aria-label={
                 count !== null ? `${meta.label} (${count})` : meta.label
               }

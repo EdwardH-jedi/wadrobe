@@ -16,6 +16,7 @@ import { Modal } from '../ui/Modal'
 import { OutfitInspector } from '../outfit/OutfitInspector'
 import { OutfitBuilder } from '../outfit/OutfitBuilder'
 import { Proxy3DLab } from '../avatar/Proxy3DLab'
+import { MobileBottomNav } from '../navigation/MobileBottomNav'
 import { ArchiveAlertBanner } from './ArchiveAlertBanner'
 import { SidebarNav } from './SidebarNav'
 import { StudioScene } from './StudioScene'
@@ -23,7 +24,12 @@ import { StudioFitRail } from './StudioFitRail'
 import { MirrorPreview } from './MirrorPreview'
 import { OutfitWallBoard } from './OutfitWallBoard'
 import { LookbookView } from './LookbookView'
-import { VIEW_META, visibleViewOrder, type StudioView } from './views'
+import {
+  DEFAULT_VIEW,
+  VIEW_META,
+  visibleViewOrder,
+  type StudioView,
+} from './views'
 
 export function ArchiveStudio() {
   const {
@@ -46,7 +52,8 @@ export function ArchiveStudio() {
   const experimental3d = isExperimental3dEnabled()
   const navViews = visibleViewOrder(experimental3d)
 
-  const [view, setView] = useState<StudioView>('studio')
+  // The Closet is where a visitor lands — the clothes, not the showroom room.
+  const [view, setView] = useState<StudioView>(DEFAULT_VIEW)
   const [uploadOpen, setUploadOpen] = useState(false)
   const [editGarment, setEditGarment] = useState<GarmentItem | null>(null)
   const [enteredId, setEnteredId] = useState<string | null>(null)
@@ -176,7 +183,15 @@ export function ArchiveStudio() {
                 Load sample
               </Button>
             )}
-            <Button variant="primary" disabled={!hydrated} onClick={openUpload}>
+            {/* Hidden on a phone: the bottom bar's Add button is always
+                visible and more reachable, and this one costs a line of
+                vertical space above the clothes. */}
+            <Button
+              variant="primary"
+              className="topbar__upload"
+              disabled={!hydrated}
+              onClick={openUpload}
+            >
               <Icon name="upload" size={16} />
               Upload
             </Button>
@@ -188,10 +203,23 @@ export function ArchiveStudio() {
         </div>
       </main>
 
+      {/* Two persistent bottom bars would stack, so exactly one is rendered at
+          a time — by CSS at the 860px breakpoint, not by measuring the window.
+          Both are always mounted, so nothing re-mounts on a resize. */}
       <GarmentFilmstrip
         onUpload={openUpload}
         uploadDisabled={!hydrated}
         highlightId={enteredId}
+      />
+
+      <MobileBottomNav
+        view={view}
+        onView={setView}
+        onUpload={openUpload}
+        garmentCount={garments.length}
+        outfitCount={savedOutfits.length}
+        uploadDisabled={!hydrated}
+        experimental3dEnabled={experimental3d}
       />
 
       <UploadGarmentModal

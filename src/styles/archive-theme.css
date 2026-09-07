@@ -328,7 +328,10 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 20px 30px 130px;
+  /* The bottom padding clears whichever persistent bar is showing. It is a
+     variable because that is the filmstrip on desktop and the mobile nav on a
+     phone, and they are not the same height. */
+  padding: 20px 30px var(--bottom-bar-clearance, 130px);
 }
 .view--flush {
   padding: 0;
@@ -955,6 +958,125 @@
   height: 100%;
   object-fit: cover;
   mix-blend-mode: multiply;
+}
+
+/* =========================================================================
+   MOBILE BOTTOM NAV (revival Phase 1)
+   Hidden above 860px, where the sidebar is the navigation. Below it this is
+   the navigation, and the sidebar is not rendered at all.
+   ========================================================================= */
+.mobilenav {
+  display: none;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  align-items: stretch;
+  justify-content: space-around;
+  gap: 2px;
+  padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(19, 19, 22, 0.94), var(--ink-900));
+  backdrop-filter: blur(12px);
+  box-shadow: 0 -10px 28px rgba(0, 0, 0, 0.4);
+}
+.mobilenav__tab,
+.mobilenav__add {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  /* 48px is the floor for a comfortable touch target; the icon and label are
+     centred inside whatever height the bar ends up at. */
+  min-height: 48px;
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-500);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition:
+    color 0.18s ease,
+    background 0.18s ease;
+}
+.mobilenav__label {
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mobilenav__tab:hover {
+  color: var(--text-300);
+}
+.mobilenav__tab--active {
+  color: var(--accent);
+  background: rgba(200, 168, 106, 0.1);
+}
+/* Add is the one thing a wardrobe app must never make anyone hunt for, so it
+   is the only filled target in the bar. */
+.mobilenav__add {
+  flex: 0 0 auto;
+  min-width: 62px;
+  color: var(--ink-900);
+  background: var(--accent);
+  box-shadow: 0 6px 18px rgba(200, 168, 106, 0.28);
+}
+.mobilenav__add:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.mobilenav__more {
+  flex: 1 1 0;
+  min-width: 0;
+  position: relative;
+  display: flex;
+}
+.mobilenav__sheet {
+  position: absolute;
+  right: 0;
+  /* Sits directly above the bar, right-aligned to the button that opened it. */
+  bottom: calc(100% + 8px);
+  z-index: 1;
+  min-width: 190px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--ink-800);
+  box-shadow: var(--shadow-lg);
+  animation: archiveIn 0.18s ease;
+}
+.mobilenav__sheetitem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-300);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.mobilenav__sheetitem:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-100);
+}
+.mobilenav__sheetitem--active {
+  color: var(--accent);
 }
 
 /* =========================================================================
@@ -2422,23 +2544,56 @@
 }
 
 @media (max-width: 860px) {
+  /* The phone layout (revival Phase 1): the desktop sidebar is not rendered at
+     all and the mobile bar takes over. The old treatment squeezed the sidebar
+     into a 68px icon rail, which cost a sixth of a 390px screen permanently and
+     still left the primary actions in the least reachable corner of a phone. */
   .app {
-    grid-template-columns: 68px 1fr;
+    grid-template-columns: 1fr;
   }
   .sidebar {
-    padding: 18px 10px;
-  }
-  .sidebar__wordmark,
-  .navbtn__label,
-  .navbtn__badge,
-  .storage-badge span {
     display: none;
   }
-  .navbtn {
-    justify-content: center;
+  .mobilenav {
+    display: flex;
   }
+  /* Only one persistent bottom bar at a time — the filmstrip's job (pick a
+     piece to style) belongs to the Closet grid on a phone, where the cards
+     already carry a Style action. */
   .filmstrip {
-    left: 68px;
+    display: none;
+  }
+  /* The mobile bar is shorter than the filmstrip it replaces, so the scroll
+     container gets its bottom padding back. */
+  .app {
+    --bottom-bar-clearance: 96px;
+  }
+  /* Add lives in the bottom bar on a phone; a second Upload in the topbar is
+     redundant and pushes the clothes further down the screen. */
+  .topbar__upload {
+    display: none;
+  }
+  /* Two columns, not one. A single full-width card meant one garment per
+     screen — the opposite of browsing a wardrobe. At 390px this gives a ~170px
+     thumbnail, which is the size the photos were downscaled for anyway. */
+  .garment-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  /* The tag cloud wrapped to five rows and buried the grid below the fold.
+     One scrollable row keeps every tag reachable and costs one line. */
+  .filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    /* Room for the chips' focus ring, which `overflow` would otherwise clip. */
+    padding-bottom: 2px;
+  }
+  .filters::-webkit-scrollbar {
+    display: none;
+  }
+  .filters > * {
+    flex: none;
   }
   /* The room is a FIXED-HEIGHT stage on desktop: five alcoves sized to fill the
      space exactly. Restacked into fewer columns it needs more height than the
@@ -2487,7 +2642,7 @@
     font-size: 23px;
   }
   .view {
-    padding: 18px 16px 130px;
+    padding: 18px 16px var(--bottom-bar-clearance, 130px);
   }
   .stage {
     margin: 16px;

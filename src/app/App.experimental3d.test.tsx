@@ -17,12 +17,16 @@ describe('<App /> — experimental 3D enabled', () => {
     vi.unstubAllEnvs()
   })
 
-  it('exposes the Proxy 3D Lab and opens it', async () => {
+  it('exposes the experimental 3D lab and opens it', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await screen.findByText('Clothing Rack')
+    await screen.findByText('Your archive is empty')
 
-    const navButton = screen.getByRole('button', { name: /Proxy 3D/ })
+    // Labelled for what it is. "Proxy 3D" read like a shipped feature; a
+    // visitor now knows it is research before clicking it.
+    const navButton = screen.getAllByRole('button', {
+      name: /Experimental 3D/,
+    })[0]
     await user.click(navButton)
 
     // The lab's own panel, not just the topbar heading.
@@ -32,9 +36,12 @@ describe('<App /> — experimental 3D enabled', () => {
   it('leaves the wardrobe views reachable alongside it', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await screen.findByText('Clothing Rack')
+    await screen.findByText('Your archive is empty')
 
-    await user.click(screen.getByRole('button', { name: /^Closet/ }))
+    await user.click(screen.getAllByRole('button', { name: /^Studio/ })[0])
+    expect(await screen.findByText('Clothing Rack')).toBeInTheDocument()
+
+    await user.click(screen.getAllByRole('button', { name: /^Closet/ })[0])
     expect(await screen.findByText('Your archive is empty')).toBeInTheDocument()
   })
 })

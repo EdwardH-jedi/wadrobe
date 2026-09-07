@@ -22,6 +22,7 @@ export type IconName =
   | 'info'
   | 'shoe'
   | 'cube'
+  | 'more'
 
 const PATHS: Record<IconName, JSX.Element> = {
   studio: (
@@ -142,6 +143,15 @@ const PATHS: Record<IconName, JSX.Element> = {
       <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9Z" />
       <path d="M4 7.5l8 4.5 8-4.5" />
       <path d="M12 12v9" />
+    </>
+  ),
+  // Drawn as three filled dots rather than stroked circles: at the 22px the
+  // mobile nav renders them, a 1.6px-stroke ring reads as a smudge.
+  more: (
+    <>
+      <circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none" />
     </>
   ),
 }
