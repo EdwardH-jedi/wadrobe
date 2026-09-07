@@ -13,8 +13,8 @@ async function goToView(page: Page, name: string) {
     }
     // Everything without a permanent slot lives behind More.
     await mobile.getByRole('button', { name: 'More' }).click()
-    await page
-      .getByRole('menuitem', { name: new RegExp(`^${name}`) })
+    await mobile
+      .getByRole('button', { name: new RegExp(`^${name}`) })
       .click()
     return
   }
@@ -131,8 +131,9 @@ test('hides the experimental 3D lab in a default build', async ({ page }) => {
   // covered by unit tests instead.)
   await page.goto('/')
   await expect(page.getByText('Your archive is empty')).toBeVisible()
-  // Neither the old label nor the new one appears anywhere — including behind
-  // the phone's More sheet, which is a door the sidebar test cannot see.
+  // Neither the old label nor the new one appears in the shipped bundle's
+  // navigation. (The phone's More sheet is closed here; that the sheet itself
+  // withholds the lab is covered by MobileBottomNav.test.tsx.)
   await expect(page.getByRole('button', { name: /Proxy 3D/ })).toHaveCount(0)
   await expect(
     page.getByRole('button', { name: /Experimental 3D/ }),

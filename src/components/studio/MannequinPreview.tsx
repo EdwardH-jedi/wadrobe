@@ -3,7 +3,7 @@
 // garment — nothing here is draped, fitted to a body, or sized.
 //
 // There are two presentations, and which one a piece gets depends on what its
-// image can honestly support (revival Phase 2):
+// image can honestly support at RENDER time (revival Phase 2):
 //
 //   1. ACCEPTED CUTOUT WITH MEASURED BOUNDS — the garment is placed by
 //      `fitCutoutLayer`: the measured content is scaled to its category's target
@@ -109,12 +109,27 @@ export function MannequinPreview({ compact = false }: MannequinPreviewProps) {
         const zIndex = getLayerZIndex(slot, isCutout)
         const src = getGarmentDisplayImage(garment)
 
-        // A cutout is only FITTED when its bounds are present and well-formed.
-        // The guard matters: bounds come back from storage, where a truncated
-        // or hand-edited record would otherwise become `NaN%` on screen.
+        // A cutout is only FITTED when three things hold.
+        //
+        //  1. Bounds are present and WELL-FORMED — they come back from storage,
+        //     where a truncated or hand-edited record would become `NaN%`.
+        //  2. What is rendering is not the last-resort thumbnail. `contentBounds`
+        //     describes the CUTOUT, and several paths can leave the bounds on a
+        //     garment whose cutout could not be resolved (a missing blob, an
+        //     imported piece whose blob ref was dropped) — where the display
+        //     degrades to the opaque `imageDataUrl`. Fitting an opaque thumbnail
+        //     by a transparent image's measurements would blow it up into a
+        //     misplaced rectangle across the figure. `hydrateGarmentForRuntime`
+        //     clears the bounds at the one source it owns; this is the sink-side
+        //     guard that covers every other route to the same shape.
+        //  3. The geometry itself is computable.
+        //
+        // The thumbnail is never a cutout, and a garment whose display legitimately
+        // IS the thumbnail carries `assetMode: 'uploaded'`, so no valid case trips it.
         const bounds = asset?.contentBounds
+        const rendersCutout = isCutout && src !== garment.imageDataUrl
         const fitted =
-          isCutout && isNormalizedContentBounds(bounds)
+          rendersCutout && isNormalizedContentBounds(bounds)
             ? fitCutoutLayer(getLayerGeometry(slot), bounds)
             : null
 

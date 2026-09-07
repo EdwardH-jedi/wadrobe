@@ -9,8 +9,9 @@ Run `npm run dev` and walk through these. (Automated coverage:
 
 ## Core / experimental boundary (default build)
 
-- [ ] The sidebar lists Studio, Closet, Lookbook, Mirror, Outfits — and **no
-      "Proxy 3D" entry**.
+- [ ] The app **lands on the Closet**, not the Studio.
+- [ ] The sidebar lists Closet, Outfits, Lookbook, Fit Preview, Studio — in that
+      order — and **no "Experimental 3D" entry**.
 - [ ] Closet cards offer **no** "Create 3D preview" / "View 3D preview" action,
       and no "3D" badge, even on a piece that has a saved preview.
 - [ ] DevTools → Network shows **no three.js chunk** loaded on any wardrobe view.
@@ -18,7 +19,8 @@ Run `npm run dev` and walk through these. (Automated coverage:
 
 With `VITE_ENABLE_EXPERIMENTAL_3D=true` in `.env.local` (restart the dev server):
 
-- [ ] The "Proxy 3D" entry appears and the lab opens.
+- [ ] The "Experimental 3D" entry appears (last in the list) and the lab opens.
+- [ ] On a phone it appears in the **More** sheet, and nowhere else.
 - [ ] A piece that had a saved preview **still has it** — toggling the flag must
       never lose stored `proxy3dPreview` metadata.
 - [ ] Turning the flag back off hides the affordances again, and the piece's
@@ -211,6 +213,27 @@ these confirm it does not break anything:
 - [ ] Palette swatches, tone, and dominant tags reflect the selected pieces.
 - [ ] Notes give sensible guidance (e.g. "Add shoes to ground the look").
 
+## Mobile navigation (revival Phase 1)
+
+At a phone width (~390px), and again at ~1440px to confirm nothing regressed:
+
+- [ ] Below 860px: the **bottom bar** shows, the sidebar and the filmstrip do
+      **not**. Above it: sidebar and filmstrip show, bottom bar does not. Never
+      two bottom bars at once.
+- [ ] The bar reads Closet · Outfits · **Add** · Lookbook · More, with Add the
+      only filled target.
+- [ ] **Add** opens the upload modal. The topbar's Upload button is hidden here.
+- [ ] **More** opens Fit Preview / Studio (/ Experimental 3D when enabled).
+      Escape closes it; tapping outside closes it; choosing a destination
+      navigates and closes it.
+- [ ] "More" reads as active while you are on one of the views it holds.
+- [ ] The closet grid is **two columns**, and the tag row scrolls sideways
+      rather than wrapping to five lines.
+- [ ] Scroll the closet to the end: the bottom bar does **not** cover the last
+      row of cards.
+- [ ] No view scrolls sideways. Resize between 390px and 1440px: the navigation
+      swaps cleanly, and nothing loses its state.
+
 ## Mannequin & Mirror preview (Phase 4)
 
 - [ ] Open the **Mirror** view. Select a **top** → it appears layered on the
@@ -219,6 +242,23 @@ these confirm it does not break anything:
       **accessory** → upper-body/side zone. Each uses the real uploaded photo.
 - [ ] Clear a slot (inspector ✕ or builder "Clear") → that zone returns to an
       elegant empty placeholder; the mirror caption updates.
+### Cutout fitting (revival Phase 2)
+
+Needs a real photo with a plain flat-lay background, taken through the upload
+flow with **Use cutout** accepted — the procedural sample set is opaque and will
+correctly use the matted panel instead.
+
+- [ ] **Shoes** land at the feet, wide enough to read as footwear — not a sliver
+      floating above the ankles.
+- [ ] **Pants** run from the waist down the legs at a sensible width.
+- [ ] A **top** sits on the upper torso, keeps its shape, and is not inside a
+      rectangular matte panel.
+- [ ] An accepted **outerwear** cutout layers visually **above** an accepted top.
+- [ ] Nothing is stretched: a garment's proportions match its photo.
+- [ ] A garment archived **before** this change (or any opaque photo) still
+      renders, in its matted panel, with the white background dropping out.
+- [ ] Export a backup and re-import it: fitted pieces still fit.
+
 - [ ] The mirror caption reads "Mirror composition · 2.5D layered styling
       preview", shows selected category chips + a silhouette hint (e.g. "Complete
       the silhouette with shoes."), and "Select archive pieces to build a fit."

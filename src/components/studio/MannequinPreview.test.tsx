@@ -255,3 +255,59 @@ describe('MannequinPreview — cutout fitting (revival Phase 2)', () => {
     expect(img.classList.contains('mannequin__img')).toBe(true)
   })
 })
+
+describe('MannequinPreview — bounds never describe a different image', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  it('refuses to fit when the display degraded to the opaque thumbnail', async () => {
+    // Several routes produce this shape — a missing blob, an imported piece
+    // whose foreign blob ref was dropped — and in all of them `assetMode` stays
+    // 'cutout' while the display falls back to the thumbnail. Fitting an opaque
+    // thumbnail by a transparent image's bounds would draw a misplaced
+    // rectangle across the figure: worse than the panel it replaces, and only
+    // in the already-degraded case.
+    const garment = makeGarment({
+      id: 'g',
+      category: 'shoes',
+      name: 'The Piece',
+      imageDataUrl: 'data:THUMB',
+      asset: {
+        originalImageUrl: 'data:THUMB',
+        // The cutout could not be resolved; this is the thumbnail.
+        displayImageUrl: 'data:THUMB',
+        assetMode: 'cutout',
+        contentBounds: {
+          x: 0.1,
+          y: 0.35,
+          width: 0.8,
+          height: 0.3,
+          sourceAspect: 1,
+        },
+      },
+    })
+    localStorage.setItem(STORAGE_KEYS.garments, JSON.stringify([garment]))
+    localStorage.setItem(
+      STORAGE_KEYS.currentOutfit,
+      JSON.stringify({ ...createEmptyOutfit(), shoes: 'g' }),
+    )
+    render(
+      <ArchiveProvider>
+        <MannequinPreview />
+      </ArchiveProvider>,
+    )
+
+    const img = await screen.findByAltText('The Piece')
+    expect(img.closest('.mannequin__fitted')).toBeNull()
+    expect(img.closest('.mannequin__zone')).not.toBeNull()
+  })
+
+  it('still fits a cutout whose display really is the cutout', async () => {
+    // The guard must not cost the healthy case.
+    await renderSelected('shoes', cutoutAsset({}))
+    expect(
+      screen.getByAltText('The Piece').closest('.mannequin__fitted'),
+    ).not.toBeNull()
+  })
+})

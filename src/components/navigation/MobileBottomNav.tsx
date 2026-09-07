@@ -6,8 +6,8 @@
 //
 // Everything that did not earn a permanent slot — Fit Preview, the Studio room,
 // the experimental 3D lab — lives behind "More". That sheet is local state, not
-// a `StudioView`: it is a menu, and making it a view would put it in history,
-// in the topbar, and in the sidebar on desktop, where it means nothing.
+// a `StudioView`: it is a disclosure, and making it a view would put it in the
+// topbar and in the desktop sidebar, where it means nothing.
 import { useEffect, useRef, useState } from 'react'
 import { cx } from '../../lib/cx'
 import { Icon } from '../ui/Icon'
@@ -111,15 +111,18 @@ export function MobileBottomNav({
       {third && renderTab(third)}
 
       <div className="mobilenav__more" ref={moreRef}>
+        {/* A disclosure, not a `role="menu"`. The menu role promises arrow-key
+            navigation and a managed focus ring; announcing it without
+            implementing it is worse for a screen reader than plain buttons
+            behind `aria-expanded`, which is what this actually is. */}
         {moreOpen && (
-          <div className="mobilenav__sheet" role="menu" aria-label="More">
+          <div className="mobilenav__sheet">
             {moreViews.map((id) => {
               const meta = VIEW_META[id]
               return (
                 <button
                   key={id}
                   type="button"
-                  role="menuitem"
                   className={cx(
                     'mobilenav__sheetitem',
                     view === id && 'mobilenav__sheetitem--active',
@@ -144,7 +147,6 @@ export function MobileBottomNav({
           )}
           onClick={() => setMoreOpen((open) => !open)}
           aria-expanded={moreOpen}
-          aria-haspopup="menu"
           aria-label="More"
         >
           <Icon name="more" size={21} className="mobilenav__icon" />

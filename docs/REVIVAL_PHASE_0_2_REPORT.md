@@ -183,8 +183,9 @@ migrating. `getGarmentDisplayImage` precedence is untouched, and the fitted path
 is gated on `assetMode === 'cutout'`, so a product reference is never shadowed.
 
 ### Visual QA
-Run in a real browser against genuine transparent PNGs, with bounds measured by
-the shipped algorithm rather than hand-written:
+Run in a real browser. The comparison table below used transparent PNGs injected
+directly, to isolate the rendering; the **whole shipped pipeline** was then run
+end to end separately (below), which is what makes the claim real.
 
 | Case | Before | After |
 | --- | --- | --- |
@@ -192,6 +193,22 @@ the shipped algorithm rather than hand-written:
 | B — Pants | Floating, narrow, stopping short of the ankles | Waist to ankle at a sensible width |
 | A/D — Coat + top | Small inside its box; coat behind the shirt | Coat spans the shoulders and layers over the shirt |
 | E — Legacy opaque | Matted panel | Matted panel, unchanged |
+
+**End-to-end, through the shipped code, at 390px.** A real white-background PNG
+was uploaded through the actual file input and driven scan → crop → *Use
+cutout* → name → archive, exercising `attemptGarmentCutout` on a real Chromium
+canvas. The stored record came back
+`assetMode: 'cutout'`, `contentBounds: { x: 0.122, y: 0.542, width: 0.763,
+height: 0.150, sourceAspect: 1 }` — measured by the shipped
+`computeContentBounds`, not by the QA script. The piece was then styled from its
+closet card, reached via **More → Fit Preview** (one fitted layer), saved as a
+look, found on the Outfits board, and both survived a reload. That is steps
+1–13 of the Phase 1 acceptance flow, on a phone viewport, with no backend.
+
+**Containment.** A deliberately wide coat cutout was checked inside the Studio
+alcove and the small mirror: it sits 98px and 27px *inside* those containers
+respectively, with zero document overflow. Fitted layers can be drawn wider than
+the stage, so this was worth proving rather than assuming.
 
 ### One defect found and fixed
 Reviewing the blob-hydration path turned up a case the new code got wrong: a
@@ -203,6 +220,15 @@ replaced, and only in the already-degraded case.
 
 Fixed at the source: `hydrateGarmentForRuntime` drops the bounds whenever what
 it resolved is not the cutout. Commit `d64eadd`.
+
+### Deliberate behaviour changes
+- A fitted cutout drops the panel's **name tag and colour accent bar**. Those
+  belong to the matte panel — a floating silhouette has no edge to hang them on.
+  The name is still on the card, the Lookbook, and the outfit inspector.
+- Empty-slot placeholders now sit beneath every garment layer. They previously
+  inherited a z-index from the `.zone-*` rules, so an empty torso placeholder
+  could sit above an outerwear panel. Garments over placeholders is the better
+  order, and it is now explicit rather than incidental.
 
 ### Remaining weaknesses
 - Bounds exist only for cutouts accepted **after** this change. Earlier ones
@@ -282,18 +308,18 @@ notable ones:
 
 ## Current gate matrix
 
-All run at commit `d64eadd` on Node 26.7.0.
+All run at commit `6c2e2aa` on Node 26.7.0.
 
 | Gate | Command | Result |
 | --- | --- | --- |
 | typecheck | `npm run typecheck` | **PASS** |
 | lint | `npm run lint` | **PASS** |
-| frontend tests | `npm test` | **PASS** — 705 tests, 78 files |
+| frontend tests | `npm test` | **PASS** — 707 tests, 78 files |
 | frontend build | `npm run build` | **PASS** |
 | e2e | `npx playwright test` | **PASS** — 20 tests (Chromium + Pixel 7) |
 | backend pytest | `backend/.venv/bin/python -m pytest backend` | **PASS** — 75 tests |
 
-Test count moved 597 → 705 (+108). No test was skipped, weakened, or deleted to
+Test count moved 597 → 707 (+110). No test was skipped, weakened, or deleted to
 reach green. Eleven Phase 1 tests and five Phase 2 tests encoded assumptions the
 work invalidated (the old landing view, the old lab label, `.zone-*` CSS class
 names); each was rewritten to assert the same behaviour under the new design —
@@ -316,8 +342,12 @@ This is an environment/auth problem, not a finding. In its place the highest-ris
 areas a review would have targeted were checked directly — the content-bounds
 maths, the fitting arithmetic, the blob hydrate/dehydrate lifecycle, the import
 path, asset precedence, and whether the rewritten tests were weakened. That
-check is what found the stale-bounds defect fixed in `d64eadd`. **A Codex pass
-is still owed** once the CLI is upgraded (`npm i -g @openai/codex`).
+check is what found the two stale-bounds defects — the one fixed in `d64eadd`
+and a second, wider one: `hydrateGarmentForRuntime` only owns the blob path, and
+the import path can produce the same shape (a dropped foreign blob ref with the
+bounds still attached). That is fixed with a sink-side guard in the renderer, so
+the invariant now holds however the garment arrived. **A Codex pass is still
+owed** once the CLI is upgraded (`npm i -g @openai/codex`).
 
 ---
 

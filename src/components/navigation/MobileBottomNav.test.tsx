@@ -82,7 +82,7 @@ describe('<MobileBottomNav /> — the More sheet', () => {
       'false',
     )
     expect(
-      screen.queryByRole('menuitem', { name: /Fit Preview/ }),
+      screen.queryByRole('button', { name: /Fit Preview/ }),
     ).not.toBeInTheDocument()
   })
 
@@ -97,9 +97,9 @@ describe('<MobileBottomNav /> — the More sheet', () => {
       'true',
     )
     expect(
-      screen.getByRole('menuitem', { name: /Fit Preview/ }),
+      screen.getByRole('button', { name: /Fit Preview/ }),
     ).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: /Studio/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Studio/ })).toBeInTheDocument()
   })
 
   it('withholds the experimental lab unless the build opted in', async () => {
@@ -110,7 +110,7 @@ describe('<MobileBottomNav /> — the More sheet', () => {
     // The core/experimental boundary reaches the phone too: a default build
     // offers no door to the lab anywhere.
     expect(
-      screen.queryByRole('menuitem', { name: /Experimental 3D/ }),
+      screen.queryByRole('button', { name: /Experimental 3D/ }),
     ).not.toBeInTheDocument()
   })
 
@@ -120,7 +120,7 @@ describe('<MobileBottomNav /> — the More sheet', () => {
     await user.click(screen.getByRole('button', { name: 'More' }))
 
     expect(
-      screen.getByRole('menuitem', { name: /Experimental 3D/ }),
+      screen.getByRole('button', { name: /Experimental 3D/ }),
     ).toBeInTheDocument()
   })
 
@@ -129,7 +129,7 @@ describe('<MobileBottomNav /> — the More sheet', () => {
     const { onView } = renderNav()
     await user.click(screen.getByRole('button', { name: 'More' }))
 
-    await user.click(screen.getByRole('menuitem', { name: /Fit Preview/ }))
+    await user.click(screen.getByRole('button', { name: /Fit Preview/ }))
 
     expect(onView).toHaveBeenCalledWith('mirror')
     expect(screen.getByRole('button', { name: 'More' })).toHaveAttribute(

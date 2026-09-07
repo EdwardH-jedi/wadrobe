@@ -1215,6 +1215,11 @@
 /* Empty zone placeholders */
 .mannequin__empty {
   position: absolute;
+  /* Explicitly beneath every garment layer (which carry z-index 1-5). The
+     placeholders used to inherit a z-index from the `.zone-*` rules; now that
+     the geometry is applied inline, saying so here keeps it deliberate rather
+     than a side effect of source order. */
+  z-index: 0;
   border-radius: 8px;
   /* Softened so the placeholder recedes (Phase D will replace the room). */
   border: 1px dashed rgba(255, 255, 255, 0.09);

@@ -232,6 +232,8 @@ src/
                   three.js via dynamic import only)
     studio/       ArchiveStudio, StudioScene, SidebarNav, RoomZone,
                   ClothingRack, MirrorPreview, MannequinPreview, OutfitWallBoard
+    navigation/   MobileBottomNav (the phone bar; CSS picks it over SidebarNav
+                  at 860px — both are always mounted)
   domain/         garmentTypes, outfitTypes, archiveTypes, garmentTaxonomy,
                   garmentDraft, fitCheck
   lib/            storage/, ai/, image/, color, cx, id, format
