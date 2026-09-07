@@ -123,12 +123,20 @@ configuration, neither is ever taken.
 
 | View | Component | Purpose |
 | --- | --- | --- |
-| Studio | `StudioScene.tsx` | The room; entry point and navigation hub |
-| Closet | `ClosetPanel.tsx` | Archive grid with category + tag filtering |
-| Lookbook | `LookbookView.tsx` | Pieces as a collection with reference details |
-| Mirror | `MirrorPreview.tsx` + `MannequinPreview.tsx` | 2.5D layered composition + Fit Check |
+| Closet | `ClosetPanel.tsx` | Archive grid with category + tag filtering — **the landing view** |
 | Outfits | `OutfitWallBoard.tsx` | Saved looks board |
-| Proxy 3D | `Proxy3DLab.tsx` | Experimental; hidden unless flag-enabled |
+| Lookbook | `LookbookView.tsx` | Pieces as a collection with reference details |
+| Fit Preview | `MirrorPreview.tsx` + `MannequinPreview.tsx` | 2.5D layered composition + Fit Check |
+| Studio | `StudioScene.tsx` | The editorial showroom room — secondary, not the app's home |
+| Experimental 3D | `Proxy3DLab.tsx` | Experimental; hidden unless flag-enabled |
+
+Navigation is local `useState` in `ArchiveStudio` (no router). **Two navigation
+components are always mounted and CSS picks one at 860px** — `SidebarNav.tsx`
+plus the garment filmstrip above it, `navigation/MobileBottomNav.tsx` below.
+Nothing measures the window, so nothing re-mounts on a resize; the trade-off is
+that both appear in a jsdom tree, which component tests account for. The mobile
+bar's "More" sheet is derived from the view order (`mobileMoreViews`), so a new
+view cannot be added and left unreachable on a phone.
 
 **Every view renders live provider data.** No screen uses mock or hard-coded
 garments. The procedural sample archive (`data/seedGarments.ts`) is reachable
@@ -189,14 +197,29 @@ current outfit mapped onto body zones (`torsoOuter`, `torso`, `legs`, `feet`,
 `accessory`) as framed, matted **garment panels** — an editorial *collage*, not
 a simulated "worn" garment. Each panel uses `mix-blend-mode: multiply` against a
 light matte so white flat-lay backgrounds drop out cheaply, without needing the
-optional cutout step. **Category layer presets** (`domain/garmentLayout.ts`)
-drive the per-zone presentation: `fit` (`contain` for wide/odd pieces like shoes
-and accessories so they are not over-cropped, `cover` for body garments) and
-`zIndex` stacking. The raw zone **geometry stays in CSS** (`.zone-*`, eyeball-
-verified) — the preset is the single source of truth for the semantic layer, not
-duplicated percentages. (Stacking keeps the top in front of outerwear: the top's
-panel sits inside the opaque outerwear panel, so true outerwear-above-top is
-deferred to the cutout era, where transparent garments make the overlap readable.) The **Mirror view** reflects the same composition and
+optional cutout step. **`domain/garmentLayout.ts` owns all of the geometry** —
+the zone boxes (`ZONE_BOXES`), the per-category fitting table
+(`LAYER_GEOMETRY`), and the `zIndex` stacking. The percentages used to be
+duplicated in CSS as `.zone-*` rules, which let the numbers driving the maths
+drift from the numbers on screen; the component now applies them inline and the
+CSS keeps only appearance. (Stacking keeps the top in front of OPAQUE
+outerwear: the top's panel sits inside the outerwear panel, so an opaque coat
+above it would erase the shirt. Transparent cutouts take the natural
+coat-over-shirt order, via `getLayerZIndex`.)
+
+**Three presentations**, and a garment gets the one its image can support:
+
+| Image | Presentation |
+| --- | --- |
+| Accepted cutout **with** `asset.contentBounds` | *Fitted* by `fitCutoutLayer`: the measured content is scaled to its category's target size and centred on a body anchor. The image is routinely drawn wider than the stage — a shoe filling a fifth of its frame needs the frame drawn several times over for the shoe to come out life-sized. |
+| Cutout **without** bounds | The matted panel, `object-fit: contain`, no blend. |
+| Opaque photo (and every legacy record) | The matted panel with `mix-blend-mode: multiply`. No alpha to measure; forcing it into the fitted path would make a bad photo look worse. |
+
+Bounds are measured once, when a cutout is accepted, from the raster the cutout
+was encoded from (`lib/image/contentBounds.ts` — pure alpha math, no extra
+decode). They are validated by the storage parser and dropped by
+`hydrateGarmentForRuntime` whenever the cutout is not what actually renders, so
+they can never describe a different image from the one on screen. The **Mirror view** reflects the same composition and
 adds a caption beneath the glass — selected category chips, a layer count, a
 `silhouetteHint` (a pure, composition-framed "next layer" line), and an honest
 "2.5D layered styling preview" label — so the mirror reinforces the outfit
@@ -351,7 +374,9 @@ see [`AVATAR_TRACK.md`](AVATAR_TRACK.md).
 | `ClothingCategory` | `garmentTypes.ts` | `outerwear \| top \| pants \| shoes \| accessory` |
 | `GarmentItem` | `garmentTypes.ts` | A stored piece. `imageDataUrl` is always a downscaled thumbnail. |
 | `GarmentAsset` | `garmentTypes.ts` | Optional image-asset bundle (display/original/**cropped**/reference URLs + `assetMode`). Backward compatible — legacy garments fall back to `imageDataUrl`. |
-| `GarmentLayerPreset` | `garmentLayout.ts` | Per-category mannequin layer preset (`anchor` / `scale` / `zIndex` / `fit` / `aspectHint`). Semantic layer info; zone geometry stays in CSS. |
+| `GarmentLayerPreset` | `garmentLayout.ts` | Per-category semantic layer preset (`anchor` / `scale` / `zIndex` / `fit` / `aspectHint`), used by the matted-panel presentation. |
+| `ZoneBox` / `GarmentLayerGeometry` | `garmentLayout.ts` | The mannequin geometry: zone rectangles, and the per-category anchor + target size the cutout fitting aims at. One owner — no longer duplicated in CSS. |
+| `NormalizedContentBounds` | `contentBounds.ts` | Where a garment sits inside its own image (0..1 fractions + source aspect). Optional, persisted on `GarmentAsset`, parser-validated. |
 | `GarmentDraft` | `garmentTypes.ts` | Editable subset used by forms. |
 | `OutfitSelection` | `outfitTypes.ts` | `Record<slot, garmentId \| null>`. One slot per category. |
 | `SavedOutfit` | `outfitTypes.ts` | Named snapshot of a selection + cover hue. |

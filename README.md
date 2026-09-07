@@ -62,7 +62,10 @@ Everything here works with the repository as cloned, with no configuration.
   and an optional edge-seeded flood-fill background removal. No image is
   uploaded.
 - **Outfit composition** on a 2.5D layered mannequin, with a deterministic Fit
-  Check over palette, tone and completeness, and a saved-looks board.
+  Check over palette, tone and completeness, and a saved-looks board. An
+  accepted cutout is placed by its *measured content*, so a garment sits on the
+  body rather than being dropped into a rectangle; anything without measurable
+  transparency keeps an honest matted panel.
 - **Manual market-value history** — timestamped estimates *you* type, with trend
   math against the purchase price. Nothing is fetched.
 - **Local persistence** — IndexedDB, falling back to localStorage, falling back
@@ -105,9 +108,9 @@ See [Architecture](docs/ARCHITECTURE.md).
 
 ## Current Status
 
-**Functional MVP (web).** The core loop is complete end to end and covered by
-597 unit, 16 browser and 75 backend tests. It has never been deployed and has
-no users.
+**Functional MVP (web), mobile-first.** The core loop is complete end to end and
+covered by 705 unit, 20 browser and 75 backend tests. It has never been deployed
+and has no users.
 
 See [Project Status](docs/PROJECT_STATUS.md) — the single source of truth for
 what exists, what is partial, and what is not built.
@@ -122,23 +125,24 @@ npm ci
 npm run dev          # http://localhost:5173
 ```
 
-In an empty studio, click **Load sample** for a procedural sample archive, or
-**Upload** a clothing photo to archive your own piece.
+You land in the **Closet**. From an empty one, click **Load sample** for a
+procedural sample archive, or **Add** a clothing photo to archive your own piece.
+On a phone the sidebar is replaced by a bottom bar with Add at its centre.
 
 Verification:
 
 ```bash
 npm run typecheck    # strict; covers src/ and the api/ Edge functions
 npm run lint
-npm test             # 597 unit + component tests
+npm test             # 705 unit + component tests
 npm run build
-npm run test:e2e     # 6 Playwright specs, desktop + mobile
+npm run test:e2e     # 10 Playwright specs, desktop + mobile
 ```
 
 The experimental backend has its own suite:
 
 ```bash
-python -m pytest backend    # 71 tests
+python -m pytest backend    # 75 tests
 ```
 
 Full setup, including the optional backend and every environment variable, is in
@@ -149,7 +153,7 @@ Full setup, including the optional backend and every environment variable, is in
 ```
 src/
   app/            App + ArchiveProvider, reducer, context, hook
-  components/     ui/ closet/ outfit/ studio/ avatar/
+  components/     ui/ closet/ outfit/ studio/ navigation/ avatar/
   domain/         types, taxonomy, draft, fit check, market value (no browser APIs)
   lib/            storage/ ai/ image/ candidates/ productMatch/
   data/           procedural sample archive
@@ -210,6 +214,7 @@ Experimental 3D work is tracked separately in
 | [Project Status](docs/PROJECT_STATUS.md) | **Source of truth** — what is implemented, partial, and planned |
 | [Revival Roadmap](docs/REVIVAL_ROADMAP.md) | **Source of truth for direction** — Core v1 definition and phases |
 | [Revival Backlog](docs/REVIVAL_BACKLOG.md) | Deferred ideas, and why each was deferred |
+| [Revival Phase 0–2 Report](docs/REVIVAL_PHASE_0_2_REPORT.md) | What the revival pass changed, verified, and left undone |
 | [Architecture](docs/ARCHITECTURE.md) | How the system is put together |
 | [Development](docs/DEVELOPMENT.md) | Setup, environment variables, runtime matrix |
 | [Portfolio Facts](docs/PORTFOLIO_FACTS.md) | Verified claims approved for external use |
