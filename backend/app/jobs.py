@@ -1,7 +1,11 @@
 """In-memory async job store + lifecycle (Track B, Phase B4a).
 
 State (queued/processing/done/failed) lives in a thread-safe in-memory map; the
-result GLB persists to disk. The disk layout mirrors ``storage.py`` exactly —
+result GLB persists to disk. A FINISHED job is therefore recoverable across a
+restart (``JobStore.get`` rebuilds it from the artifacts on disk), but a queued
+or in-flight one is not: this is a single-process job runner, NOT a durable
+queue, and it says so rather than implying delivery guarantees it has no way to
+keep. The disk layout mirrors ``storage.py`` exactly —
 ``<jobs root>/<job_id>/result.glb`` + ``metadata.json`` — but on a SEPARATE root
 (``AVATARWARDROBE_JOBS_DATA``), so the proxy-3D storage is never touched.
 
@@ -64,7 +68,7 @@ def glb_path(job_id: str) -> Path | None:
 
 
 class JobStore:
-    """Thread-safe in-memory job state. Result GLB persists to disk."""
+    """Thread-safe in-memory job state, with results recoverable from disk."""
 
     def __init__(self) -> None:
         self._jobs: dict[str, Job] = {}
@@ -87,7 +91,47 @@ class JobStore:
 
     def get(self, job_id: str) -> Job | None:
         with self._lock:
-            return self._jobs.get(job_id)
+            job = self._jobs.get(job_id)
+        if job is not None:
+            return job
+        return self._recover_from_disk(job_id)
+
+    def _recover_from_disk(self, job_id: str) -> Job | None:
+        """Rebuild a finished job from its artifacts after a process restart.
+
+        Job STATE is in memory; job OUTPUT is on disk. A restart therefore used
+        to lose the state while keeping the bytes, so a client polling a job it
+        had legitimately started got a 404 while ``result.glb`` sat right there
+        — the job looked lost when only the bookkeeping was.
+
+        Only a COMPLETE job can be recovered, and completeness is defined by
+        what ``process`` writes last: ``metadata.json`` is written after
+        ``result.glb``, so both present means the pipeline finished. A job that
+        was queued or mid-flight when the process died is genuinely gone, and is
+        reported as gone rather than resurrected in a state that never existed.
+
+        This is not a durable queue and does not pretend to be one — see
+        ``docs/AVATAR_TRACK.md``. It recovers results, not work in progress.
+        """
+        if not is_valid_job_id(job_id):
+            return None
+        job_dir = jobs_root() / job_id
+        metadata_path = job_dir / "metadata.json"
+        if not (job_dir / "result.glb").is_file() or not metadata_path.is_file():
+            return None
+        try:
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        raw_notes = metadata.get("notes") if isinstance(metadata, dict) else None
+        notes = (
+            [str(note) for note in raw_notes] if isinstance(raw_notes, list) else []
+        )
+        recovered = Job(id=job_id, state=JobState.DONE, notes=notes)
+        with self._lock:
+            # Another thread may have created the same id in the meantime; the
+            # live record always wins over one reconstructed from disk.
+            return self._jobs.setdefault(job_id, recovered)
 
     def _update(self, job_id: str, **fields) -> None:
         with self._lock:

@@ -17,7 +17,7 @@ import type { OutfitSelection, SavedOutfit } from '../../domain/outfitTypes'
 import {
   STORAGE_KEYS,
   parseCurrentOutfit,
-  parseGarments,
+  parseGarmentsWithReport,
   parseSavedOutfits,
   type ArchiveStorageAdapter,
   type GarmentsReadResult,
@@ -114,9 +114,12 @@ export function createIndexedDbAdapter(db: IDBDatabase): ArchiveStorageAdapter {
   // sweep can tell "empty archive" apart from "couldn't read".
   async function loadGarmentsResult(): Promise<GarmentsReadResult> {
     try {
-      return { status: 'ok', garments: parseGarments(await idbGet(db, STORAGE_KEYS.garments)) }
+      return {
+        status: 'ok',
+        ...parseGarmentsWithReport(await idbGet(db, STORAGE_KEYS.garments)),
+      }
     } catch {
-      return { status: 'unavailable', garments: [] }
+      return { status: 'unavailable', garments: [], unreadable: 0 }
     }
   }
 

@@ -28,6 +28,16 @@ export type StorageBackend = 'indexeddb' | 'localstorage' | 'memory'
 export interface GarmentsReadResult {
   status: 'ok' | 'unavailable'
   garments: GarmentItem[]
+  /**
+   * Stored entries that were present but not readable as a garment, and were
+   * therefore dropped.
+   *
+   * This number has to travel: the app re-persists the WHOLE array on the next
+   * edit, so a record dropped at load is erased for good a moment later. Silent
+   * is the one thing that must not happen — the user needs the chance to import
+   * a backup before their next change makes the loss permanent.
+   */
+  unreadable: number
 }
 
 export interface ArchiveStorageAdapter {
@@ -249,8 +259,31 @@ function sanitizeGarment(garment: GarmentItem): GarmentItem {
   return cleaned ?? garment
 }
 
+/**
+ * Parse stored garments, reporting how many entries had to be discarded.
+ *
+ * A discarded entry is one missing a field the UI cannot render without (id,
+ * name, category, colour, image, timestamps). Keeping it would break rendering;
+ * dropping it quietly would lose it. So it is dropped and counted.
+ */
+export function parseGarmentsWithReport(raw: unknown): {
+  garments: GarmentItem[]
+  unreadable: number
+} {
+  if (!Array.isArray(raw)) {
+    // A non-array where an array was stored is itself unreadable data, but
+    // there is no per-entry count to give — report the array as one loss.
+    return { garments: [], unreadable: raw == null ? 0 : 1 }
+  }
+  const kept = raw.filter(isGarmentItem)
+  return {
+    garments: kept.map(sanitizeGarment),
+    unreadable: raw.length - kept.length,
+  }
+}
+
 export function parseGarments(raw: unknown): GarmentItem[] {
-  return Array.isArray(raw) ? raw.filter(isGarmentItem).map(sanitizeGarment) : []
+  return parseGarmentsWithReport(raw).garments
 }
 
 export function parseSavedOutfits(raw: unknown): SavedOutfit[] {

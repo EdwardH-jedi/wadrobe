@@ -14,10 +14,12 @@
 import { parseProductMeta } from '../src/lib/productMatch/productMetaParse'
 import { validateFetchTarget } from '../src/lib/productMatch/urlGuard'
 import {
+  SMALL_BODY_BYTES,
   gateRequest,
   jsonResponse,
   optionalApisEnabled,
   readCappedText,
+  readJsonBody,
   type RateLimitRule,
 } from './_lib/http'
 
@@ -31,6 +33,18 @@ const MAX_REDIRECTS = 3
 // attacker-controlled fetch, so keep the ceiling modest.
 const RATE_LIMIT: RateLimitRule = { name: 'product-meta', max: 20 }
 
+/**
+ * True when the upstream declared an HTML document (or declared nothing, which
+ * older stores still do). Anything that positively announces itself as another
+ * type is refused rather than parsed on the off-chance.
+ */
+function isHtmlResponse(res: Response): boolean {
+  const type = res.headers.get('content-type')
+  if (!type) return true
+  const essence = type.split(';')[0].trim().toLowerCase()
+  return essence === 'text/html' || essence === 'application/xhtml+xml'
+}
+
 export default async function handler(req: Request): Promise<Response> {
   // Off unless the deployment explicitly opts in (see `optionalApisEnabled`).
   if (!optionalApisEnabled()) return new Response('Not found', { status: 404 })
@@ -39,13 +53,14 @@ export default async function handler(req: Request): Promise<Response> {
   if (!gate.ok) return gate.response
   const json = (body: unknown, status: number) => jsonResponse(body, status, gate.cors)
 
-  let rawUrl = ''
-  try {
-    const body = await req.json()
-    rawUrl = body && typeof body.url === 'string' ? body.url : ''
-  } catch {
-    return json({ error: 'Invalid JSON body' }, 400)
+  const parsedBody = await readJsonBody(req, SMALL_BODY_BYTES)
+  if (!parsedBody.ok) {
+    return parsedBody.reason === 'too-large'
+      ? json({ error: 'Request body is too large' }, 413)
+      : json({ error: 'Invalid JSON body' }, 400)
   }
+  const body = parsedBody.value as Record<string, unknown> | null
+  const rawUrl = body && typeof body.url === 'string' ? body.url : ''
 
   const first = validateFetchTarget(rawUrl)
   if (!first.ok) return json({ error: first.reason }, 400)
@@ -76,6 +91,13 @@ export default async function handler(req: Request): Promise<Response> {
       }
 
       if (!res.ok) return json({ error: `Upstream responded ${res.status}` }, 502)
+
+      // Only an HTML document can carry the metadata this route reads. A user
+      // pointing it at a video or a disk image would otherwise have the server
+      // stream up to the byte cap and hand it to an HTML parser for nothing.
+      if (!isHtmlResponse(res)) {
+        return json({ error: 'That URL is not a product page' }, 415)
+      }
 
       // Streamed, not buffered-then-sliced: `res.text()` would hold the whole
       // body in memory before any cap could apply.

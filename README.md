@@ -106,7 +106,7 @@ See [Architecture](docs/ARCHITECTURE.md).
 ## Current Status
 
 **Functional MVP (web).** The core loop is complete end to end and covered by
-551 unit, 12 browser and 71 backend tests. It has never been deployed and has
+597 unit, 16 browser and 75 backend tests. It has never been deployed and has
 no users.
 
 See [Project Status](docs/PROJECT_STATUS.md) — the single source of truth for
@@ -130,7 +130,7 @@ Verification:
 ```bash
 npm run typecheck    # strict; covers src/ and the api/ Edge functions
 npm run lint
-npm test             # 551 unit + component tests
+npm test             # 597 unit + component tests
 npm run build
 npm run test:e2e     # 6 Playwright specs, desktop + mobile
 ```

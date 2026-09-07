@@ -77,6 +77,27 @@ test('refuses a stale second tab rather than overwriting the first', async ({
   await tabB.getByRole('button', { name: /Load sample/i }).first().click()
   await expect(tabB.locator('.storage-badge')).toContainText(/Save failed/)
 
+  // ...and B is TOLD, in words, with the action that fixes it. A refusal the
+  // user never sees is a refusal that looks like a bug.
+  const banner = tabB.locator('.archive-alert')
+  await expect(banner).toBeVisible()
+  await expect(banner).toContainText(/another tab/i)
+  await expect(banner.getByRole('button', { name: /Reload/i })).toBeVisible()
+
+  // Nothing about the warning may push the layout sideways.
+  const overflow = await tabB.evaluate(
+    () =>
+      document.documentElement.scrollWidth -
+      document.documentElement.clientWidth,
+  )
+  expect(overflow).toBeLessThanOrEqual(1)
+
+  // Reloading B is the documented recovery: it picks up A's archive and the
+  // warning goes away.
+  await banner.getByRole('button', { name: /Reload/i }).click()
+  await expect(tabB.getByText('Clothing Rack')).toBeVisible()
+  await expect(tabB.locator('.archive-alert')).toHaveCount(0)
+
   // A's pieces survive — the whole point.
   await tabA.reload()
   await tabA.getByRole('button', { name: /^Closet/ }).click()
@@ -109,4 +130,71 @@ test('stays usable on a narrow viewport', async ({ page }) => {
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   )
   expect(overflow).toBeLessThanOrEqual(1)
+})
+
+test('no view scrolls sideways at 390px', async ({ page }) => {
+  // The document-level check above passes even when the SCROLL CONTAINER
+  // (`.view`) is the thing overflowing — which is what was actually happening:
+  // the Lookbook grid asked for a 340px track inside a 290px column, and the
+  // Mirror's `1fr` track took its minimum from its content and came out 55px
+  // too wide. Both scrolled sideways; neither showed up at the document level.
+  // So every view is checked, on its own container.
+  await page.setViewportSize({ width: 390, height: 844 })
+  await loadSampleArchive(page)
+
+  for (const view of ['Studio', 'Closet', 'Lookbook', 'Mirror', 'Outfits']) {
+    await page.getByRole('button', { name: new RegExp(`^${view}`) }).click()
+    await expect(page.locator('.view')).toBeVisible()
+    const overflow = await page.evaluate(() => {
+      const el = document.querySelector('.view') as HTMLElement
+      return el.scrollWidth - el.clientWidth
+    })
+    expect(overflow, `${view} scrolls sideways at 390px`).toBeLessThanOrEqual(1)
+  }
+})
+
+test('lays the studio room out without clipping its alcoves', async ({
+  page,
+}) => {
+  // The Studio is the landing view, so a phone visitor's FIRST impression is
+  // this scene. It used to arrive broken: the room is a fixed-height stage on
+  // desktop, and restacking five alcoves into one or two columns needed more
+  // height than the stage had. `overflow: hidden` turned the shortfall into
+  // alcoves drawn over each other with their labels sliced in half.
+  //
+  // Bounding boxes did not catch it — the grid cells never overlapped, their
+  // CONTENT spilled out. So the assertion is content-vs-box, per alcove, which
+  // is the thing that was actually wrong.
+  // Populated once: the pieces persist, and "Load sample" disappears with them.
+  await loadSampleArchive(page)
+
+  for (const [width, height] of [
+    [1440, 900],
+    [800, 1000],
+    [390, 844],
+  ] as const) {
+    await page.setViewportSize({ width, height })
+    await page.reload()
+    await expect(page.locator('.zone--rack')).toBeVisible()
+    // Let the grid settle after the resize before measuring.
+    await expect(page.locator('.rack__item').first()).toBeVisible()
+
+    const clipped = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('.zone'))
+        .map((el) => ({
+          zone: (el as HTMLElement).className,
+          clippedBy: el.scrollHeight - el.clientHeight,
+        }))
+        // A couple of pixels is sub-pixel rounding, not a broken layout.
+        .filter((z) => z.clippedBy > 2),
+    )
+    expect(clipped, `alcoves clipped at ${width}px`).toEqual([])
+
+    const overflow = await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth -
+        document.documentElement.clientWidth,
+    )
+    expect(overflow, `horizontal overflow at ${width}px`).toBeLessThanOrEqual(1)
+  }
 })

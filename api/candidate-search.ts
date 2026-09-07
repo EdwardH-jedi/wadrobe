@@ -19,10 +19,12 @@ import {
 } from '../src/lib/candidates/ebaySearch'
 import type { ProductMatchInput } from '../src/lib/productMatch/productMatchTypes'
 import {
-  type RateLimitRule,
   gateRequest,
   jsonResponse,
   optionalApisEnabled,
+  type RateLimitRule,
+  readJsonBody,
+  SMALL_BODY_BYTES,
 } from './_lib/http'
 
 export const config = { runtime: 'edge' }
@@ -105,16 +107,17 @@ export default async function handler(req: Request): Promise<Response> {
     return json({ error: 'Candidate search is not configured' }, 500)
   }
 
-  let input: ProductMatchInput
-  try {
-    const body = await req.json()
-    if (!body || typeof body.category !== 'string') {
-      return json({ error: 'category is required' }, 400)
-    }
-    input = body as ProductMatchInput
-  } catch {
-    return json({ error: 'Invalid JSON body' }, 400)
+  const parsedBody = await readJsonBody(req, SMALL_BODY_BYTES)
+  if (!parsedBody.ok) {
+    return parsedBody.reason === 'too-large'
+      ? json({ error: 'Request body is too large' }, 413)
+      : json({ error: 'Invalid JSON body' }, 400)
   }
+  const body = parsedBody.value as Record<string, unknown> | null
+  if (!body || typeof body.category !== 'string') {
+    return json({ error: 'category is required' }, 400)
+  }
+  const input = body as unknown as ProductMatchInput
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)

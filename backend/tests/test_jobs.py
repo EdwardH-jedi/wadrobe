@@ -176,3 +176,72 @@ def test_failed_job_result_is_409_with_error(client):
     response = client.get(f"/api/jobs/{job.id}/result.glb")
     assert response.status_code == 409
     assert "boom" in response.json()["detail"]
+
+
+def test_finished_job_survives_a_restart(client, tmp_path):
+    """A restart loses bookkeeping, not results.
+
+    State lives in memory and output lives on disk, so a process restart used to
+    404 a job whose ``result.glb`` was sitting on disk the whole time. The store
+    now rebuilds a finished job from its artifacts.
+    """
+    created = _post_job(client)
+    assert created.status_code == 202
+    job_id = created.json()["id"]
+    _poll_until_settled(client, job_id)
+
+    # Simulate the restart: a brand-new store with no memory of anything, over
+    # the same data directory.
+    restarted = jobs.JobStore()
+    recovered = restarted.get(job_id)
+    assert recovered is not None
+    assert recovered.state is jobs.JobState.DONE
+    assert recovered.id == job_id
+    # The honest provenance notes come back with it.
+    assert recovered.notes
+
+
+def test_an_unfinished_job_is_reported_gone_not_invented(tmp_path, monkeypatch):
+    """Only a COMPLETE artifact set is recoverable.
+
+    Reconstructing a queued or half-written job would put the client in a state
+    that never existed on the server. Absent is the honest answer.
+    """
+    monkeypatch.setenv("AVATARWARDROBE_JOBS_DATA", str(tmp_path / "jobs"))
+    store = jobs.JobStore()
+    job_id = "a" * 32
+
+    # Nothing on disk at all.
+    assert store.get(job_id) is None
+
+    # A GLB with no metadata: the pipeline died between the two writes.
+    job_dir = jobs.jobs_root() / job_id
+    job_dir.mkdir(parents=True)
+    (job_dir / "result.glb").write_bytes(b"glTF-partial")
+    assert store.get(job_id) is None
+
+    # Metadata that is not readable JSON is not a completed job either.
+    (job_dir / "metadata.json").write_text("{not json", encoding="utf-8")
+    assert store.get(job_id) is None
+
+
+def test_recovery_never_overrides_a_live_job(tmp_path, monkeypatch):
+    """A job still in flight outranks anything reconstructed from disk."""
+    monkeypatch.setenv("AVATARWARDROBE_JOBS_DATA", str(tmp_path / "jobs"))
+    store = jobs.JobStore()
+    job = store.create()
+
+    job_dir = jobs.jobs_root() / job.id
+    job_dir.mkdir(parents=True)
+    (job_dir / "result.glb").write_bytes(b"glTF")
+    (job_dir / "metadata.json").write_text('{"notes": ["stale"]}', encoding="utf-8")
+
+    assert store.get(job.id).state is jobs.JobState.QUEUED
+
+
+def test_recovery_rejects_a_malformed_job_id(tmp_path, monkeypatch):
+    """The id is used to build a filesystem path, so it stays validated."""
+    monkeypatch.setenv("AVATARWARDROBE_JOBS_DATA", str(tmp_path / "jobs"))
+    store = jobs.JobStore()
+    for bad in ["../../etc", "not-hex", "", "A" * 32]:
+        assert store.get(bad) is None

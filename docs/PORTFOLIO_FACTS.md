@@ -82,7 +82,7 @@ for.
   PNG synchronously and is the one the frontend can call; and a separate async
   `/api/jobs` avatar-build experiment structured as five injectable stage
   Protocols, which **no frontend consumes**.
-- **The test and CI baseline.** 445 web tests, 65 backend tests, strict
+- **The test and CI baseline.** 597 web tests, 75 backend tests, 16 browser tests, strict
   TypeScript across two compilation units, and a GitHub Actions workflow.
 
 ## 5. Technical Ownership
@@ -167,7 +167,7 @@ deployed.
 
 | Evidence | Value |
 | --- | --- |
-| Unit / component tests | 551 passing, across 69 files |
+| Unit / component tests | 597 passing, across 73 files |
 | Backend tests | 71 passing (pytest) |
 | Typecheck | Strict, across two compilation units (`src/` and `api/`) |
 | Build | Passing; 283 kB main chunk, three.js split into a 733 kB lazy chunk |
@@ -231,7 +231,7 @@ Run on Node 24.19.0 (also verified on 25.8.0 and 26.7.0) and Python 3.12.13.
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Tests (web) | `npm test` | **PASS** — 551 tests, 69 files |
+| Tests (web) | `npm test` | **PASS** — 597 tests, 73 files |
 | Tests (backend) | `python -m pytest backend` | **PASS** — 71 tests |
 | Lint | `npm run lint` | **PASS** |
 | Typecheck | `npm run typecheck` | **PASS** (strict, `src/` + `api/`) |
@@ -298,7 +298,7 @@ Every sentence below is defensible from the repository.
   consent gate, because it is the only path that transmits a photo."
 - "Kept a 733 kB three.js dependency out of the default bundle behind a single
   lazy-loading site and a feature flag, verified by the production chunk split."
-- "Wrote 445 frontend and 65 backend tests, with strict TypeScript across two
+- "Wrote 597 frontend and 75 backend tests plus a 16-test real-browser suite, with strict TypeScript across two
   compilation units and a GitHub Actions pipeline configured to run both on every
   pull request and push to main."
 - "Enforced honest product copy with automated tests — shared forbidden-term

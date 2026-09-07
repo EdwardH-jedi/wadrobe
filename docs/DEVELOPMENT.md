@@ -147,9 +147,12 @@ Set these in your Vercel project settings, not in a file you commit.
 | `EBAY_CLIENT_ID` | `api/candidate-search.ts` | With either eBay variable unset the endpoint reports "not configured" and the app falls back to local mock candidates. |
 | `EBAY_CLIENT_SECRET` | `api/candidate-search.ts` | — |
 
-> **Before deploying `api/`:** the three Edge functions currently send
-> `Access-Control-Allow-Origin: *` with no auth, rate limit, or request-size cap,
-> while spending the keys above on every call. See the technical-debt section of
+> **Before deploying `api/`:** all three Edge functions are **off unless
+> `ENABLE_OPTIONAL_APIS=true`** — with it unset every route answers 404, which
+> is indistinguishable from "not deployed". Turn them on only together with
+> `ALLOWED_ORIGINS`. Even then they have **no authentication**, so any allowed
+> origin can spend the keys above; the per-caller throttle is per Vercel
+> isolate, not global. See the technical-debt section of
 > [`PROJECT_STATUS.md`](PROJECT_STATUS.md#10-technical-debt).
 
 ---

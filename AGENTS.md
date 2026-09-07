@@ -138,11 +138,17 @@ unit test.)
   — any new blob ref field MUST be added there. The sweep deletes a blob only if
   unreferenced AND **older than ~1h** (12.5 age gate — blob keys embed a timestamp
   `asset_<ms>_<uuid>`; recent/cross-tab and legacy timestamp-less blobs are kept)
-  AND the metadata read returned `ok` (`loadGarmentsResult`; an `unavailable` read
-  skips the sweep). The thumbnail-always design means a missing blob degrades to
-  the thumbnail, so orphan cleanup is disk hygiene, not data-loss prevention.
-  Persistence is fire-and-forget app-wide (a failed save is silent; orphans
-  reclaimed on a later readable load once they age out).
+  AND the metadata read returned `ok` with **zero unreadable records**
+  (`loadGarmentsResult`; an `unavailable` read, or a read that had to drop
+  entries, skips the sweep — the reference set would be known-incomplete). The
+  thumbnail-always design means a missing blob degrades to the thumbnail, so
+  orphan cleanup is disk hygiene, not data-loss prevention.
+  Writes are OPTIMISTIC BUT ACKNOWLEDGED: the UI updates immediately, and each
+  write's outcome is tracked **per slice** in `persistenceStatus.ts` and
+  surfaced by `ArchiveAlertBanner`. A failed save is never silent. `garments`
+  and `savedOutfits` are additionally written under one monotonic revision
+  (`archiveRevision.ts`) so a stale tab is refused rather than allowed to
+  clobber; `currentOutfit` is deliberately outside that guard.
 - Keep the reducer pure; do I/O in effects/action creators.
 - Comments and identifiers: **English only**.
 

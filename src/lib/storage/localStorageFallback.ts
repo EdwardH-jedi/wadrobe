@@ -5,7 +5,7 @@ import type { OutfitSelection, SavedOutfit } from '../../domain/outfitTypes'
 import {
   STORAGE_KEYS,
   parseCurrentOutfit,
-  parseGarments,
+  parseGarmentsWithReport,
   parseSavedOutfits,
   type ArchiveStorageAdapter,
   type GarmentsReadResult,
@@ -56,10 +56,10 @@ export function createLocalStorageAdapter(): ArchiveStorageAdapter {
   async function loadGarmentsResult(): Promise<GarmentsReadResult> {
     try {
       const raw = localStorage.getItem(STORAGE_KEYS.garments)
-      if (raw === null) return { status: 'ok', garments: [] }
-      return { status: 'ok', garments: parseGarments(JSON.parse(raw)) }
+      if (raw === null) return { status: 'ok', garments: [], unreadable: 0 }
+      return { status: 'ok', ...parseGarmentsWithReport(JSON.parse(raw)) }
     } catch {
-      return { status: 'unavailable', garments: [] }
+      return { status: 'unavailable', garments: [], unreadable: 0 }
     }
   }
   return {

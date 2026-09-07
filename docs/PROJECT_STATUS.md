@@ -1,12 +1,13 @@
 # Project Status
 
-Last verified: 2026-08-21
+Last verified: 2026-09-05
 Repository: EdwardH-jedi/wadrobe
-Default branch: `main` — **stale.** All current work is on
-`chore/career-ready-rehabilitation`; `main` sits at "push everything" and is
-many features behind. See [§10](#10-technical-debt).
-Verified against: commit `9f3d181` plus the uncommitted documentation changes of
-this pass.
+Default branch: `main` — **local `main` now carries every feature**
+(`chore/career-ready-rehabilitation` is merged at `8ac6d19`), but it is **27
+commits ahead of `origin/main` and none of it is pushed.** From outside, the
+repository still shows "push everything". See [§10](#10-technical-debt).
+Verified against: commit `8ac6d19` plus the uncommitted changes of the
+completion-and-hardening pass of 2026-09-05.
 Status: **Active**
 
 > This is the canonical implementation-state document. Where any other document
@@ -108,9 +109,32 @@ in-memory**. Writes are gated on a `hydrated` flag so an initial empty state can
 never overwrite stored data. Heavy cropped/cutout images live as Blobs in a
 second IndexedDB database, with a fail-closed orphan sweep behind an age gate.
 
+Every write's outcome is tracked **per slice** (`persistenceStatus.ts`), and
+anything that puts the archive at risk is said out loud in a banner above the
+view (`ArchiveAlertBanner.tsx`), never only in a corner badge:
+
+- **Multi-tab staleness.** Garments *and* saved looks are written under one
+  monotonic revision. A tab that loaded before another tab wrote has its write
+  refused rather than allowed to clobber, and is told so with a Reload button.
+  The current rail is deliberately outside the guard — it is a working
+  selection, not archive content.
+- **A full store.** `QuotaExceededError` is classified and reported as "storage
+  is full — export a backup, then remove a few pieces", not as a raw
+  `DOMException` name.
+- **A non-durable store.** An in-memory session warns that nothing will survive
+  a reload, before anything is lost.
+- **Unreadable stored records.** Entries that fail validation at load are
+  counted and reported ("N stored pieces could not be read"), because the next
+  ordinary edit re-persists the array without them. If the stored record could
+  not be read *at all*, that is reported separately and ranked higher — the
+  empty archive on screen is then not evidence of an empty archive, and without
+  saying so the most destructive load looks exactly like a first visit. While
+  either condition holds, the orphan blob sweep is skipped: its reference set is
+  known to be incomplete.
+
 ### Testing
-445 tests across 59 files (Vitest + Testing Library, jsdom) and 65 backend tests
-(pytest). Includes an unusual guard: `src/test/honesty.ts` exports forbidden-term
+597 tests across 73 files (Vitest + Testing Library, jsdom), 75 backend tests
+(pytest), and 16 real-browser tests (Playwright, desktop Chromium + Pixel 7). Includes an unusual guard: `src/test/honesty.ts` exports forbidden-term
 regexes that seven test files enforce against user-facing copy, so the product
 cannot start claiming AI recognition, virtual try-on, or exact product matching
 without a test failing.
@@ -154,6 +178,11 @@ See [§6](#6-validation).
 - Missing: **no frontend consumes it.** Body estimation and texture projection
   are deterministic stubs that record honestly what they did not do. There is no
   button, no polling loop, and no UI claim that this feature exists.
+- Durability: job STATE is in memory, job OUTPUT is on disk. A **finished** job
+  is therefore rebuilt from its artifacts after a restart (`JobStore.get`
+  recovers `result.glb` + `metadata.json`); a **queued or in-flight** one is
+  genuinely lost and is reported as absent rather than resurrected in a state
+  that never existed. This is a single-process job runner, not a durable queue.
 
 ## 5. Planned / Not Implemented
 
@@ -185,21 +214,21 @@ section exists so none of it is mistaken for capability. Two distinct kinds:
 
 ## 6. Validation
 
-Run on **Node 24.19.0** (also verified on 25.8.0 and 26.7.0) and **Python
-3.12.13**.
+Run on **Node 26.7.0** (previously verified on 24.19.0 and 25.8.0) and **Python
+3.12.13**, on 2026-09-05.
 
 | Check | Command | Result |
 | --- | --- | --- |
 | Install | `npm ci` | **PASS** |
 | Typecheck | `npm run typecheck` | **PASS** — covers `src/` *and* the `api/` Edge functions (two tsconfigs) |
 | Lint | `npm run lint` | **PASS** |
-| Unit / component tests | `npm test` | **PASS** — 551 tests, 69 files |
-| Build | `npm run build` | **PASS** — 283 kB main chunk; 733 kB three.js in a separate lazy chunk |
-| Backend tests | `python -m pytest backend` | **PASS** — 71 passed, 1 warning |
+| Unit / component tests | `npm test` | **PASS** — 597 tests, 73 files |
+| Build | `npm run build` | **PASS** — 307 kB main chunk (95 kB gzip); 733 kB three.js in a separate lazy chunk |
+| Backend tests | `python -m pytest backend` | **PASS** — 75 passed, 1 warning |
 | Backend startup | `python -m uvicorn app.main:app --app-dir backend --port 8000` | **PASS** — "Application startup complete" |
 | API smoke test | `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/openapi.json` | **PASS** — HTTP 200, six routes; unknown job id correctly returns 404 |
 | CI workflow | `.github/workflows/ci.yml` | **NOT VERIFIED remotely** — YAML parsed and both jobs replicated locally in a clean clone, but CI has never run because nothing has been pushed |
-| Browser tests | `npm run test:e2e` | **PASS** — 12 (6 Playwright specs × desktop chromium + Pixel 7) |
+| Browser tests | `npm run test:e2e` | **PASS** — 16 (8 Playwright specs × desktop chromium + Pixel 7) |
 | Mobile build | — | **NOT APPLICABLE** — a web application. There is no Swift, SwiftUI, React Native or other native mobile code anywhere in this repository. |
 
 The single remaining backend warning is third-party (`StarletteDeprecationWarning`
@@ -249,17 +278,19 @@ another browser.
 
 ## 9. Known Issues
 
-1. **No export or backup.** Combined with browser-only storage, a cleared
-   profile means a lost archive. This is the most user-visible gap.
-2. **The optional cloud paths are unverified end to end.** Implemented and
+1. **The optional cloud paths are unverified end to end.** Implemented and
    unit-tested, but never demonstrated against the live Anthropic or eBay APIs.
-3. **A missing blob degrades silently.** By design the preview falls back to the
+2. **A missing blob degrades silently.** By design the preview falls back to the
    thumbnail, but nothing tells the user the higher-quality asset is gone.
-4. **Cutout quality varies sharply with the photo.** A flood fill works well on
+3. **Cutout quality varies sharply with the photo.** A flood fill works well on
    clean flat-lay backgrounds and poorly on busy ones. The flow is honest about
    this and skippable, but it is a real limitation.
-5. **Persistence is fire-and-forget.** A failed save is silent app-wide.
-6. **The default page fetches Google Fonts.** It is the one external request the
+4. **The revision check and the write are not one transaction.** Two tabs
+   writing inside the same tick can still interleave; the window is milliseconds
+   and both tabs see the conflict on their next write. Closing it fully needs a
+   single transaction over a store that supports one, which localStorage does
+   not.
+5. **The default page fetches Google Fonts.** It is the one external request the
    app makes with no configuration — typefaces only, no wardrobe data, no photo,
    no identifier the app supplies. It still means the default experience is not
    strictly zero-network, and it fails to a system-serif fallback offline.
@@ -268,54 +299,70 @@ another browser.
 
 Ordered by what actually costs something.
 
-1. **The optional serverless routes are unauthenticated and send
-   `Access-Control-Allow-Origin: *`.** `api/analyze.ts`, `api/product-meta.ts`
-   and `api/candidate-search.ts` have no auth, no rate limit and no request-size
-   cap, while `analyze` spends `ANTHROPIC_API_KEY` and `candidate-search` spends
-   eBay credentials per call. **This is a deployment risk, not a leak** — keys
-   are server-only and the app is inert with the env unset. A written fix
-   (origin allowlist, token cache, per-caller throttle) is stranded on the
-   unmerged branch `thread/api-hardening`. **Do not deploy `api/` publicly with
-   real keys until it is merged and reviewed.**
-2. **`main` is stale and six `thread/*` branches are unmerged** —
-   `api-hardening`, `docs-ci`, `ebay-mapping`, `json-export`, `price-domain`,
-   `texture-projector`. From outside, only `main` is visible, so this work reads
-   as absent.
-3. **No `LICENSE`.** A public repository without one is legally "all rights
+1. **Nothing is pushed.** Local `main` is **27 commits ahead of
+   `origin/main`**, so every feature described in this document is invisible to
+   anyone reading the repository on GitHub. This is now the single most
+   expensive item on the list: the work exists and does not count.
+2. **The optional serverless routes still have no authentication.** They are
+   off by default (`ENABLE_OPTIONAL_APIS`, unset = every route answers 404) and
+   now carry an origin allowlist with no wildcard, a per-caller throttle,
+   request-body caps, response-size caps and timeouts. What remains true:
+   - there is **no auth**, so anyone allowed by the origin list can spend
+     `ANTHROPIC_API_KEY` / eBay credentials;
+   - the throttle is **per Vercel isolate**, so the effective ceiling is
+     (limit × live isolates) and a cold start resets a caller's window — a
+     speed bump, not a guarantee;
+   - `urlGuard` cannot stop **DNS rebinding**: a public name that resolves to a
+     private address after validation will still be fetched. Closing it needs
+     resolve-then-connect-to-the-resolved-IP, which the Edge runtime does not
+     expose.
+   **This is a deployment risk, not a leak** — keys are server-only and the app
+   is inert with the env unset.
+3. **Four `thread/*` branches still hold unmerged work** — `docs-ci` (2
+   commits), `json-export` (15; the feature itself was reimplemented on `main`
+   at `7893947`, so this is history, not capability), `price-domain` (1),
+   `texture-projector` (1). `api-hardening` and `ebay-mapping` are fully merged
+   and can be deleted.
+4. **No `LICENSE`.** A public repository without one is legally "all rights
    reserved", which discourages the reading a portfolio wants. A legal choice,
    left to the owner.
-4. **The test suite requires Node 22+.** Not debt so much as a stated floor:
+5. **The test suite requires Node 22+.** Not debt so much as a stated floor:
    the jsdom storage fix relies on `--no-experimental-webstorage`, which Node 20
    and earlier reject outright. Verified on 24, 25 and 26.
-5. **`backend/requirements.txt` has no upper bounds.** Every entry is a `>=`
+6. **`backend/requirements.txt` has no upper bounds.** Every entry is a `>=`
    floor, so a fresh install resolves whatever is newest — verified: a clean
    install pulls trimesh **5.0.0** and FastAPI **0.141.1**, two majors past the
    checked-in virtualenv. The suite passes on both, but backend CI is not
    reproducible.
-6. **The canvas/image path has no browser coverage.** The Playwright suite
-   covers persistence, backup, multi-tab and the experimental boundary, but the
+7. **The canvas/image path has no browser coverage.** The Playwright suite
+   covers persistence, backup, multi-tab conflict (including the banner and its
+   Reload), the studio room layout, per-view horizontal overflow at 390px, and
+   the experimental boundary — but the
    upload flow's canvas work is still only exercised through stubs in jsdom.
    Driving a real file picker plus canvas decode is the brittle path that suite
    deliberately avoided; it remains the largest untested surface.
-7. **`IMG_0198.jpg` remains in git history.** Removed from the working tree; a
+8. **`IMG_0198.jpg` remains in git history.** Removed from the working tree; a
    genuine purge needs `git filter-repo` and a force-push — an owner's decision.
    Recover with `git show 319b673:IMG_0198.jpg` if ever wanted.
-8. **The `eval/cutout` harness is scaffolding.** Engines and a runner exist; the
+9. **The `eval/cutout` harness is scaffolding.** Engines and a runner exist; the
    manifest holds one entry, no images are tracked and no results are committed.
    Excluded from lint and CI.
-9. **The repository is misspelled `wadrobe`** (missing the `r`). Renaming it on
+10. **The repository is misspelled `wadrobe`** (missing the `r`). Renaming it on
    GitHub is one click and GitHub redirects the old URL.
 
 ## 11. Next Recommended Work
 
-1. **Merge `thread/api-hardening`, then triage the other five branches.** Closes
-   the only debt item carrying financial exposure, and drags visible `main`
-   forward past "push everything".
-2. **Add archive export/import (JSON + images).** The largest real user risk is
-   a cleared browser profile. Work already exists on `thread/json-export`.
-3. **Add a small end-to-end suite** over the upload → archive → style → save
-   loop, exercising the real canvas and IndexedDB paths that jsdom cannot.
-4. **Add a `LICENSE`** and rename the repository to `wardrobe`.
+1. **Push `main`.** Twenty-seven commits of finished work are local only. Until
+   this happens, none of it exists as far as a reviewer is concerned, and every
+   other item here is worth less.
+2. **Add a `LICENSE`** and rename the repository to `wardrobe`.
+3. **Drive the upload flow in a real browser.** The Playwright suite now covers
+   persistence, backup, multi-tab conflict, the studio layout and the
+   experimental boundary — but the canvas work of upload → crop → cutout is
+   still exercised only through stubs in jsdom, and remains the largest
+   untested surface.
+4. **Triage the four remaining `thread/*` branches**, then delete the two that
+   are already merged (`api-hardening`, `ebay-mapping`).
 
 ## 12. Portfolio Readiness
 
@@ -323,7 +370,7 @@ Ordered by what actually costs something.
 | --- | --- |
 | README accuracy | Rewritten from the code; every claim traceable |
 | Implemented vs planned separation | Explicit — [§3](#3-implemented), [§4](#4-partially-implemented), [§5](#5-planned--not-implemented) |
-| Tests | 445 web + 65 backend, all passing |
+| Tests | 597 web + 75 backend + 16 browser, all passing |
 | Lint | Passing |
 | Typecheck | Passing, strict, covering `src/` and `api/` |
 | Build | Passing |

@@ -38,7 +38,7 @@ function makeAdapter(
   return {
     backend,
     loadGarments: async () => [],
-    loadGarmentsResult: async () => ({ status: 'ok', garments: [] }),
+    loadGarmentsResult: async () => ({ status: 'ok', garments: [], unreadable: 0 }),
     saveGarments: async () => {},
     loadSavedOutfits: async () => [],
     saveSavedOutfits: async () => {},

@@ -214,9 +214,20 @@ export function optionalApisEnabled(): boolean {
  *
  * Returns `null` when the cap is exceeded, so the caller can reject rather than
  * silently parse a half-document.
+ *
+ * Structurally typed rather than `Response`-typed so the same cap applies to an
+ * INBOUND `Request` body. These routes are unauthenticated: without it, anyone
+ * who can reach `/api/analyze` can make the function buffer an arbitrary number
+ * of megabytes before a single line of the handler's own validation runs.
  */
+export interface CappedBody {
+  headers: Headers
+  body: ReadableStream<Uint8Array> | null
+  text(): Promise<string>
+}
+
 export async function readCappedText(
-  res: Response,
+  res: CappedBody,
   maxBytes: number,
 ): Promise<string | null> {
   // Cheap pre-check: an honest upstream announces an oversized body up front.
@@ -295,3 +306,36 @@ export function gateRequest(req: Request, rule: RateLimitRule): RequestGate {
   }
   return { ok: true, cors: cors.headers }
 }
+
+/**
+ * Read and parse a capped JSON request body.
+ *
+ * Every route here is unauthenticated, so the size limit has to come BEFORE
+ * `req.json()` — which buffers the whole body first and would make the cap
+ * decorative. Distinguishes "too large" from "not JSON" so the caller can
+ * answer 413 vs 400 rather than collapsing both into one unhelpful error.
+ */
+export async function readJsonBody(
+  req: Request,
+  maxBytes: number,
+): Promise<
+  { ok: true; value: unknown } | { ok: false; reason: 'too-large' | 'invalid' }
+> {
+  const raw = await readCappedText(req, maxBytes).catch(() => null)
+  if (raw === null) return { ok: false, reason: 'too-large' }
+  try {
+    return { ok: true, value: JSON.parse(raw) }
+  } catch {
+    return { ok: false, reason: 'invalid' }
+  }
+}
+
+/** Body cap for the routes whose payload is a short JSON object (a URL, a query). */
+export const SMALL_BODY_BYTES = 16_000
+
+/**
+ * Body cap for `/api/analyze`, whose payload is a base64 thumbnail. A 768px
+ * JPEG at the app's quality setting is ~150 kB before base64's 4/3 inflation,
+ * so this is roughly ten times the largest legitimate request.
+ */
+export const IMAGE_BODY_BYTES = 2_000_000

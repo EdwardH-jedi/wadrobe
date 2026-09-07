@@ -620,17 +620,26 @@ publish an artifact anywhere.
 
 ## 13. Known Architectural Limitations
 
-- **No export.** Combined with browser-only storage, a cleared profile loses the
-  archive. The single largest architectural gap.
-- **Persistence is fire-and-forget app-wide.** A failed save is silent.
+- **A backup file is the only recovery path.** Storage is browser-only, so a
+  cleared profile still loses whatever has not been exported. Export/import
+  exists (`archiveExport.ts` / `archiveImport.ts`, surfaced in the Closet);
+  nothing reminds the user to run it on a schedule.
 - **Metadata and blob writes are not transactionally coordinated.** The blob-age
   gate narrows the multi-tab window but does not close it.
+- **The multi-tab revision check and the write are not one transaction.** Two
+  tabs writing inside the same tick can still interleave; the window is
+  milliseconds wide and both tabs then see the conflict on their next write.
+  Closing it fully needs a single transaction over a store that supports one —
+  IndexedDB does, localStorage does not.
 - **Only the downscaled thumbnail is retained** — the original full-resolution
   photo is discarded at upload.
-- **The optional Edge functions are unauthenticated**, send
-  `Access-Control-Allow-Origin: *`, and have no rate limit or request-size cap,
-  while spending API keys per call. A written fix is stranded on an unmerged
-  branch. Do not deploy them publicly as-is.
+- **The optional Edge functions are unauthenticated.** They are off unless
+  `ENABLE_OPTIONAL_APIS=true`, and now carry an origin allowlist (never a
+  wildcard), a per-caller throttle, request-body caps, response-size caps and
+  timeouts — but no auth, so any allowed origin can spend the API keys. The
+  throttle is per Vercel isolate, which is a speed bump rather than a
+  guarantee, and `urlGuard` cannot defend against DNS rebinding. Do not deploy
+  them publicly with real keys without adding authentication.
 - **No routing.** View state is in-memory, so there are no shareable URLs and a
   reload always returns to the Studio.
 - **The mannequin is 2.5D.** Body zones are CSS geometry; nothing is fitted or
@@ -659,9 +668,9 @@ Everything in this section is **planned or exploratory — none of it exists.**
   store-owned object-URL lifecycle (cached one-per-key, revoked on delete/reset).
   **Phase 12.5** narrowed the cross-tab sweep race with a blob-age gate +
   explicit metadata-read status. Remaining future work: **fully atomic** /
-  transactionally-coordinated metadata+blob writes (today persistence is
-  fire-and-forget, app-wide; the age gate makes the residual multi-tab window
-  small but not zero), a full-resolution storage strategy (today only the
+  transactionally-coordinated metadata+blob writes (writes are acknowledged per
+  slice today, but metadata and blobs are still two independent stores; the age
+  gate makes the residual multi-tab window small but not zero), a full-resolution storage strategy (today only the
   downscaled thumbnail is kept), and an ML/WASM cutout that writes through the
   same store.
 - **3D room** — replace `StudioScene` / `MannequinPreview` with an R3F scene;

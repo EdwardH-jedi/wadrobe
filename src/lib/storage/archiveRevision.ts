@@ -6,6 +6,12 @@
 // pieces, would overwrite them on its next unrelated change. Nothing warned
 // anyone, and there is no server copy to recover from.
 //
+// ONE counter covers BOTH durable slices — garments and saved looks — because a
+// stale tab is stale for the whole archive, not for one key of it. The current
+// rail is deliberately outside the guard: it is a working selection, not
+// content, and guarding it would make merely browsing in a second tab burn
+// revisions and raise conflicts over nothing.
+//
 // The fix is deliberately not a CRDT. A monotonically increasing revision is
 // stored beside the data. A tab records the revision it loaded, and before
 // writing it checks whether the stored revision has moved on. If it has,

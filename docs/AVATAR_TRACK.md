@@ -17,7 +17,7 @@
 > `three` lazy-loaded only inside the GLB viewer, plus the closet bridge) are
 > implemented. The **B4–B5 backend** exists and is pytest-green: the async jobs
 > API (`/api/jobs`), all five pipeline interfaces, a procedural `trimesh`
-> mannequin builder, and a bounding-box outfit-GLB fitter — 65 backend tests in
+> mannequin builder, and a bounding-box outfit-GLB fitter — 75 backend tests in
 > total.
 >
 > **Not built:** the frontend job-flow wiring that would drive `/api/jobs` from
@@ -80,6 +80,25 @@ AvatarWardrobe/
 - **Backend:** FastAPI + uvicorn + pydantic. Local-only, no auth, no cloud, no
   paid APIs. Job states: `queued → processing → done | failed` with an honest
   `error` field on failure.
+- **Job durability — what this is and is not.** `JobStore` is a **single-process
+  job runner, not a durable queue.** State lives in a thread-safe in-memory map;
+  output (`result.glb` + `metadata.json`) is written to disk under the jobs root.
+  The consequences, stated rather than implied:
+  - A **finished** job survives a restart. `JobStore.get` rebuilds it from its
+    artifacts, so a client that was polling gets its result rather than a 404.
+    Completeness is defined by what `process` writes last: `metadata.json`
+    lands after `result.glb`, so both present means the pipeline finished.
+  - A **queued or in-flight** job does not survive a restart, and is reported as
+    absent. Reconstructing one would put the client in a state that never
+    existed on the server.
+  - There is **no retry, no delivery guarantee, and no cross-process
+    coordination.** Two workers over one data root are not supported.
+  - Artifacts are swept on job creation once they pass
+    `JOB_ARTIFACT_TTL_SECONDS`; output is disposable because it can always be
+    regenerated from the same input.
+
+  A real durable queue would mean Redis, a database, or a cloud service. That is
+  deliberately not built for an experimental, opt-in, local-only track.
 - **Frontend:** a new, lazily-loaded "Avatar Lab" view added beside the four
   existing studio views (`src/components/studio/views.ts`), plus a Vite dev
   proxy (`/api` → `127.0.0.1:8000`). The viewer uses `three` (GLTFLoader +

@@ -37,6 +37,11 @@ export interface ArchiveContextValue {
    *  This tab's writes are refused while set, so its view cannot clobber the
    *  newer archive; reloading clears it. */
   archiveConflict: boolean
+  /** Stored entries dropped at load because they were not readable garments. */
+  unreadableGarments: number
+  /** True when the stored garments record could not be read at all, so the
+   *  empty archive on screen is NOT evidence that the archive is empty. */
+  storeUnreadable: boolean
   lastEvent: ArchiveEvent | null
 
   // --- Derived ---

@@ -24,7 +24,7 @@ export function createMemoryAdapter(): ArchiveStorageAdapter {
   return {
     backend: 'memory',
     async loadGarmentsResult() {
-      return { status: 'ok' as const, garments }
+      return { status: 'ok' as const, garments, unreadable: 0 }
     },
     async loadGarments() {
       return garments

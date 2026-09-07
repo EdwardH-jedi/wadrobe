@@ -41,6 +41,8 @@ import {
   type ArchiveChannel,
 } from '../../lib/storage/archiveRevision'
 import {
+  ArchiveConflictError,
+  classifyPersistenceError,
   initialPersistenceState,
   persistenceReducer,
   type PersistenceSlice,
@@ -99,15 +101,26 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
   )
 
   // Multi-tab write safety. `revisionRef` is the revision this tab loaded or
-  // last wrote; a garments write is refused if the store has moved past it.
+  // last wrote; a garments OR saved-look write is refused if the store has
+  // moved past it.
   const revisionRef = useRef<number>(0)
   // Serialized form of what this tab last persisted (or hydrated). Lets the
   // effect skip a write when nothing actually changed — without it, merely
   // opening a tab consumes a revision and makes every other tab look stale.
   const lastWrittenGarmentsRef = useRef<string | null>(null)
+  // Same guard for saved looks. They share the revision counter with garments:
+  // both are durable archive content that a stale tab must not overwrite.
+  const lastWrittenOutfitsRef = useRef<string | null>(null)
   const channelRef = useRef<ArchiveChannel | null>(null)
   const tabIdRef = useRef<string>(createId())
   const [conflict, setConflict] = useState(false)
+  // Stored entries that could not be read back as garments. Held so the UI can
+  // say so BEFORE the next write re-persists the array without them.
+  const [unreadableGarments, setUnreadableGarments] = useState(0)
+  // The strictly worse case: the stored garments blob could not be read AT ALL,
+  // so the app hydrates empty and `unreadableGarments` is 0. Without this flag
+  // the most destructive load looks exactly like a first visit.
+  const [storeUnreadable, setStoreUnreadable] = useState(false)
 
   const [storageBackend, setStorageBackend] = useState<
     StorageBackend | 'pending'
@@ -134,14 +147,22 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
         ])
         if (!active) return
         const garmentsRaw = garmentsResult.garments
+        setUnreadableGarments(garmentsResult.unreadable)
+        setStoreUnreadable(garmentsResult.status === 'unavailable')
         // Freeze sweep candidates before HYDRATE exposes the UI and uploads can
         // write new blobs. Run the sweep only when the metadata read SUCCEEDED
         // ('ok', even if empty) — an 'unavailable' read could otherwise be
         // mistaken for "no garments" and orphan-delete still-referenced blobs.
         // The age gate in cleanupOrphanBlobs additionally protects recent
         // (cross-tab) blobs.
+        //
+        // `unreadable > 0` blocks it too, and for the same reason one step
+        // further in: the reference set is then KNOWN to be missing the blob
+        // keys of every record that failed to parse. Sweeping against a set we
+        // already know is incomplete would delete exactly the bytes the
+        // "import a backup before editing" warning is asking the user to save.
         const sweepCandidatesPromise =
-          garmentsResult.status === 'ok'
+          garmentsResult.status === 'ok' && garmentsResult.unreadable === 0
             ? blobStore.listKeys().catch(() => [])
             : Promise.resolve([])
         const garments = await Promise.all(
@@ -154,6 +175,7 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
         lastWrittenGarmentsRef.current = JSON.stringify(
           garments.map(dehydrateGarmentForStorage),
         )
+        lastWrittenOutfitsRef.current = JSON.stringify(savedOutfits)
         dispatch({ type: 'HYDRATE', garments, savedOutfits, currentOutfit })
 
         // Fire-and-forget orphan sweep (Phase 12) — the candidate snapshot began
@@ -211,8 +233,44 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
             slice,
             at: Date.now(),
             error: error instanceof Error ? error.message : String(error),
+            // Classified here, not in the component: "storage is full" and
+            // "another tab is ahead" need different words and different
+            // actions, and a raw DOMException message gives the user neither.
+            kind: classifyPersistenceError(error),
           }),
       )
+    },
+    [],
+  )
+
+  /**
+   * Run one whole-array write under the revision guard.
+   *
+   * Re-read the stored revision immediately before writing: if another tab has
+   * written since this one loaded, our write would silently destroy their work,
+   * so refuse it and tell the user instead. Garments and saved looks share one
+   * counter because they are one archive — a stale tab is stale for both.
+   */
+  const writeGuarded = useCallback(
+    async (
+      adapter: ArchiveStorageAdapter,
+      write: () => Promise<void>,
+    ): Promise<void> => {
+      const stored = await adapter.loadRevision()
+      const decision = decideWrite(revisionRef.current, stored)
+      if (!decision.ok) {
+        setConflict(true)
+        throw new ArchiveConflictError(
+          'Another tab updated this archive — reload before saving again.',
+        )
+      }
+      await write()
+      await adapter.saveRevision(decision.revision)
+      revisionRef.current = decision.revision
+      channelRef.current?.post({
+        revision: decision.revision,
+        senderId: tabIdRef.current,
+      })
     },
     [],
   )
@@ -228,34 +286,29 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
     if (lastWrittenGarmentsRef.current === serialized) return
 
     trackSave('garments', async () => {
-      // Re-read the stored revision immediately before writing: if another tab
-      // has written since this one loaded, our whole-array write would silently
-      // destroy their work, so refuse it and tell the user instead.
-      const stored = await adapter.loadRevision()
-      const decision = decideWrite(revisionRef.current, stored)
-      if (!decision.ok) {
-        setConflict(true)
-        throw new Error(
-          'Another tab updated this archive — reload before saving again.',
-        )
-      }
-      await adapter.saveGarments(payload)
-      await adapter.saveRevision(decision.revision)
-      revisionRef.current = decision.revision
+      await writeGuarded(adapter, () => adapter.saveGarments(payload))
       lastWrittenGarmentsRef.current = serialized
-      channelRef.current?.post({
-        revision: decision.revision,
-        senderId: tabIdRef.current,
-      })
     })
-  }, [state.garments, state.hydrated, trackSave])
+  }, [state.garments, state.hydrated, trackSave, writeGuarded])
 
   useEffect(() => {
     const adapter = adapterRef.current
     if (!state.hydrated || !adapter) return
-    trackSave('savedOutfits', () => adapter.saveSavedOutfits(state.savedOutfits))
-  }, [state.savedOutfits, state.hydrated, trackSave])
+    const serialized = JSON.stringify(state.savedOutfits)
+    if (lastWrittenOutfitsRef.current === serialized) return
 
+    trackSave('savedOutfits', async () => {
+      await writeGuarded(adapter, () =>
+        adapter.saveSavedOutfits(state.savedOutfits),
+      )
+      lastWrittenOutfitsRef.current = serialized
+    })
+  }, [state.savedOutfits, state.hydrated, trackSave, writeGuarded])
+
+  // The current rail is NOT revision-guarded, deliberately. It is a working
+  // selection rather than archive content — losing a stale tab's rail costs the
+  // user one click, and guarding it would make merely browsing in a second tab
+  // burn revisions and declare conflicts that nothing was actually at risk from.
   useEffect(() => {
     const adapter = adapterRef.current
     if (!state.hydrated || !adapter) return
@@ -281,6 +334,8 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
       storageBackend,
       persistence,
       archiveConflict: conflict,
+      unreadableGarments,
+      storeUnreadable,
       lastEvent: state.lastEvent,
 
       getGarment,
@@ -483,6 +538,24 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
         mode: ArchiveImportMode,
       ): ArchiveImportSummary => {
         const summary = summarizeArchiveImport(review, state, mode)
+        // A `replace` drops every existing piece. Free their blobs (and the
+        // object URLs pinned to them) here rather than leaving it to the
+        // age-gated orphan sweep on some later load — otherwise a replace
+        // leaks both disk and memory for the rest of the session. `merge`
+        // keeps everything, so it owns nothing to release.
+        if (mode === 'replace' && blobStoreRef.current) {
+          const store = blobStoreRef.current
+          const keptIds = new Set(review.garments.map((g) => g.id))
+          for (const garment of state.garments) {
+            if (keptIds.has(garment.id)) continue
+            for (const key of garmentBlobKeys(garment)) void store.delete(key)
+          }
+        }
+        // The "some pieces could not be read" warning exists to say "import a
+        // backup before you edit". Importing one is exactly that, so the
+        // warning has done its job and must stop nagging.
+        setUnreadableGarments(0)
+        setStoreUnreadable(false)
         dispatch({
           type: 'IMPORT_ARCHIVE',
           mode,
@@ -499,12 +572,23 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
       },
 
       resetArchive: (): void => {
+        // Everything unreadable is being deliberately discarded along with
+        // everything else; there is nothing left to warn about.
+        setUnreadableGarments(0)
+        setStoreUnreadable(false)
         dispatch({ type: 'RESET' })
         void adapterRef.current?.clearAll()
         void blobStoreRef.current?.clear()
       },
     }
-  }, [state, storageBackend, persistence, conflict])
+  }, [
+    state,
+    storageBackend,
+    persistence,
+    conflict,
+    unreadableGarments,
+    storeUnreadable,
+  ])
 
   return (
     <ArchiveContext.Provider value={value}>{children}</ArchiveContext.Provider>

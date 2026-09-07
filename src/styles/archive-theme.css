@@ -236,6 +236,64 @@
   min-width: 0;
   min-height: 0;
 }
+/* --- Archive alert -------------------------------------------------------
+   The persistence/multi-tab warning strip. It sits above the topbar so it is
+   the first thing in the main column, and it uses the existing danger/accent
+   tokens rather than introducing an alarm palette — the app tells the user
+   something is wrong once, calmly, and stays out of the way. */
+.archive-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 30px;
+  border-bottom: 1px solid var(--line);
+  background: var(--ink-800);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.archive-alert--danger {
+  border-left: 3px solid var(--danger);
+}
+.archive-alert--warning {
+  border-left: 3px solid var(--accent);
+}
+.archive-alert__icon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--danger);
+}
+.archive-alert--warning .archive-alert__icon {
+  color: var(--accent);
+}
+.archive-alert__text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.archive-alert__title {
+  color: var(--text-100);
+  font-weight: 600;
+}
+.archive-alert__detail {
+  /* --text-300, not --text-500: this is the sentence that says what to do,
+     and it has to stay readable against the panel, not recede into it. */
+  color: var(--text-300);
+}
+.archive-alert > .btn {
+  flex: none;
+}
+@media (max-width: 860px) {
+  .archive-alert {
+    flex-wrap: wrap;
+    padding: 12px 18px;
+  }
+  /* Keep the icon beside the sentence it belongs to; only the action wraps to
+     its own line. Without the basis the text wrapped first and left the icon
+     stranded on a line of its own. */
+  .archive-alert__text {
+    flex-basis: calc(100% - 30px);
+  }
+}
+
 .topbar {
   display: flex;
   align-items: flex-end;
@@ -2353,8 +2411,13 @@
   .upload__grid {
     grid-template-columns: 1fr;
   }
+  /* `minmax(0, 1fr)`, not `1fr`: a `1fr` track's minimum is `auto`, i.e. the
+     MIN-CONTENT of whatever is in it — so the mirror stage and the inspector
+     pushed the column out to 345px inside a 290px container and the view
+     scrolled sideways. Zero as the floor lets the track be as narrow as the
+     screen and makes the content do the shrinking. */
   .mirrorview {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -2377,14 +2440,42 @@
   .filmstrip {
     left: 68px;
   }
+  /* The room is a FIXED-HEIGHT stage on desktop: five alcoves sized to fill the
+     space exactly. Restacked into fewer columns it needs more height than the
+     stage has — and `.room { height: 100% }` inside `.stage { overflow: hidden }`
+     turned that shortfall into alcoves drawn on top of each other with their
+     labels sliced in half ("HOE SHELF", "THE MI  OR").
+
+     Below this width the stage stops being a fixed viewport and sizes to its
+     content, so the view scrolls instead. The room keeps its proportions; it
+     just stops being asked to fit in a box it no longer fits in. */
+  .studio {
+    min-height: 100%;
+  }
+  /* `flex: none` is the whole fix: the stage stops being a fixed-height
+     viewport and takes its height from the room inside it. `overflow: hidden`
+     STAYS — it is what keeps the decorative floor lines and spotlight (both
+     transformed, both wider than the box they are painted in) from adding
+     horizontal scroll. */
+  .stage {
+    flex: none;
+  }
   .room {
+    height: auto;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto auto auto auto;
+    /* `none` clears the desktop `auto 1fr auto`, which sized row 2 to the
+       leftover space that no longer exists. Every row now sizes to its own
+       content, with a floor so an empty alcove is still a place. */
+    grid-template-rows: none;
+    grid-auto-rows: minmax(110px, auto);
     grid-template-areas:
       'board   board'
       'mannequin mannequin'
       'rack    mirror'
       'shelf   mirror';
+  }
+  .zone--mannequin {
+    min-height: 320px;
   }
 }
 
@@ -2409,6 +2500,11 @@
       'rack'
       'mirror'
       'shelf';
+  }
+  /* One column means five full-width rows; keep the hero readable and let the
+     rest size to content. */
+  .zone--mannequin {
+    min-height: 380px;
   }
   .field__row {
     grid-template-columns: 1fr;
@@ -2969,7 +3065,10 @@
 }
 .lookbook__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  /* `min(340px, 100%)`: below ~390px the container is narrower than the 340px
+     track minimum, and a bare `minmax(340px, …)` makes the grid wider than its
+     own parent rather than giving in. */
+  grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
   gap: 18px;
   align-items: start;
 }

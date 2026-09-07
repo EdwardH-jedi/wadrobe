@@ -19,6 +19,7 @@ describe('persistenceReducer', () => {
       pending: 0,
       lastSavedAt: null,
       lastError: null,
+      lastErrorKind: null,
       failedSlices: [],
       degraded: false,
     })

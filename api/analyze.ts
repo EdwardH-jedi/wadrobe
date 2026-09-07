@@ -19,10 +19,12 @@ import {
   parseVisionGuess,
 } from '../src/lib/ai/visionAnalysis'
 import {
+  IMAGE_BODY_BYTES,
   type RateLimitRule,
   gateRequest,
   jsonResponse,
   optionalApisEnabled,
+  readJsonBody,
 } from './_lib/http'
 
 export const config = { runtime: 'edge' }
@@ -64,16 +66,22 @@ export default async function handler(req: Request): Promise<Response> {
     return json({ error: 'Vision analyzer is not configured' }, 500)
   }
 
-  let imageDataUrl = ''
-  let dominantColorHex: string | undefined
-  try {
-    const body = await req.json()
-    imageDataUrl = body && typeof body.imageDataUrl === 'string' ? body.imageDataUrl : ''
-    dominantColorHex =
-      body && typeof body.dominantColorHex === 'string' ? body.dominantColorHex : undefined
-  } catch {
-    return json({ error: 'Invalid JSON body' }, 400)
+  // Capped BEFORE parsing: `req.json()` buffers the whole body first, so an
+  // unauthenticated caller could otherwise push arbitrary megabytes through a
+  // route that has already passed the throttle.
+  const parsedBody = await readJsonBody(req, IMAGE_BODY_BYTES)
+  if (!parsedBody.ok) {
+    return parsedBody.reason === 'too-large'
+      ? json({ error: 'Image is too large' }, 413)
+      : json({ error: 'Invalid JSON body' }, 400)
   }
+  const body = parsedBody.value as Record<string, unknown> | null
+  const imageDataUrl =
+    body && typeof body.imageDataUrl === 'string' ? body.imageDataUrl : ''
+  const dominantColorHex =
+    body && typeof body.dominantColorHex === 'string'
+      ? body.dominantColorHex
+      : undefined
 
   const image = dataUrlToImageSource(imageDataUrl)
   if (!image) return json({ error: 'Expected an image data URL' }, 400)

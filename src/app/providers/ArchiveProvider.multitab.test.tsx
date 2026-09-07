@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import type { GarmentDraft } from '../../domain/garmentTypes'
+import { makeGarment } from '../../test/factories'
 import { ArchiveProvider } from './ArchiveProvider'
 import { useArchive } from './useArchive'
 
@@ -73,6 +74,77 @@ describe('ArchiveProvider — multi-tab write safety', () => {
 
     // ...and A's garment is still in the store.
     expect(localStorage.getItem('fitarchive:garments')).toContain('A-only')
+  })
+
+
+  it('refuses a stale tab’s SAVED LOOK write, not only its garments write', async () => {
+    // Saved looks are archive content too. Guarding garments alone left a whole
+    // board of looks overwritable by a tab that had been sitting open — the
+    // exact bug the revision guard exists to stop, on a different key.
+    const shared = makeGarment({ id: 'grm-shared', category: 'top' })
+    localStorage.setItem('fitarchive:garments', JSON.stringify([shared]))
+
+    // Both tabs load the same archive at the same revision.
+    const tabA = await mountTab()
+    const tabB = await mountTab()
+
+    // A moves the store on with an unrelated edit.
+    act(() => {
+      tabA.result.current.updateGarment('grm-shared', {
+        ...shared,
+        name: 'Renamed by A',
+      })
+    })
+    await waitFor(() =>
+      expect(tabA.result.current.persistence.status).toBe('saved'),
+    )
+
+    // B, now stale, styles and saves a look.
+    act(() => {
+      tabB.result.current.selectGarment('grm-shared')
+    })
+    act(() => {
+      tabB.result.current.saveOutfit('B-look')
+    })
+
+    await waitFor(() =>
+      expect(tabB.result.current.persistence.failedSlices).toContain(
+        'savedOutfits',
+      ),
+    )
+    expect(tabB.result.current.archiveConflict).toBe(true)
+    // Nothing of B's reached the store, and A's rename survived.
+    expect(localStorage.getItem('fitarchive:savedOutfits') ?? '').not.toContain(
+      'B-look',
+    )
+    expect(localStorage.getItem('fitarchive:garments')).toContain('Renamed by A')
+  })
+
+  it('does not burn a revision merely for having saved looks open', async () => {
+    // The change-detection guard has to cover saved looks as well, or opening a
+    // second tab on an archive that HAS looks instantly makes its sibling stale.
+    localStorage.setItem(
+      'fitarchive:savedOutfits',
+      JSON.stringify([
+        {
+          id: 'look-1',
+          name: 'Existing',
+          selection: { outerwear: null, top: null, pants: null, shoes: null, accessory: null },
+          createdAt: 1,
+          coverHex: '#2b2b30',
+        },
+      ]),
+    )
+    localStorage.setItem('fitarchive:revision', '4')
+
+    const tab = await mountTab()
+    await waitFor(() => expect(tab.result.current.savedOutfits).toHaveLength(1))
+    // Give any stray persist effect a chance to run before asserting.
+    await waitFor(() =>
+      expect(tab.result.current.persistence.pending).toBe(0),
+    )
+    expect(localStorage.getItem('fitarchive:revision')).toBe('4')
+    expect(tab.result.current.archiveConflict).toBe(false)
   })
 
   it('leaves a single tab entirely unaffected', async () => {

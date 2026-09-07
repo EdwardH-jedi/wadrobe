@@ -16,6 +16,7 @@ import { Modal } from '../ui/Modal'
 import { OutfitInspector } from '../outfit/OutfitInspector'
 import { OutfitBuilder } from '../outfit/OutfitBuilder'
 import { Proxy3DLab } from '../avatar/Proxy3DLab'
+import { ArchiveAlertBanner } from './ArchiveAlertBanner'
 import { SidebarNav } from './SidebarNav'
 import { StudioScene } from './StudioScene'
 import { StudioFitRail } from './StudioFitRail'
@@ -30,6 +31,9 @@ export function ArchiveStudio() {
     savedOutfits,
     storageBackend,
     persistence,
+    archiveConflict,
+    unreadableGarments,
+    storeUnreadable,
     hydrated,
     loadSampleArchive,
     setGarmentProxy3dPreview,
@@ -154,6 +158,12 @@ export function ArchiveStudio() {
       />
 
       <main className="main">
+        <ArchiveAlertBanner
+          persistence={persistence}
+          conflict={archiveConflict}
+          unreadableGarments={unreadableGarments}
+          storeUnreadable={storeUnreadable}
+        />
         <header className="topbar">
           <div className="topbar__titles">
             <div className="eyebrow topbar__eyebrow">{meta.eyebrow}</div>
