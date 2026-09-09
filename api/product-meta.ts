@@ -4,7 +4,7 @@
 // metadata (schema.org Product JSON-LD / OpenGraph). It performs NO recognition
 // and stores nothing; the user confirms every field before saving. THIN WRAPPER:
 // all parsing + URL validation live in the unit-tested `src` modules, so this
-// file stays trivial (it is verified only by `eslint`, not tsc/build/tests).
+// file stays small (TypeScript/ESLint check it; tests cover the shared helpers).
 //
 // Safety: http(s) only, public hosts only, every redirect hop re-validated
 // (SSRF), a request timeout and a response-size cap.
