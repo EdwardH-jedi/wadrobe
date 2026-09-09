@@ -7,10 +7,9 @@
 // live in the unit-tested `src/lib/ai/visionAnalysis.ts`; this file only does the
 // HTTP. Off by default — the front end calls it only when VITE_ANALYZER=vision.
 //
-// Raw fetch (no SDK) is deliberate: this file is outside tsc/build/test (only
-// eslint sees it), so the SDK's compile-time safety wouldn't apply here, and the
-// repo's "justify every dependency" rule favors not bundling it. The Anthropic
-// Messages API shape below is the documented one.
+// Raw fetch keeps the handler dependency-light. TypeScript and ESLint check this
+// file; unit tests cover the shared helpers. Live provider/deployment behavior
+// still requires a separate integration check.
 import {
   VISION_GUESS_SCHEMA,
   buildVisionInstruction,
